@@ -140,12 +140,21 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      // ─────────────────────────────────────────────────────────────────────
+      // 🔑 全局禁用 InkWell/InkResponse 的蓝色 splash/highlight/hover 蒙版
+      // Web 端鼠标悬浮时 Material3 默认用 primaryContainer(偏蓝)填充，
+      // 设为 NoSplash + 透明 highlightColor 一次性解决所有蒙版问题
+      // ─────────────────────────────────────────────────────────────────────
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.sageGreen,
         primary: AppColors.sageGreen,
         secondary: AppColors.warmOrange,
         surface: AppColors.cream,
-        background: AppColors.cream,
+        brightness: Brightness.light,
         error: AppColors.alertRed,
       ),
       scaffoldBackgroundColor: AppColors.cream,
@@ -180,18 +189,33 @@ class AppTheme {
         elevation: 8,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.warmOrange,
-          foregroundColor: AppColors.textOnDark,
-          minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.all(AppColors.warmOrange),
+          foregroundColor: WidgetStateProperty.all(AppColors.textOnDark),
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
+          shadowColor: WidgetStateProperty.all(Colors.transparent),
+          elevation: WidgetStateProperty.all(0),
+          minimumSize: WidgetStateProperty.all(const Size.fromHeight(56)),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
-          textStyle: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+          textStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          elevation: 0,
+        ),
+      ),
+      // ── TextButton：完全禁用蓝色 hover/splash ───────────────────────────────
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.all(AppColors.sageGreen),
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
+        ),
+      ),
+      // ── OutlinedButton：完全禁用蓝色 hover/splash ───────────────────────────
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.all(AppColors.sageGreen),
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
         ),
       ),
       chipTheme: ChipThemeData(

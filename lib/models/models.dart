@@ -284,6 +284,58 @@ class JournalEntry {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+/// DailyRecord — 日历融合视图的每日聚合模型
+/// 规则：
+///   1. sensorSummary 来自传感器，可能为 null（设备离线日）
+///   2. journalEntry  来自主人记录，可能为 null（未填写日）
+///   3. 两层完全独立，不做合并计算，只用于展示
+/// ─────────────────────────────────────────────────────────────────────────────
+class DailyRecord {
+  final DateTime date;
+  final SensorDaySummary? sensorSummary; // 传感器层（可为 null = 设备离线）
+  final JournalEntry?     journalEntry;  // 主人记录层（可为 null = 未填写）
+
+  const DailyRecord({
+    required this.date,
+    this.sensorSummary,
+    this.journalEntry,
+  });
+
+  /// 是否有任何数据（至少一层有内容）
+  bool get hasAnyData => sensorSummary != null || journalEntry != null;
+
+  /// 传感器应激等级：0=无数据 1=低 2=中 3=高
+  int get stressLevel {
+    final s = sensorSummary?.avgStressScore ?? 0;
+    if (s == 0) return 0;
+    if (s < 35) return 1;
+    if (s < 65) return 2;
+    return 3;
+  }
+}
+
+/// 传感器每日汇总 — 只存展示所需字段，不与主人记录混合
+class SensorDaySummary {
+  final double avgStressScore;   // 0–100，当天平均应激分
+  final int    stressEventCount; // 应激事件次数
+  final int    pacingMinutes;    // 踱步分钟数
+  final int    playMinutes;      // 玩耍分钟数
+  final int    activityScore;    // 0–100 活动评分
+  final bool   hasFeeding;       // 当天是否有喂食记录
+  final int?   timeToCalmSecs;   // 喂食后平静用时（秒），null=无喂食
+
+  const SensorDaySummary({
+    required this.avgStressScore,
+    required this.stressEventCount,
+    required this.pacingMinutes,
+    required this.playMinutes,
+    required this.activityScore,
+    this.hasFeeding = false,
+    this.timeToCalmSecs,
+  });
+}
+
 /// All available health tags for pet profile
 const List<String> kHealthTags = [
   'Separation Anxiety',

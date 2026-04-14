@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 
 class ShopScreen extends StatelessWidget {
   const ShopScreen({super.key});
 
-  // Replace with your real Shopify/independent store URL
   static const String _storeUrl = 'https://petoteco.com';
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
+
     return Scaffold(
       backgroundColor: AppColors.cream,
-      body: SafeArea(
+      body: SafeArea(top: false,
         child: Column(
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Row(
@@ -22,48 +25,58 @@ class ShopScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Shop', style: AppTextStyles.headlineLarge),
-                      Text('ZenBelly products', style: AppTextStyles.bodySmall),
+                      Text(s.shopTitle, style: AppTextStyles.headlineLarge),
+                      Text(s.shopSubtitle, style: AppTextStyles.bodySmall),
                     ],
                   ),
                   const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 8, offset: const Offset(0, 2))],
+                  // 购物车按钮 — 增大触摸区域，改用 InkWell 确保点击响应
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(24),
+                    child: InkWell(
+                      onTap: () => _showStoreDialog(context, s),
+                      borderRadius: BorderRadius.circular(24),
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      hoverColor: Colors.transparent,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.cardBackground,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 8, offset: const Offset(0, 2))],
+                          ),
+                          child: const Icon(Icons.shopping_cart_outlined, color: AppColors.textSecondary, size: 22),
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.shopping_cart_outlined, color: AppColors.textSecondary, size: 22),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            // Shop content
+            const SizedBox(height: 16),
+
+            // ── Content ─────────────────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Featured product
-                    _FeaturedProductCard(),
+                    _FeaturedProductCard(s: s),
                     const SizedBox(height: 16),
-                    // Bundle offer
-                    _BundleCard(),
-                    const SizedBox(height: 16),
-                    // All products
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('All Products', style: AppTextStyles.headlineSmall),
-                    ),
+                    _BundleCard(s: s),
+                    const SizedBox(height: 20),
+                    Text(s.shopAllProducts, style: AppTextStyles.headlineSmall),
                     const SizedBox(height: 12),
-                    _ProductGrid(),
-                    const SizedBox(height: 24),
-                    // Visit full store
-                    _VisitStoreButton(url: _storeUrl),
-                    const SizedBox(height: 24),
+                    _ProductGrid(s: s),
+                    const SizedBox(height: 20),
+                    _VisitStoreButton(url: _storeUrl, s: s),
+                    const SizedBox(height: 28),
                   ],
                 ),
               ),
@@ -75,7 +88,13 @@ class ShopScreen extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 主打产品卡片（全宽横幅，两列布局）
+// ─────────────────────────────────────────────────────────────────────────────
 class _FeaturedProductCard extends StatelessWidget {
+  final dynamic s;
+  const _FeaturedProductCard({required this.s});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -90,53 +109,96 @@ class _FeaturedProductCard extends StatelessWidget {
         boxShadow: [BoxShadow(color: AppColors.sageGreen.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 6))],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 左侧文字区域
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 热销徽章
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(20)),
-                  child: const Text('⭐ Best Seller', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    s.shopBestSeller,
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                 ),
                 const SizedBox(height: 12),
-                const Text('ZenBelly\nCalm Chews', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.2)),
+                // 产品名
+                Text(
+                  s.shopProductName,
+                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1.2),
+                ),
                 const SizedBox(height: 8),
-                const Text('No CBD · Probiotic-based\nAnxiety relief for dogs', style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
-                const SizedBox(height: 16),
+                // 描述
+                Text(
+                  s.shopProductDesc,
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                // 价格行
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('\$34.99', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
-                    const SizedBox(width: 8),
-                    Text('/bag', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
+                    const Text(
+                      '\$34.99',
+                      style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(width: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        s.shopPerBag,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
+                // 购买按钮
                 GestureDetector(
-                  onTap: () => _openStore(context),
+                  onTap: () => _showStoreDialog(context, s),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                    child: const Text('Shop Now', style: TextStyle(color: AppColors.sageGreen, fontWeight: FontWeight.w700, fontSize: 15)),
+                    child: Text(
+                      s.shopNow,
+                      style: const TextStyle(color: AppColors.sageGreen, fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          const Text('🐕\n🌿', style: TextStyle(fontSize: 48, height: 1.4)),
+          // 右侧图标
+          const Padding(
+            padding: EdgeInsets.only(left: 8, top: 16),
+            child: Column(
+              children: [
+                Text('🐕', style: TextStyle(fontSize: 44)),
+                SizedBox(height: 8),
+                Text('🌿', style: TextStyle(fontSize: 36)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
-
-  void _openStore(BuildContext context) {
-    _showStoreDialog(context);
-  }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 套装优惠卡片
+// ─────────────────────────────────────────────────────────────────────────────
 class _BundleCard extends StatelessWidget {
+  final dynamic s;
+  const _BundleCard({required this.s});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -154,9 +216,9 @@ class _BundleCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Starter Bundle', style: AppTextStyles.headlineSmall),
+                Text(s.shopBundle, style: AppTextStyles.headlineSmall),
                 const SizedBox(height: 4),
-                const Text('3x ZenBelly + Smart Collar\n6-month FREE app access', style: AppTextStyles.bodySmall),
+                Text(s.shopBundleDesc, style: AppTextStyles.bodySmall),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -169,7 +231,7 @@ class _BundleCard extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: () => _showStoreDialog(context),
+            onTap: () => _showStoreDialog(context, s),
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppColors.warmOrange, shape: BoxShape.circle),
@@ -182,46 +244,71 @@ class _BundleCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 产品网格
+// ─────────────────────────────────────────────────────────────────────────────
 class _ProductGrid extends StatelessWidget {
-  final List<_Product> products = const [
-    _Product(emoji: '🦴', name: 'Calm Chews\n30ct', price: '\$34.99', tag: 'Anxiety'),
-    _Product(emoji: '💊', name: 'Probiotic\nSoft Gels', price: '\$28.99', tag: 'Digestion'),
-    _Product(emoji: '🧴', name: 'Calming\nSpray', price: '\$22.99', tag: 'Topical'),
-    _Product(emoji: '🎗️', name: 'Smart\nCollar', price: '\$49.99', tag: 'Hardware'),
-  ];
+  final dynamic s;
+  const _ProductGrid({required this.s});
 
   @override
   Widget build(BuildContext context) {
+    // 产品数据：name/tag 根据语言切换
+    final products = [
+      _Product(emoji: '🦴', nameEn: 'Calm Chews\n30ct',     nameZh: '舒缓软糖\n30粒',  price: '\$34.99', tagEn: 'Anxiety',  tagZh: '抗焦虑'),
+      _Product(emoji: '💊', nameEn: 'Probiotic\nSoft Gels', nameZh: '益生菌\n软胶囊',  price: '\$28.99', tagEn: 'Digestion', tagZh: '消化'),
+      _Product(emoji: '🧴', nameEn: 'Calming\nSpray',       nameZh: '舒缓\n喷雾',      price: '\$22.99', tagEn: 'Topical',   tagZh: '外用'),
+      _Product(emoji: '🎗️', nameEn: 'Smart\nCollar',        nameZh: '智能\n项圈',       price: '\$49.99', tagEn: 'Hardware',  tagZh: '硬件'),
+    ];
+    final isZh = s.locale == 'zh';
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 0.9,
-      children: products.map((p) => _ProductCard(product: p)).toList(),
+      childAspectRatio: 0.80,
+      children: products
+          .map((p) => _ProductCard(
+                product: p,
+                isZh: isZh,
+                onTap: () => _showStoreDialog(context, s),
+              ))
+          .toList(),
     );
   }
 }
 
 class _Product {
   final String emoji;
-  final String name;
+  final String nameEn;
+  final String nameZh;
   final String price;
-  final String tag;
-  const _Product({required this.emoji, required this.name, required this.price, required this.tag});
+  final String tagEn;
+  final String tagZh;
+  const _Product({
+    required this.emoji,
+    required this.nameEn,
+    required this.nameZh,
+    required this.price,
+    required this.tagEn,
+    required this.tagZh,
+  });
 }
 
 class _ProductCard extends StatelessWidget {
   final _Product product;
-  const _ProductCard({required this.product});
+  final bool isZh;
+  final VoidCallback onTap;
+  const _ProductCard({required this.product, required this.isZh, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showStoreDialog(context),
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -231,21 +318,35 @@ class _ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(color: AppColors.sageMuted, borderRadius: BorderRadius.circular(14)),
-              child: Center(child: Text(product.emoji, style: const TextStyle(fontSize: 26))),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(color: AppColors.sageMuted, borderRadius: BorderRadius.circular(12)),
+              child: Center(child: Text(product.emoji, style: const TextStyle(fontSize: 24))),
             ),
-            const Spacer(),
+            const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(color: AppColors.warmOrangeMuted, borderRadius: BorderRadius.circular(8)),
-              child: Text(product.tag, style: TextStyle(fontSize: 11, color: AppColors.warmOrange, fontWeight: FontWeight.w600)),
+              child: Text(
+                isZh ? product.tagZh : product.tagEn,
+                style: const TextStyle(fontSize: 11, color: AppColors.warmOrange, fontWeight: FontWeight.w600),
+              ),
             ),
             const SizedBox(height: 6),
-            Text(product.name, style: AppTextStyles.labelLarge.copyWith(fontSize: 14), maxLines: 2),
-            const SizedBox(height: 4),
-            Text(product.price, style: AppTextStyles.headlineSmall.copyWith(color: AppColors.warmOrange, fontSize: 18)),
+            // 固定高度区域显示产品名，防止 Expanded 压缩后文字不可见
+            SizedBox(
+              height: 38,
+              child: Text(
+                isZh ? product.nameZh : product.nameEn,
+                style: AppTextStyles.labelLarge.copyWith(fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              product.price,
+              style: AppTextStyles.headlineSmall.copyWith(color: AppColors.warmOrange, fontSize: 17),
+            ),
           ],
         ),
       ),
@@ -253,14 +354,18 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 访问完整商城按钮
+// ─────────────────────────────────────────────────────────────────────────────
 class _VisitStoreButton extends StatelessWidget {
   final String url;
-  const _VisitStoreButton({required this.url});
+  final dynamic s;
+  const _VisitStoreButton({required this.url, required this.s});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showStoreDialog(context),
+      onTap: () => _showStoreDialog(context, s),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -273,7 +378,13 @@ class _VisitStoreButton extends StatelessWidget {
           children: [
             const Icon(Icons.open_in_new_rounded, color: AppColors.sageGreen, size: 20),
             const SizedBox(width: 8),
-            Text('Visit Full Store at petoteco.com', style: AppTextStyles.labelLarge.copyWith(color: AppColors.sageGreen)),
+            Flexible(
+              child: Text(
+                s.shopVisitStore,
+                style: AppTextStyles.labelLarge.copyWith(color: AppColors.sageGreen),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ],
         ),
       ),
@@ -281,16 +392,26 @@ class _VisitStoreButton extends StatelessWidget {
   }
 }
 
-void _showStoreDialog(BuildContext context) {
+// ─────────────────────────────────────────────────────────────────────────────
+// 跳转商城弹窗
+// ─────────────────────────────────────────────────────────────────────────────
+void _showStoreDialog(BuildContext context, dynamic s) {
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-      title: const Text('Open Petoteco Store'),
-      content: const Text('This will open the full store in your browser.\n\nIn the live app, this opens your Shopify store in a seamless WebView with your login automatically synced.'),
+      title: Text(s.shopOpenTitle),
+      content: Text(s.shopOpenDesc),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Open Store')),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(s.cancel),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(ctx),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+          child: Text(s.shopOpenBtn, style: const TextStyle(color: Colors.white)),
+        ),
       ],
     ),
   );

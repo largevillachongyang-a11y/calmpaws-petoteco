@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/models.dart';
 
@@ -68,32 +70,40 @@ class _FeedButton extends StatelessWidget {
                 child: const Text('💊', style: TextStyle(fontSize: 24)),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ZenBelly Tracker',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+              // 🔑 FIX: Expanded prevents title overflow in Row
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.s.timerTitle,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const Text(
-                    'Calm Response Timer',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    Text(
+                      context.s.timerSubtitle,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      // 🔑 FIX: Allow 2 lines for long translations
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 20),
           Text(
-            'Tap after giving ZenBelly to start tracking how quickly your pup returns to calm.',
+            context.s.timerDesc,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.85),
               fontSize: 15,
@@ -120,18 +130,26 @@ class _FeedButton extends StatelessWidget {
                   ),
                 ],
               ),
+              // 🔑 FIX: Use Flexible so button text wraps instead of overflowing
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.play_circle_rounded,
-                      color: AppColors.warmOrange, size: 26),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Fed ZenBelly — Start Timer',
-                    style: TextStyle(
-                      color: AppColors.warmOrange,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      color: AppColors.warmOrange, size: 24),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      context.s.timerStart,
+                      style: const TextStyle(
+                        color: AppColors.warmOrange,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                      // 🔑 FIX: Allow 2 lines if text is long (e.g. Chinese)
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -152,12 +170,17 @@ class _FeedButton extends StatelessWidget {
                   const Icon(Icons.history_rounded,
                       color: Colors.white, size: 18),
                   const SizedBox(width: 8),
-                  Text(
-                    'Last session: ${provider.lastTimeToCalmLabel} to calm',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                  // 🔑 FIX: Flexible prevents last-session text overflow
+                  Flexible(
+                    child: Text(
+                      '${context.s.timerLastSession} ${provider.lastTimeToCalmLabel} ${context.s.timerToCalm}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -206,12 +229,17 @@ class _ActiveTimer extends StatelessWidget {
                         color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
-                    'Calm Tracker Active',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                  // 🔑 FIX: Flexible prevents header text overflow
+                  Flexible(
+                    child: Text(
+                      context.s.timerActive,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -228,9 +256,9 @@ class _ActiveTimer extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
+                  child: Text(
+                    context.s.timerCancel,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -294,7 +322,7 @@ class _ActiveTimer extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'elapsed',
+                      context.s.timerElapsed,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
@@ -330,38 +358,38 @@ class _ActiveTimer extends StatelessWidget {
           _BehaviorProgressBar(
             calmProgress: calmProgress,
             anxietyScore: anxietyScore,
+            s: context.s,
           ),
 
           const SizedBox(height: 16),
 
           // Behavior milestones
-          _BehaviorMilestones(elapsed: elapsed, behavior: behavior),
+          _BehaviorMilestones(elapsed: elapsed, behavior: behavior, s: context.s),
         ],
       ),
     );
   }
 
   void _showCancelDialog(BuildContext context) {
+    final s = context.read<LocaleProvider>().strings;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('Cancel Session?'),
-        content: const Text(
-            'This will discard the current timing session. Are you sure?'),
+        title: Text(s.timerCancel),
+        content: Text(s.timerCancelBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Keep Tracking'),
+            child: Text(s.timerKeepTracking),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               provider.cancelFeedingSession();
             },
-            child: Text('Cancel',
-                style: TextStyle(color: AppColors.alertRed)),
+            child: Text(s.cancel, style: const TextStyle(color: AppColors.alertRed)),
           ),
         ],
       ),
@@ -372,10 +400,12 @@ class _ActiveTimer extends StatelessWidget {
 class _BehaviorProgressBar extends StatelessWidget {
   final double calmProgress;
   final int anxietyScore;
+  final dynamic s;
 
   const _BehaviorProgressBar({
     required this.calmProgress,
     required this.anxietyScore,
+    required this.s,
   });
 
   @override
@@ -387,7 +417,7 @@ class _BehaviorProgressBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Calm Progress',
+              s.timerCalmProgress,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 14,
@@ -395,7 +425,7 @@ class _BehaviorProgressBar extends StatelessWidget {
               ),
             ),
             Text(
-              '${(calmProgress * 100).round()}% calm',
+              s.timerCalmPct((calmProgress * 100).round()),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
@@ -415,13 +445,12 @@ class _BehaviorProgressBar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Anxiety labels below bar
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _BehaviorLabel(emoji: '😰', label: 'Anxious', active: anxietyScore > 60),
-            _BehaviorLabel(emoji: '😐', label: 'Settling', active: anxietyScore >= 20 && anxietyScore <= 60),
-            _BehaviorLabel(emoji: '😌', label: 'Calm', active: anxietyScore < 20),
+            _BehaviorLabel(emoji: '😰', label: s.behaviorAnxious, active: anxietyScore > 60),
+            _BehaviorLabel(emoji: '😐', label: s.behaviorSettling, active: anxietyScore >= 20 && anxietyScore <= 60),
+            _BehaviorLabel(emoji: '😌', label: s.behaviorCalm, active: anxietyScore < 20),
           ],
         ),
       ],
@@ -465,35 +494,17 @@ class _BehaviorLabel extends StatelessWidget {
 class _BehaviorMilestones extends StatelessWidget {
   final int elapsed;
   final PetBehaviorState behavior;
+  final dynamic s;
 
-  const _BehaviorMilestones({required this.elapsed, required this.behavior});
+  const _BehaviorMilestones({required this.elapsed, required this.behavior, required this.s});
 
   @override
   Widget build(BuildContext context) {
     final milestones = [
-      _Milestone(
-          minSec: 0,
-          maxSec: 300,
-          label: 'Just given',
-          emoji: '💊',
-          reached: elapsed >= 0),
-      _Milestone(
-          minSec: 300,
-          maxSec: 900,
-          label: 'Absorbing',
-          emoji: '🔄',
-          reached: elapsed >= 300),
-      _Milestone(
-          minSec: 900,
-          maxSec: 1800,
-          label: 'Settling',
-          emoji: '😐',
-          reached: elapsed >= 900),
-      _Milestone(
-          minSec: 1800,
-          maxSec: 99999,
-          label: 'Calm!',
-          emoji: '😌',
+      _Milestone(minSec: 0, maxSec: 300, label: s.milestoneJustGiven, emoji: '💊', reached: elapsed >= 0),
+      _Milestone(minSec: 300, maxSec: 900, label: s.milestoneAbsorbing, emoji: '🔄', reached: elapsed >= 300),
+      _Milestone(minSec: 900, maxSec: 1800, label: s.milestoneSettling, emoji: '😐', reached: elapsed >= 900),
+      _Milestone(minSec: 1800, maxSec: 99999, label: s.milestoneCalm, emoji: '😌',
           reached: behavior == PetBehaviorState.calm && elapsed > 1800),
     ];
 

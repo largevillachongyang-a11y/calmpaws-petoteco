@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/pet/health_calendar_card.dart';
 
 class PetScreen extends StatelessWidget {
   const PetScreen({super.key});
@@ -10,18 +12,20 @@ class PetScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PetHealthProvider>();
+    final s = context.watch<LocaleProvider>().strings;
     final pet = provider.pet;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      body: SafeArea(
+      body: SafeArea(top: false,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context, pet, provider)),
-            SliverToBoxAdapter(child: _buildHealthTags(pet)),
-            SliverToBoxAdapter(child: _buildDeviceSection(context, provider)),
-            SliverToBoxAdapter(child: _buildJournalHistory(provider)),
+            SliverToBoxAdapter(child: _buildHeader(context, pet, provider, s)),
+            SliverToBoxAdapter(child: _buildHealthTags(pet, s)),
+            SliverToBoxAdapter(child: _buildDeviceSection(context, provider, s)),
+            // 健康日历融合视图（传感器 + 主人记录，数据分层不合并）
+            const SliverToBoxAdapter(child: HealthCalendarCard()),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
@@ -29,7 +33,7 @@ class PetScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext ctx, PetProfile pet, PetHealthProvider provider) {
+  Widget _buildHeader(BuildContext ctx, PetProfile pet, PetHealthProvider provider, dynamic s) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(22),
@@ -38,49 +42,68 @@ class PetScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.xl),
         boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 16, offset: const Offset(0, 4))],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.sageLight,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.sageGreen, width: 3),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.sageLight,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.sageGreen, width: 3),
+            ),
+            child: const Center(child: Text('🐶', style: TextStyle(fontSize: 38))),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 宠物名 — 字体放大时自动缩小不换行
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(pet.name, style: AppTextStyles.headlineLarge),
                 ),
-                child: const Center(child: Text('🐶', style: TextStyle(fontSize: 38))),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(pet.name, style: AppTextStyles.headlineLarge),
-                    const SizedBox(height: 4),
-                    Text('${pet.breed} · ${pet.ageLabel}', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text('${pet.weightKg} kg · ${pet.species == 'dog' ? '🐕' : '🐈'} ${pet.species}', style: AppTextStyles.bodySmall),
-                  ],
+                const SizedBox(height: 4),
+                // 品种+年龄 — 本地化，字体放大时自动缩小不换行
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${s.translateBreed(pet.breed)} · ${s.ageLabelLocalized(pet.ageMonths)}',
+                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                    maxLines: 1,
+                  ),
                 ),
-              ),
-              GestureDetector(
-                onTap: () => _showEditDialog(ctx, pet, provider),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.sageMuted, shape: BoxShape.circle),
-                  child: const Icon(Icons.edit_rounded, color: AppColors.sageGreen, size: 20),
+                const SizedBox(height: 4),
+                // 体重+物种
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${pet.weightKg} kg · ${pet.species == 'dog' ? '🐕' : '🐈'} ${s.translateSpecies(pet.species)}',
+                    style: AppTextStyles.bodySmall,
+                    maxLines: 1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _showEditDialog(ctx, pet, provider, s),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.sageMuted, shape: BoxShape.circle),
+              child: const Icon(Icons.edit_rounded, color: AppColors.sageGreen, size: 20),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHealthTags(PetProfile pet) {
+  Widget _buildHealthTags(PetProfile pet, dynamic s) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(20),
@@ -96,32 +119,40 @@ class PetScreen extends StatelessWidget {
             children: [
               const Text('🏷️', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
-              const Text('Health Tags', style: AppTextStyles.headlineSmall),
+              Text(s.petHealthTags, style: AppTextStyles.headlineSmall),
             ],
           ),
           const SizedBox(height: 14),
           if (pet.healthTags.isEmpty)
-            Text('No health tags added yet.', style: AppTextStyles.bodySmall)
+            Text(s.petNoTags, style: AppTextStyles.bodySmall)
           else
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: pet.healthTags.map((tag) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.warmOrangeMuted,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.warmOrangeLight),
-                ),
-                child: Text(tag, style: AppTextStyles.labelMedium.copyWith(color: AppColors.warmOrange, fontSize: 13)),
-              )).toList(),
+              children: pet.healthTags
+                  .map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.warmOrangeMuted,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.warmOrangeLight),
+                        ),
+                        child: Text(
+                          s.translateTag(tag),
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: AppColors.warmOrange,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildDeviceSection(BuildContext context, PetHealthProvider provider) {
+  Widget _buildDeviceSection(BuildContext context, PetHealthProvider provider, dynamic s) {
     final connected = provider.deviceConnected;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -138,7 +169,7 @@ class PetScreen extends StatelessWidget {
             children: [
               const Text('📡', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
-              const Text('ZenBelly Collar', style: AppTextStyles.headlineSmall),
+              Text(s.petDevice, style: AppTextStyles.headlineSmall),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -147,7 +178,7 @@ class PetScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  connected ? '● Connected' : '○ Offline',
+                  connected ? s.petConnected : s.petOffline,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -160,27 +191,56 @@ class PetScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _DeviceStat(label: 'Battery', value: '${provider.battery}%', icon: Icons.battery_4_bar_rounded)),
+              Expanded(child: _DeviceStat(label: s.petBattery, value: '${provider.battery}%', icon: Icons.battery_4_bar_rounded)),
               const SizedBox(width: 12),
-              Expanded(child: _DeviceStat(label: 'Signal', value: 'Good', icon: Icons.bluetooth_rounded)),
+              Expanded(child: _DeviceStat(label: s.petSignal, value: s.petSignalGood, icon: Icons.bluetooth_rounded)),
               const SizedBox(width: 12),
-              Expanded(child: _DeviceStat(label: 'Sync', value: 'Live', icon: Icons.sync_rounded)),
+              Expanded(child: _DeviceStat(label: s.petSync, value: s.petSyncLive, icon: Icons.sync_rounded)),
             ],
           ),
           const SizedBox(height: 16),
-          // Anxiety slider demo
+          // 焦虑模拟滑块（演示专用）
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Simulated Anxiety Level', style: AppTextStyles.labelMedium),
-                  Text('${(provider.anxietyLevel * 100).round()}%', style: AppTextStyles.labelMedium.copyWith(color: AppColors.warmOrange, fontWeight: FontWeight.w700)),
+                  Expanded(
+                    child: Text(s.petAnxietySlider, style: AppTextStyles.labelMedium),
+                  ),
+                  // 演示徽章
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.warmOrangeLight,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      s.petDemoTag,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.warmOrange),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${(provider.anxietyLevel * 100).round()}%',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.warmOrange,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text('Drag to simulate different anxiety levels for demo', style: AppTextStyles.bodySmall),
+              Text(s.petAnxietySliderDesc, style: AppTextStyles.bodySmall),
+              const SizedBox(height: 2),
+              Text(
+                s.petAnxietySliderHint,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textMuted,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 11,
+                ),
+              ),
               SliderTheme(
                 data: SliderThemeData(
                   activeTrackColor: AppColors.warmOrange,
@@ -202,8 +262,11 @@ class PetScreen extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: connected ? provider.disconnectDevice : provider.connectDevice,
-              icon: Icon(connected ? Icons.bluetooth_disabled_rounded : Icons.bluetooth_rounded, size: 18),
-              label: Text(connected ? 'Disconnect Device' : 'Connect Device'),
+              icon: Icon(
+                connected ? Icons.bluetooth_disabled_rounded : Icons.bluetooth_rounded,
+                size: 18,
+              ),
+              label: Text(connected ? s.petDisconnect : s.petConnectBtn),
               style: OutlinedButton.styleFrom(
                 foregroundColor: connected ? AppColors.alertRed : AppColors.sageGreen,
                 side: BorderSide(color: connected ? AppColors.alertRed : AppColors.sageGreen),
@@ -217,44 +280,17 @@ class PetScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildJournalHistory(PetHealthProvider provider) {
-    final entries = provider.journalEntries;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('📓', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 8),
-              const Text('Journal History', style: AppTextStyles.headlineSmall),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (entries.isEmpty)
-            Text('No journal entries yet.', style: AppTextStyles.bodySmall)
-          else
-            ...entries.take(5).map((e) => _JournalRow(entry: e)),
-        ],
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext context, PetProfile pet, PetHealthProvider provider) {
+  void _showEditDialog(BuildContext context, PetProfile pet, PetHealthProvider provider, dynamic s) {
     showDialog(
       context: context,
-      builder: (ctx) => _EditPetDialog(pet: pet, provider: provider),
+      builder: (ctx) => _EditPetDialog(pet: pet, provider: provider, s: s),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 设备状态指标小卡片
+// ─────────────────────────────────────────────────────────────────────────────
 class _DeviceStat extends StatelessWidget {
   final String label;
   final String value;
@@ -271,55 +307,255 @@ class _DeviceStat extends StatelessWidget {
           Icon(icon, color: AppColors.sageGreen, size: 20),
           const SizedBox(height: 4),
           Text(value, style: AppTextStyles.headlineSmall.copyWith(fontSize: 16, color: AppColors.sageGreen)),
-          Text(label, style: AppTextStyles.labelSmall),
+          Text(label, style: AppTextStyles.labelSmall, textAlign: TextAlign.center),
         ],
       ),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 日记历史行（已迁移至 HealthCalendarCard）—— 保留备用
+// ─────────────────────────────────────────────────────────────────────────────
+// ignore: unused_element
 class _JournalRow extends StatelessWidget {
   final JournalEntry entry;
-  const _JournalRow({required this.entry});
+  final dynamic s;
+  const _JournalRow({required this.entry, required this.s});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Text('${_dateLabel(entry.date)}', style: AppTextStyles.labelSmall),
-          const SizedBox(width: 12),
-          Text(entry.moodEmoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 6),
-          Text(entry.appetiteEmoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 6),
-          Text(entry.energyEmoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 6),
-          Text(entry.stoolEmoji, style: const TextStyle(fontSize: 20)),
-          if (entry.notes != null) ...[
-            const SizedBox(width: 8),
-            Expanded(child: Text(entry.notes!, style: AppTextStyles.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
+    final hasNotes = entry.notes != null && entry.notes!.isNotEmpty;
+    return GestureDetector(
+      onTap: () => _showDetail(context),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 第一行：日期 + 表情 + 展开提示 ──
+            Row(
+              children: [
+                // 日期标签
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    _dateLabel(entry.date, s),
+                    style: AppTextStyles.labelSmall,
+                    maxLines: 1,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // 4 个表情（固定大小，不受系统字体影响）
+                Text(entry.moodEmoji, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 6),
+                Text(entry.appetiteEmoji, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 6),
+                Text(entry.energyEmoji, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 6),
+                Text(entry.stoolEmoji, style: const TextStyle(fontSize: 20)),
+                const Spacer(),
+                // 点击展开提示箭头
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
+                  size: 18,
+                ),
+              ],
+            ),
+            // ── 第二行：notes 备注（单独一行，可展示更多内容）──
+            if (hasNotes) ...[
+              const SizedBox(height: 6),
+              Text(
+                entry.notes!,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  // 点击弹出完整日记详情
+  void _showDetail(BuildContext context) {
+    final ls = context.read<LocaleProvider>().strings;
+    final dateStr = _dateLabel(entry.date, ls);
+
+    // 情绪/食欲/精力/粪便对应中英文描述
+    String _moodDesc(String emoji) {
+      const map = {
+        '😌': {'en': 'Relaxed', 'zh': '放松'},
+        '😊': {'en': 'Happy', 'zh': '开心'},
+        '😰': {'en': 'Anxious', 'zh': '焦虑'},
+        '😣': {'en': 'Stressed', 'zh': '应激'},
+        '🤒': {'en': 'Unwell', 'zh': '不适'},
+        '😐': {'en': 'Neutral', 'zh': '一般'},
+      };
+      final lang = ls.locale == 'zh' ? 'zh' : 'en';
+      return map[emoji]?[lang] ?? emoji;
+    }
+
+    String _appetiteDesc(String emoji) {
+      const map = {
+        '🍖': {'en': 'Good appetite', 'zh': '食欲良好'},
+        '😐': {'en': 'Normal', 'zh': '正常'},
+        '🚫': {'en': 'Poor appetite', 'zh': '食欲不佳'},
+        '🍗': {'en': 'Good appetite', 'zh': '食欲良好'},
+      };
+      final lang = ls.locale == 'zh' ? 'zh' : 'en';
+      return map[emoji]?[lang] ?? emoji;
+    }
+
+    String _energyDesc(String emoji) {
+      const map = {
+        '⚡': {'en': 'High energy', 'zh': '精力充沛'},
+        '😴': {'en': 'Low energy', 'zh': '精力不足'},
+        '💤': {'en': 'Sleepy', 'zh': '嗜睡'},
+        '😪': {'en': 'Tired', 'zh': '疲倦'},
+      };
+      final lang = ls.locale == 'zh' ? 'zh' : 'en';
+      return map[emoji]?[lang] ?? emoji;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Row(
+          children: [
+            const Text('📓', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 8),
+            Text(
+              ls.locale == 'zh'
+                  ? '$dateStr 日记'
+                  : '$dateStr Journal',
+              style: AppTextStyles.headlineMedium,
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 状态指标行
+              _DetailRow(
+                emoji: entry.moodEmoji,
+                label: ls.journalMood,
+                desc: _moodDesc(entry.moodEmoji),
+              ),
+              _DetailRow(
+                emoji: entry.appetiteEmoji,
+                label: ls.journalAppetite,
+                desc: _appetiteDesc(entry.appetiteEmoji),
+              ),
+              _DetailRow(
+                emoji: entry.energyEmoji,
+                label: ls.journalEnergy,
+                desc: _energyDesc(entry.energyEmoji),
+              ),
+              _DetailRow(
+                emoji: entry.stoolEmoji,
+                label: ls.journalStool,
+                desc: '',
+              ),
+              // 备注
+              if (entry.notes != null && entry.notes!.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ls.journalNotes,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(entry.notes!, style: AppTextStyles.bodyMedium),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            child: Text(ls.close, style: const TextStyle(color: Colors.white)),
+          ),
         ],
       ),
     );
   }
 
-  String _dateLabel(DateTime d) {
+  String _dateLabel(DateTime d, dynamic s) {
     final now = DateTime.now();
-    if (d.day == now.day) return 'Today';
-    if (d.day == now.day - 1) return 'Yesterday';
+    if (d.day == now.day && d.month == now.month) return s.today;
+    if (d.day == now.day - 1 && d.month == now.month) return s.yesterday;
     return '${d.month}/${d.day}';
   }
 }
 
+/// 日记详情中的单行指标（已迁移至 HealthCalendarCard）
+// ignore: unused_element
+class _DetailRow extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String desc;
+  const _DetailRow({required this.emoji, required this.label, required this.desc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 22)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted)),
+                if (desc.isNotEmpty)
+                  Text(desc, style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 编辑宠物档案弹窗
+// ─────────────────────────────────────────────────────────────────────────────
 class _EditPetDialog extends StatefulWidget {
   final PetProfile pet;
   final PetHealthProvider provider;
-  const _EditPetDialog({required this.pet, required this.provider});
+  final dynamic s;
+  const _EditPetDialog({required this.pet, required this.provider, required this.s});
 
   @override
   State<_EditPetDialog> createState() => _EditPetDialogState();
@@ -338,6 +574,8 @@ class _EditPetDialogState extends State<_EditPetDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // 实时监听语言切换（弹窗内也能切换）
+    final locS = context.watch<LocaleProvider>().strings;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Padding(
@@ -347,19 +585,19 @@ class _EditPetDialogState extends State<_EditPetDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Edit Pet Profile', style: AppTextStyles.headlineMedium),
+              Text(locS.petEditTitle, style: AppTextStyles.headlineMedium),
               const SizedBox(height: 20),
               TextField(
                 controller: _nameCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Pet Name',
+                  labelText: locS.petNameLabel,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: AppColors.cream,
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Health Tags', style: AppTextStyles.labelLarge),
+              Text(locS.petHealthTags, style: AppTextStyles.labelLarge),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -377,7 +615,14 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: selected ? AppColors.sageGreen : AppColors.divider),
                       ),
-                      child: Text(tag, style: TextStyle(fontSize: 13, color: selected ? AppColors.sageGreen : AppColors.textSecondary, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+                      child: Text(
+                        locS.translateTag(tag),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: selected ? AppColors.sageGreen : AppColors.textSecondary,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -387,10 +632,17 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    widget.provider.updatePet(widget.pet.copyWith(name: _nameCtrl.text, healthTags: _selectedTags));
+                    widget.provider.updatePet(
+                      widget.pet.copyWith(name: _nameCtrl.text, healthTags: _selectedTags),
+                    );
                     Navigator.pop(context);
                   },
-                  child: const Text('Save Changes'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.sageGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(locS.petSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                 ),
               ),
             ],

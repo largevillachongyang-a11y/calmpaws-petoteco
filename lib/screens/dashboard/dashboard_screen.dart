@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/dashboard/feeding_timer_card.dart';
 import '../../widgets/dashboard/time_to_calm_card.dart';
@@ -19,7 +20,7 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      body: SafeArea(
+      body: SafeArea(top: false,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -88,6 +89,7 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, PetHealthProvider provider) {
+    final s = context.watch<LocaleProvider>().strings;
     final pet = provider.pet;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -107,22 +109,25 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Good ${_greeting()}!',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: AppColors.textSecondary,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_greeting(s)}!',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
-              Text(
-                pet.name,
-                style: AppTextStyles.headlineLarge,
-              ),
-            ],
+                Text(
+                  pet.name,
+                  style: AppTextStyles.headlineLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           // Notification bell
           Container(
             width: 44,
@@ -149,10 +154,10 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  String _greeting() {
+  String _greeting(dynamic s) {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Morning';
-    if (h < 17) return 'Afternoon';
-    return 'Evening';
+    if (h < 12) return s.greetingMorning;
+    if (h < 17) return s.greetingAfternoon;
+    return s.greetingEvening;
   }
 }

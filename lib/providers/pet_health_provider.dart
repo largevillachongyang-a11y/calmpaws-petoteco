@@ -189,7 +189,7 @@ class PetHealthProvider extends ChangeNotifier {
       _hasAlert = true;
       _alertType = 'activity';
       _alertMessage =
-          '⚠️ ${_pet.name}\'s activity is 30% below normal. Consider a vet check.';
+          "⚠️ ${_pet.name}'s activity is 30% below normal. Consider a vet check.";
       notifyListeners();
     }
   }
@@ -223,6 +223,73 @@ class PetHealthProvider extends ChangeNotifier {
   void addJournalEntry(JournalEntry entry) {
     _journalEntries.insert(0, entry);
     notifyListeners();
+  }
+
+  // ── 健康日历：生成最近 N 天的 DailyRecord 列表 ────────────────────────────
+  // 规则：
+  //   - sensorSummary 来自 stressChartData（14 天历史）+ 今日实时数据
+  //   - journalEntry  来自 _journalEntries，按日期匹配
+  //   - 两层完全独立，不做合并计算
+  List<DailyRecord> getDailyRecords({int days = 14}) {
+    final today = DateTime.now();
+    final records = <DailyRecord>[];
+
+    for (int i = days - 1; i >= 0; i--) {
+      final date = DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: i));
+
+      // ── 传感器层：从历史 stressChartData 取（14天内）──
+      SensorDaySummary? sensor;
+      final chartIdx = (days - 1) - i; // 0 = 最早, days-1 = 今天
+      if (chartIdx < _stressChartData.length) {
+        final pt = _stressChartData[chartIdx];
+        // 今天用实时数据补充
+        final isToday = i == 0;
+        final stressScore = isToday
+            ? currentAnxietyScore.toDouble()
+            : pt.stressScore;
+        final activity = isToday
+            ? currentActivityScore
+            : (pt.stressScore < 40 ? 65 : 35); // 历史近似值
+
+        // 匹配当天的喂食记录
+        final feeding = _sessionHistory.where((s) {
+          final d = s.feedTime;
+          return d.year == date.year &&
+              d.month == date.month &&
+              d.day == date.day;
+        }).toList();
+
+        sensor = SensorDaySummary(
+          avgStressScore: stressScore,
+          stressEventCount: (stressScore / 12).round(),
+          pacingMinutes: (stressScore / 3).round(),
+          playMinutes: activity ~/ 2,
+          activityScore: activity,
+          hasFeeding: feeding.isNotEmpty,
+          timeToCalmSecs: feeding.isNotEmpty ? feeding.first.timeToCalm : null,
+        );
+      }
+
+      // ── 主人记录层：按日期精确匹配 ──
+      JournalEntry? journal;
+      for (final e in _journalEntries) {
+        if (e.date.year == date.year &&
+            e.date.month == date.month &&
+            e.date.day == date.day) {
+          journal = e;
+          break;
+        }
+      }
+
+      records.add(DailyRecord(
+        date: date,
+        sensorSummary: sensor,
+        journalEntry: journal,
+      ));
+    }
+
+    return records;
   }
 
   // ── Current behavior computed values ─────────────────────────────────────
@@ -285,7 +352,7 @@ class PetHealthProvider extends ChangeNotifier {
         moodEmoji: '😌',
         appetiteEmoji: '🍖',
         energyEmoji: '⚡',
-        notes: 'Seemed relaxed after morning walk',
+        notes: '晨间散步后状态不错，比较放松',
         negativeFlags: [],
       ),
       JournalEntry(
@@ -295,7 +362,7 @@ class PetHealthProvider extends ChangeNotifier {
         moodEmoji: '😰',
         appetiteEmoji: '😐',
         energyEmoji: '😴',
-        notes: 'Restless during thunderstorm',
+        notes: '雷雨天气有些不安，活动量偏少',
         negativeFlags: ['anxiety', 'low_appetite'],
       ),
     ]);

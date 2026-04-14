@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 
 class StatusCardsRow extends StatelessWidget {
@@ -8,9 +10,11 @@ class StatusCardsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
     final sleepQuality = provider.lastNightSleepQuality;
     final calmTrend = provider.todayCalmTrend;
     final activityScore = provider.currentActivityScore;
+    final stressCount = provider.latestPacket?.strC ?? 0;
 
     return Column(
       children: [
@@ -19,38 +23,26 @@ class StatusCardsRow extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: '😴',
-                title: 'Last Night Sleep',
+                title: s.cardSleep,
                 value: '$sleepQuality',
-                unit: '/ 100',
-                subtitle: sleepQuality >= 70
-                    ? '✅ Healthy restful sleep'
-                    : '⚠️ Restless night',
-                accentColor: sleepQuality >= 70
-                    ? AppColors.sageGreen
-                    : AppColors.warningAmber,
-                bgColor: sleepQuality >= 70
-                    ? AppColors.sageMuted
-                    : AppColors.warningAmberMuted,
+                unit: s.cardActivityOut,
+                subtitle: sleepQuality >= 70 ? s.cardSleepOk : s.cardSleepBad,
+                accentColor: sleepQuality >= 70 ? AppColors.sageGreen : AppColors.warningAmber,
+                bgColor: sleepQuality >= 70 ? AppColors.sageMuted : AppColors.warningAmberMuted,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _MetricCard(
                 icon: '📊',
-                title: 'Today\'s Anxiety',
+                title: s.cardAnxiety,
                 value: calmTrend < 0
                     ? '${calmTrend.toStringAsFixed(0)}%'
                     : '+${calmTrend.toStringAsFixed(0)}%',
-                unit: 'vs yday',
-                subtitle: calmTrend < 0
-                    ? '✅ Less anxious today'
-                    : '⚠️ More anxious today',
-                accentColor: calmTrend < 0
-                    ? AppColors.sageGreen
-                    : AppColors.warmOrange,
-                bgColor: calmTrend < 0
-                    ? AppColors.sageMuted
-                    : AppColors.warmOrangeMuted,
+                unit: s.cardAnxietyVsYday,
+                subtitle: calmTrend < 0 ? s.cardAnxietyLess : s.cardAnxietyMore,
+                accentColor: calmTrend < 0 ? AppColors.sageGreen : AppColors.warmOrange,
+                bgColor: calmTrend < 0 ? AppColors.sageMuted : AppColors.warmOrangeMuted,
               ),
             ),
           ],
@@ -61,36 +53,24 @@ class StatusCardsRow extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: '⚡',
-                title: 'Activity Score',
+                title: s.cardActivity,
                 value: '$activityScore',
-                unit: '/ 100',
-                subtitle: activityScore >= 40
-                    ? '✅ Normal vitality'
-                    : '⚠️ Low activity',
-                accentColor: activityScore >= 40
-                    ? AppColors.sageGreen
-                    : AppColors.alertRed,
-                bgColor: activityScore >= 40
-                    ? AppColors.sageMuted
-                    : AppColors.alertRedMuted,
+                unit: s.cardActivityOut,
+                subtitle: activityScore >= 40 ? s.cardActivityOk : s.cardActivityLow,
+                accentColor: activityScore >= 40 ? AppColors.sageGreen : AppColors.alertRed,
+                bgColor: activityScore >= 40 ? AppColors.sageMuted : AppColors.alertRedMuted,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _MetricCard(
                 icon: '🎯',
-                title: 'Stress Events',
-                value: '${provider.latestPacket?.strC ?? 0}',
-                unit: 'this window',
-                subtitle: (provider.latestPacket?.strC ?? 0) < 3
-                    ? '✅ Under control'
-                    : '⚠️ Elevated stress',
-                accentColor: (provider.latestPacket?.strC ?? 0) < 3
-                    ? AppColors.sageGreen
-                    : AppColors.warmOrange,
-                bgColor: (provider.latestPacket?.strC ?? 0) < 3
-                    ? AppColors.sageMuted
-                    : AppColors.warmOrangeMuted,
+                title: s.cardStress,
+                value: '$stressCount',
+                unit: s.cardStressWindow,
+                subtitle: stressCount < 3 ? s.cardStressOk : s.cardStressHigh,
+                accentColor: stressCount < 3 ? AppColors.sageGreen : AppColors.warmOrange,
+                bgColor: stressCount < 3 ? AppColors.sageMuted : AppColors.warmOrangeMuted,
               ),
             ),
           ],
@@ -126,74 +106,52 @@ class _MetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColor,
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(icon, style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: 6),
+              Text(icon, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   title,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
+                  style: AppTextStyles.labelSmall.copyWith(fontSize: 11, color: AppColors.textSecondary),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: accentColor,
-                  height: 1.0,
-                ),
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: accentColor, height: 1.0),
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 3, left: 3),
                 child: Text(
                   unit,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: accentColor.withValues(alpha: 0.7),
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 10, color: accentColor.withValues(alpha: 0.7), fontWeight: FontWeight.w500),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
             child: Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: accentColor,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w600),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

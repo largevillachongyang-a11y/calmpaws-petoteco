@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 
 class TimeToCalmCard extends StatelessWidget {
@@ -8,6 +10,7 @@ class TimeToCalmCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
     final history = provider.sessionHistory;
     final hasSessions = history.isNotEmpty;
 
@@ -52,8 +55,8 @@ class TimeToCalmCard extends StatelessWidget {
                     color: AppColors.sageGreen, size: 20),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Time to Calm',
+              Text(
+                s.ttcTitle,
                 style: AppTextStyles.headlineSmall,
               ),
               const Spacer(),
@@ -65,7 +68,7 @@ class TimeToCalmCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${history.length} sessions',
+                  s.ttcSessions(history.length),
                   style: AppTextStyles.labelSmall.copyWith(
                     color: AppColors.sageGreen,
                     fontWeight: FontWeight.w600,
@@ -92,7 +95,7 @@ class TimeToCalmCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'min',
+                    s.ttcMin,
                     style: AppTextStyles.metricUnit(
                         color: AppColors.sageGreen),
                   ),
@@ -102,7 +105,7 @@ class TimeToCalmCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'avg ${_formatMinutes(avg.round())} min',
+                      s.ttcAvg(_formatMinutes(avg.round())),
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -115,7 +118,7 @@ class TimeToCalmCard extends StatelessWidget {
                             color: AppColors.sageGreen, size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '↓ 12% this week',
+                          s.ttcWeekTrend,
                           style: AppTextStyles.labelSmall.copyWith(
                             color: AppColors.sageGreen,
                             fontWeight: FontWeight.w600,
@@ -129,7 +132,7 @@ class TimeToCalmCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Last session · ${_timeAgo(history.first.feedTime)}',
+              '${s.ttcLastSession}${_timeAgo(history.first.feedTime, s)}',
               style: AppTextStyles.bodySmall,
             ),
             const SizedBox(height: 16),
@@ -144,7 +147,8 @@ class TimeToCalmCard extends StatelessWidget {
                   .entries
                   .map((e) => _SessionDot(
                         session: e.value,
-                        label: _dayLabel(e.key),
+                        label: _dayLabel(e.key, s),
+                        minLabel: s.ttcMin,
                       ))
                   .toList(),
             ),
@@ -160,9 +164,9 @@ class TimeToCalmCard extends StatelessWidget {
               child: Row(
                 children: [
                   _CompareChip(
-                    label: 'Stress Before',
+                    label: s.ttcStressBefore,
                     value: '${history.first.stressCountBefore ?? "—"}',
-                    unit: 'events',
+                    unit: s.ttcEvents,
                     color: AppColors.warmOrange,
                   ),
                   const Padding(
@@ -171,9 +175,9 @@ class TimeToCalmCard extends StatelessWidget {
                         color: AppColors.textMuted, size: 18),
                   ),
                   _CompareChip(
-                    label: 'Stress After',
+                    label: s.ttcStressAfter,
                     value: '${history.first.stressCountAfter ?? "—"}',
-                    unit: 'events',
+                    unit: s.ttcEvents,
                     color: AppColors.sageGreen,
                   ),
                 ],
@@ -189,23 +193,25 @@ class TimeToCalmCard extends StatelessWidget {
     return (seconds / 60).toStringAsFixed(0);
   }
 
-  String _timeAgo(DateTime t) {
+  String _timeAgo(DateTime t, dynamic s) {
     final diff = DateTime.now().difference(t);
-    if (diff.inDays > 0) return '${diff.inDays}d ago';
-    if (diff.inHours > 0) return '${diff.inHours}h ago';
-    return '${diff.inMinutes}m ago';
+    if (diff.inDays > 0) return s.daysAgo(diff.inDays);
+    if (diff.inHours > 0) return s.hoursAgo(diff.inHours);
+    return s.minutesAgo(diff.inMinutes);
   }
 
-  String _dayLabel(int index) {
-    final labels = ['Today', 'Yesterday', '2d ago', '3d ago', '4d ago'];
-    return index < labels.length ? labels[index] : '${index}d ago';
+  String _dayLabel(int index, dynamic s) {
+    if (index == 0) return s.today;
+    if (index == 1) return s.yesterday;
+    return s.daysAgo(index);
   }
 }
 
 class _SessionDot extends StatelessWidget {
   final dynamic session;
   final String label;
-  const _SessionDot({required this.session, required this.label});
+  final String minLabel;
+  const _SessionDot({required this.session, required this.label, required this.minLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +241,7 @@ class _SessionDot extends StatelessWidget {
           style: AppTextStyles.labelSmall,
         ),
         Text(
-          'min',
+          minLabel,
           style: AppTextStyles.labelSmall.copyWith(fontSize: 10),
         ),
       ],
@@ -300,6 +306,7 @@ class _CompareChip extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -314,15 +321,9 @@ class _EmptyState extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'No sessions yet',
-                  style: AppTextStyles.headlineSmall,
-                ),
+                Text(s.timerNoSession, style: AppTextStyles.headlineSmall),
                 const SizedBox(height: 4),
-                Text(
-                  'Tap "Fed ZenBelly" above to start tracking how fast your pet calms down.',
-                  style: AppTextStyles.bodySmall,
-                ),
+                Text(s.timerNoSessionDesc, style: AppTextStyles.bodySmall),
               ],
             ),
           ),

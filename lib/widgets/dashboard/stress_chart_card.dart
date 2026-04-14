@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../services/mock_ble_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -10,6 +12,7 @@ class StressChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
     final data = provider.stressChartData;
     final beforeAvg = data
         .where((d) => !d.isAfterTreatment)
@@ -53,8 +56,8 @@ class StressChartCard extends StatelessWidget {
                     color: AppColors.warmOrange, size: 20),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Stress Reduction',
+              Text(
+                s.chartTitle,
                 style: AppTextStyles.headlineSmall,
               ),
               const Spacer(),
@@ -66,7 +69,7 @@ class StressChartCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '↓ ${reduction.toStringAsFixed(0)}%',
+                  s.chartReduction(reduction.toStringAsFixed(0)),
                   style: AppTextStyles.labelSmall.copyWith(
                     color: AppColors.sageGreen,
                     fontWeight: FontWeight.w700,
@@ -78,7 +81,7 @@ class StressChartCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '14-day behavior trend · Before vs After ZenBelly',
+            s.chartSubtitle,
             style: AppTextStyles.bodySmall,
           ),
           const SizedBox(height: 20),
@@ -97,9 +100,9 @@ class StressChartCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _LegendDot(color: AppColors.chartBefore, label: 'Before treatment'),
+              _LegendDot(color: AppColors.chartBefore, label: s.chartLegendBefore),
               const SizedBox(width: 20),
-              _LegendDot(color: AppColors.chartAfter, label: 'After ZenBelly'),
+              _LegendDot(color: AppColors.chartAfter, label: s.chartLegendAfter),
             ],
           ),
         ],

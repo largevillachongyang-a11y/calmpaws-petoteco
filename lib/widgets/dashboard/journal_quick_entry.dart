@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 
@@ -10,24 +12,16 @@ class JournalQuickEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastEntry = provider.journalEntries.isNotEmpty
-        ? provider.journalEntries.first
-        : null;
-    final isToday = lastEntry != null &&
-        _isSameDay(lastEntry.date, DateTime.now());
+    final s = context.watch<LocaleProvider>().strings;
+    final lastEntry = provider.journalEntries.isNotEmpty ? provider.journalEntries.first : null;
+    final isToday = lastEntry != null && _isSameDay(lastEntry.date, DateTime.now());
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColor,
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,50 +30,37 @@ class JournalQuickEntry extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.warmOrangeMuted,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(color: AppColors.warmOrangeMuted, borderRadius: BorderRadius.circular(10)),
                 child: const Text('📓', style: TextStyle(fontSize: 18)),
               ),
               const SizedBox(width: 10),
-              const Text('Daily Journal', style: AppTextStyles.headlineSmall),
+              Text(s.journalTitle, style: AppTextStyles.headlineSmall),
               const Spacer(),
               if (isToday)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.sageMuted,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '✅ Logged today',
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.sageGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: AppColors.sageMuted, borderRadius: BorderRadius.circular(20)),
+                  child: Text(s.journalLoggedToday, style: AppTextStyles.labelSmall.copyWith(color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
                 ),
             ],
           ),
           const SizedBox(height: 16),
           if (isToday && lastEntry != null)
-            _TodayEntry(entry: lastEntry)
+            _TodayEntry(entry: lastEntry, s: s)
           else
-            _QuickLogRow(provider: provider),
+            _QuickLogRow(provider: provider, s: s),
         ],
       ),
     );
   }
 
-  bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 class _TodayEntry extends StatelessWidget {
   final JournalEntry entry;
-  const _TodayEntry({required this.entry});
+  final dynamic s;
+  const _TodayEntry({required this.entry, required this.s});
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +69,10 @@ class _TodayEntry extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _EmojiChip(emoji: entry.moodEmoji, label: 'Mood'),
-            _EmojiChip(emoji: entry.appetiteEmoji, label: 'Appetite'),
-            _EmojiChip(emoji: entry.energyEmoji, label: 'Energy'),
-            _EmojiChip(emoji: entry.stoolEmoji, label: 'Stool'),
+            _EmojiChip(emoji: entry.moodEmoji, label: s.journalMood),
+            _EmojiChip(emoji: entry.appetiteEmoji, label: s.journalAppetite),
+            _EmojiChip(emoji: entry.energyEmoji, label: s.journalEnergy),
+            _EmojiChip(emoji: entry.stoolEmoji, label: s.journalStool),
           ],
         ),
         if (entry.notes != null && entry.notes!.isNotEmpty) ...[
@@ -99,16 +80,8 @@ class _TodayEntry extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.cream,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '"${entry.notes}"',
-              style: AppTextStyles.bodySmall.copyWith(
-                fontStyle: FontStyle.italic,
-              ),
-            ),
+            decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(10)),
+            child: Text('"${entry.notes}"', style: AppTextStyles.bodySmall.copyWith(fontStyle: FontStyle.italic)),
           ),
         ],
       ],
@@ -118,26 +91,24 @@ class _TodayEntry extends StatelessWidget {
 
 class _QuickLogRow extends StatelessWidget {
   final PetHealthProvider provider;
-  const _QuickLogRow({required this.provider});
+  final dynamic s;
+  const _QuickLogRow({required this.provider, required this.s});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'How is Biscuit doing today?',
-          style: AppTextStyles.bodyMedium,
-        ),
+        Text(s.journalQuestion, style: AppTextStyles.bodyMedium),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _QuickEmoji(emoji: '😊', label: 'Happy', onTap: () => _quickLog(context, '😊', '🍖', '⚡')),
-            _QuickEmoji(emoji: '😐', label: 'Okay', onTap: () => _quickLog(context, '😐', '😐', '😴')),
-            _QuickEmoji(emoji: '😰', label: 'Anxious', onTap: () => _quickLog(context, '😰', '😐', '😴')),
-            _QuickEmoji(emoji: '😣', label: 'Stressed', onTap: () => _quickLog(context, '😣', '🚫', '😴')),
-            _QuickEmoji(emoji: '🤒', label: 'Unwell', onTap: () => _quickLog(context, '🤒', '🚫', '😴')),
+            _QuickEmoji(emoji: '😊', label: s.moodHappy, onTap: () => _quickLog(context, '😊', '🍖', '⚡')),
+            _QuickEmoji(emoji: '😐', label: s.moodOkay, onTap: () => _quickLog(context, '😐', '😐', '😴')),
+            _QuickEmoji(emoji: '😰', label: s.moodAnxious, onTap: () => _quickLog(context, '😰', '😐', '😴')),
+            _QuickEmoji(emoji: '😣', label: s.moodStressed, onTap: () => _quickLog(context, '😣', '🚫', '😴')),
+            _QuickEmoji(emoji: '🤒', label: s.moodUnwell, onTap: () => _quickLog(context, '🤒', '🚫', '😴')),
           ],
         ),
         const SizedBox(height: 12),
@@ -146,12 +117,11 @@ class _QuickLogRow extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: () => _showFullJournalDialog(context),
             icon: const Icon(Icons.edit_note_rounded, size: 18),
-            label: const Text('Full Journal Entry'),
+            label: Text(s.journalFullEntry),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.warmOrange,
               side: const BorderSide(color: AppColors.warmOrangeLight),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
@@ -169,14 +139,11 @@ class _QuickLogRow extends StatelessWidget {
       moodEmoji: mood,
       appetiteEmoji: appetite,
       energyEmoji: energy,
-      negativeFlags:
-          mood == '😰' || mood == '😣' || mood == '🤒'
-              ? ['anxiety', 'check_needed']
-              : [],
+      negativeFlags: mood == '😰' || mood == '😣' || mood == '🤒' ? ['anxiety', 'check_needed'] : [],
     ));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Journal entry saved! $mood'),
+        content: Text('${s.journalSaved} $mood'),
         backgroundColor: AppColors.sageGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -186,10 +153,7 @@ class _QuickLogRow extends StatelessWidget {
   }
 
   void _showFullJournalDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _FullJournalDialog(provider: provider),
-    );
+    showDialog(context: context, builder: (ctx) => _FullJournalDialog(provider: provider));
   }
 }
 
@@ -205,13 +169,8 @@ class _EmojiChip extends StatelessWidget {
         Container(
           width: 56,
           height: 56,
-          decoration: BoxDecoration(
-            color: AppColors.cream,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Center(
-            child: Text(emoji, style: const TextStyle(fontSize: 26)),
-          ),
+          decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(14)),
+          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 26))),
         ),
         const SizedBox(height: 4),
         Text(label, style: AppTextStyles.labelSmall),
@@ -233,20 +192,17 @@ class _QuickEmoji extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
               color: AppColors.cream,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.divider),
             ),
-            child: Center(
-              child: Text(emoji, style: const TextStyle(fontSize: 26)),
-            ),
+            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
           ),
           const SizedBox(height: 4),
-          Text(label,
-              style: AppTextStyles.labelSmall.copyWith(fontSize: 10)),
+          Text(label, style: AppTextStyles.labelSmall.copyWith(fontSize: 10)),
         ],
       ),
     );
@@ -270,6 +226,7 @@ class _FullJournalDialogState extends State<_FullJournalDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Padding(
@@ -279,21 +236,21 @@ class _FullJournalDialogState extends State<_FullJournalDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('📓 Today\'s Journal', style: AppTextStyles.headlineMedium),
+              Text(s.journalTodayTitle, style: AppTextStyles.headlineMedium),
               const SizedBox(height: 20),
-              _EmojiRow(title: 'Mood', options: ['😊', '😐', '😰', '😣', '🤒'], selected: _mood, onSelect: (v) => setState(() => _mood = v)),
+              _EmojiRow(title: s.journalMood, options: const ['😊', '😐', '😰', '😣', '🤒'], selected: _mood, onSelect: (v) => setState(() => _mood = v)),
               const SizedBox(height: 14),
-              _EmojiRow(title: 'Appetite', options: ['🍖', '😐', '🚫'], selected: _appetite, onSelect: (v) => setState(() => _appetite = v)),
+              _EmojiRow(title: s.journalAppetite, options: const ['🍖', '😐', '🚫'], selected: _appetite, onSelect: (v) => setState(() => _appetite = v)),
               const SizedBox(height: 14),
-              _EmojiRow(title: 'Energy', options: ['⚡', '😴', '🐌'], selected: _energy, onSelect: (v) => setState(() => _energy = v)),
+              _EmojiRow(title: s.journalEnergy, options: const ['⚡', '😴', '🐌'], selected: _energy, onSelect: (v) => setState(() => _energy = v)),
               const SizedBox(height: 14),
-              _EmojiRow(title: 'Stool', options: ['🟤', '🟡', '🔴', '💧'], selected: _stool, onSelect: (v) => setState(() => _stool = v)),
+              _EmojiRow(title: s.journalStool, options: const ['🟤', '🟡', '🔴', '💧'], selected: _stool, onSelect: (v) => setState(() => _stool = v)),
               const SizedBox(height: 16),
               TextField(
                 controller: _notesController,
                 decoration: InputDecoration(
-                  hintText: 'Any observations? (optional)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.divider)),
+                  hintText: s.journalNotes,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
                   filled: true,
                   fillColor: AppColors.cream,
                 ),
@@ -316,7 +273,12 @@ class _FullJournalDialogState extends State<_FullJournalDialog> {
                     ));
                     Navigator.pop(context);
                   },
-                  child: const Text('Save Journal'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.sageGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(s.journalSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -332,7 +294,6 @@ class _EmojiRow extends StatelessWidget {
   final List<String> options;
   final String selected;
   final ValueChanged<String> onSelect;
-
   const _EmojiRow({required this.title, required this.options, required this.selected, required this.onSelect});
 
   @override
@@ -351,10 +312,7 @@ class _EmojiRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: selected == e ? AppColors.sageMuted : AppColors.cream,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: selected == e ? AppColors.sageGreen : AppColors.divider,
-                  width: 1.5,
-                ),
+                border: Border.all(color: selected == e ? AppColors.sageGreen : AppColors.divider, width: 1.5),
               ),
               child: Text(e, style: const TextStyle(fontSize: 22)),
             ),

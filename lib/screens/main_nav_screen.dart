@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/pet_health_provider.dart';
+import '../providers/locale_provider.dart';
 import '../theme/app_theme.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'pet/pet_screen.dart';
@@ -31,31 +32,38 @@ class _MainNavScreenState extends State<MainNavScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: _pages,
-          ),
-          // Global alert banner
-          if (provider.hasAlert)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: AlertBanner(
-                message: provider.alertMessage,
-                alertType: provider.alertType,
-                onDismiss: provider.dismissAlert,
-              ),
+      body: SafeArea(
+        // ⚠️ 修复：把 Stack + AlertBanner 放在 SafeArea 内部
+        // 这样预警横幅不会遮挡状态栏，高度紧凑只占一行
+        child: Stack(
+          children: [
+            // 页面内容区（各 Tab 页内部各自有 SafeArea）
+            IndexedStack(
+              index: _currentIndex,
+              children: _pages,
             ),
-        ],
+            // 全局预警横幅 —— 悬浮在内容顶部，不含系统状态栏区域
+            if (provider.hasAlert)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AlertBanner(
+                  message: provider.alertMessage,
+                  alertType: provider.alertType,
+                  onDismiss: provider.dismissAlert,
+                ),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
   Widget _buildBottomNav() {
+    // 使用 watch 确保语言切换后底部导航标签实时更新
+    final s = context.watch<LocaleProvider>().strings;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -76,25 +84,25 @@ class _MainNavScreenState extends State<MainNavScreen> {
             children: [
               _NavItem(
                 icon: Icons.favorite_rounded,
-                label: 'Health',
+                label: s.navHealth,
                 isSelected: _currentIndex == 0,
                 onTap: () => setState(() => _currentIndex = 0),
               ),
               _NavItem(
                 icon: Icons.pets_rounded,
-                label: 'My Pet',
+                label: s.navMyPet,
                 isSelected: _currentIndex == 1,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
               _NavItem(
                 icon: Icons.shopping_bag_rounded,
-                label: 'Shop',
+                label: s.navShop,
                 isSelected: _currentIndex == 2,
                 onTap: () => setState(() => _currentIndex = 2),
               ),
               _NavItem(
                 icon: Icons.person_rounded,
-                label: 'Me',
+                label: s.navMe,
                 isSelected: _currentIndex == 3,
                 onTap: () => setState(() => _currentIndex = 3),
               ),

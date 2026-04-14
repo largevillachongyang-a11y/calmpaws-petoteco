@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 
 class DeviceStatusBar extends StatelessWidget {
@@ -8,6 +10,8 @@ class DeviceStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 监听语言切换
+    final s = context.watch<LocaleProvider>().strings;
     final connected = provider.deviceConnected;
     final battery = provider.battery;
     final lowBattery = battery < 20;
@@ -20,7 +24,7 @@ class DeviceStatusBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Status dot
+          // 状态指示点
           AnimatedContainer(
             duration: const Duration(milliseconds: 500),
             width: 8,
@@ -29,27 +33,26 @@ class DeviceStatusBar extends StatelessWidget {
               color: connected ? AppColors.sageGreen : AppColors.alertRed,
               shape: BoxShape.circle,
               boxShadow: connected
-                  ? [
-                      BoxShadow(
-                        color: AppColors.sageGreen.withValues(alpha: 0.5),
-                        blurRadius: 4,
-                      )
-                    ]
+                  ? [BoxShadow(color: AppColors.sageGreen.withValues(alpha: 0.5), blurRadius: 4)]
                   : null,
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            connected ? 'ZenBelly Collar • Live' : 'No Device Connected',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: connected ? AppColors.sageGreen : AppColors.alertRed,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+          // 设备状态文字
+          Expanded(
+            child: Text(
+              connected ? s.deviceLive : s.deviceOffline,
+              style: AppTextStyles.labelMedium.copyWith(
+                color: connected ? AppColors.sageGreen : AppColors.alertRed,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
+          // 已连接：显示电量和蓝牙
           if (connected) ...[
-            // Battery
             Icon(
               lowBattery
                   ? Icons.battery_alert_rounded
@@ -69,12 +72,10 @@ class DeviceStatusBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Signal
-            const Icon(Icons.bluetooth_connected_rounded,
-                color: AppColors.sageGreen, size: 16),
+            const Icon(Icons.bluetooth_connected_rounded, color: AppColors.sageGreen, size: 16),
             const SizedBox(width: 4),
             Text(
-              'BLE',
+              s.deviceBle,
               style: AppTextStyles.labelSmall.copyWith(
                 color: AppColors.sageGreen,
                 fontWeight: FontWeight.w600,
@@ -82,22 +83,18 @@ class DeviceStatusBar extends StatelessWidget {
               ),
             ),
           ] else
+            // 未连接：显示连接按钮
             GestureDetector(
               onTap: provider.connectDevice,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.alertRed,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  'Connect',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Text(
+                  s.deviceConnect,
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ),
             ),

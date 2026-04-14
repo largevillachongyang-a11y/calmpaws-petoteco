@@ -1,74 +1,210 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 
-class ProfileScreen extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// ProfileScreen — StatefulWidget（修复语言切换 & 菜单弹窗）
+// 根本原因：StatelessWidget 中的辅助方法无法响应 context.watch()，
+// 导致语言切换按钮不刷新、菜单 context 失效。
+// ─────────────────────────────────────────────────────────────────────────────
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
   Widget build(BuildContext context) {
+    // 使用 watch 确保语言切换后整个页面重建
     final provider = context.watch<PetHealthProvider>();
+    final localeProvider = context.watch<LocaleProvider>();
+    final s = localeProvider.strings;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      body: SafeArea(
+      body: SafeArea(top: false,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
-            SliverToBoxAdapter(child: _buildSubscriptionCard(context)),
-            SliverToBoxAdapter(child: _buildMenuSection(context, provider)),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildHeader(context, localeProvider, s)),
+            SliverToBoxAdapter(child: _buildSubscriptionCard(context, s)),
+            SliverToBoxAdapter(child: _buildMenuSection(context, provider, s)),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  // ── Header（用户信息 + 语言切换）──────────────────────────────────────────
+  Widget _buildHeader(BuildContext context, LocaleProvider localeProvider, dynamic s) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(22),
+      // clipBehavior: 防止 InkWell/ripple 效果溢出圆角边界，避免蓝色蒙版残留
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.xl),
         boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 16, offset: const Offset(0, 4))],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AppColors.sageGreen, Color(0xFF5A9970)]),
-              shape: BoxShape.circle,
-            ),
-            child: const Center(child: Text('👤', style: TextStyle(fontSize: 28))),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Alex Johnson', style: AppTextStyles.headlineMedium),
-                const SizedBox(height: 4),
-                Text('alex@petoteco.com', style: AppTextStyles.bodySmall),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.sageMuted, borderRadius: BorderRadius.circular(20)),
-                  child: Text('✅ Pro Subscriber', style: AppTextStyles.labelSmall.copyWith(color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
+          // 用户信息行
+          Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [AppColors.sageGreen, Color(0xFF5A9970)]),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
+                child: const Center(child: Text('👤', style: TextStyle(fontSize: 28))),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 字体放大时自动缩小，不截断
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: const Text(
+                        'Alex Johnson',
+                        style: AppTextStyles.headlineMedium,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: const Text(
+                        'alex@petoteco.com',
+                        style: AppTextStyles.bodySmall,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // 订阅状态标签
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.sageMuted,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          s.profileSubscriber,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.sageGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
+                  child: const Icon(Icons.edit_rounded, color: AppColors.textSecondary, size: 18),
+                ),
+              ),
+            ],
           ),
+
+          const SizedBox(height: 16),
+
+          // ── 语言切换按钮 ─────────────────────────────────────────────────
+          // 用 GestureDetector 替代 Material+InkWell，避免 WebView/微信浏览器
+          // 中 InkWell splash/highlight 产生蓝色蒙版残留
           GestureDetector(
-            onTap: () {},
+            onTap: () {
+              localeProvider.toggle();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    localeProvider.isZh
+                        ? '语言已切换为中文 🇨🇳'
+                        : 'Language switched to English 🇺🇸',
+                  ),
+                  backgroundColor: AppColors.sageGreen,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
             child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
-              child: const Icon(Icons.edit_rounded, color: AppColors.textSecondary, size: 18),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.cream,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.sageGreen.withValues(alpha: 0.35), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  // 国旗（固定大小，不受字体缩放影响）
+                  Text(
+                    localeProvider.languageFlag,
+                    style: const TextStyle(fontSize: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  // 标签 — 用 Flexible 防止溢出
+                  const Flexible(
+                    child: Text(
+                      'Language / 语言',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 当前语言徽章 — 固定宽度防止挤压
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.sageGreen,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      localeProvider.isZh ? '中文' : 'EN',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // 切换提示箭头图标，简洁不占多余空间
+                  Icon(
+                    Icons.swap_horiz_rounded,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -76,7 +212,8 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSubscriptionCard(BuildContext context) {
+  // ── 订阅卡片 ─────────────────────────────────────────────────────────────
+  Widget _buildSubscriptionCard(BuildContext context, dynamic s) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(20),
@@ -87,7 +224,13 @@ class ProfileScreen extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.warmOrange.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.warmOrange.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,22 +239,44 @@ class ProfileScreen extends StatelessWidget {
             children: [
               const Text('🔔', style: TextStyle(fontSize: 22)),
               const SizedBox(width: 10),
-              const Text('Subscription', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  s.subLabel,
+                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(20)),
-                child: const Text('Active', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  s.subActive,
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const SizedBox(height: 14),
+          // 订阅详情：两行两列，避免中文时三格挤在一行溢出
+          Column(
             children: [
-              _SubStat(label: 'Plan', value: 'Pro · \$4.99/mo'),
-              _SubStat(label: 'Next Billing', value: 'Aug 14, 2025'),
-              _SubStat(label: 'ZenBelly', value: '23 days left'),
+              Row(
+                children: [
+                  Expanded(child: _SubStat(label: s.profilePlan, value: s.profilePlanValue)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _SubStat(label: s.profileZenBelly, value: s.profileDaysLeft)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _SubStat(label: s.profileNextBilling, value: s.profileNextBillingDate)),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -119,15 +284,22 @@ class ProfileScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _showManageSubscription(context),
+                  onTap: () => _showManageSubscription(context, s),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Center(
-                      child: Text('Manage', style: TextStyle(color: AppColors.warmOrange, fontWeight: FontWeight.w700, fontSize: 14)),
+                    child: Center(
+                      child: Text(
+                        s.profileManage,
+                        style: const TextStyle(
+                          color: AppColors.warmOrange,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -135,15 +307,22 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () => _showReorderDialog(context, s),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Center(
-                      child: Text('Reorder', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                    child: Center(
+                      child: Text(
+                        s.profileReorder,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -155,71 +334,134 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuSection(BuildContext context, PetHealthProvider provider) {
+  // ── 菜单列表 ──────────────────────────────────────────────────────────────
+  Widget _buildMenuSection(BuildContext context, PetHealthProvider provider, dynamic s) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3)),
+        ],
       ),
       child: Column(
         children: [
-          _MenuItem(icon: Icons.receipt_long_rounded, iconColor: AppColors.sageGreen, label: 'Order History', onTap: () => _showOrderHistory(context)),
-          _Divider(),
-          _MenuItem(icon: Icons.support_agent_rounded, iconColor: AppColors.warmOrange, label: 'Customer Support', badge: 'Chat', onTap: () => _showSupport(context)),
-          _Divider(),
-          _MenuItem(icon: Icons.help_outline_rounded, iconColor: AppColors.sageGreen, label: 'Device Setup Guide', onTap: () => _showDeviceGuide(context)),
-          _Divider(),
-          _MenuItem(icon: Icons.bar_chart_rounded, iconColor: const Color(0xFF6B7FD4), label: 'Health Reports', onTap: () => _showHealthReports(context, provider)),
-          _Divider(),
-          _MenuItem(icon: Icons.notifications_none_rounded, iconColor: AppColors.warmOrange, label: 'Notifications', onTap: () {}),
-          _Divider(),
-          _MenuItem(icon: Icons.privacy_tip_outlined, iconColor: AppColors.textMuted, label: 'Privacy & Data', onTap: () {}),
-          _Divider(),
-          _MenuItem(icon: Icons.logout_rounded, iconColor: AppColors.alertRed, label: 'Sign Out', onTap: () => _showSignOut(context)),
+          _MenuItem(
+            icon: Icons.receipt_long_rounded,
+            iconColor: AppColors.sageGreen,
+            label: s.profileOrders,
+            onTap: () => _showOrderHistory(context, s),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.support_agent_rounded,
+            iconColor: AppColors.warmOrange,
+            label: s.profileSupport,
+            badge: s.profileSupportBadge,
+            onTap: () => _showSupport(context, s),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.help_outline_rounded,
+            iconColor: AppColors.sageGreen,
+            label: s.profileDeviceGuide,
+            onTap: () => _showDeviceGuide(context, s),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.bar_chart_rounded,
+            iconColor: const Color(0xFF6B7FD4),
+            label: s.profileReports,
+            onTap: () => _showHealthReports(context, provider, s),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.notifications_none_rounded,
+            iconColor: AppColors.warmOrange,
+            label: s.profileNotifications,
+            onTap: () => _showNotifDialog(context),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.privacy_tip_outlined,
+            iconColor: AppColors.textMuted,
+            label: s.profilePrivacy,
+            onTap: () => _showPrivacyDialog(context),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.logout_rounded,
+            iconColor: AppColors.alertRed,
+            label: s.profileSignOut,
+            onTap: () => _showSignOut(context, s),
+          ),
         ],
       ),
     );
   }
 
-  void _showManageSubscription(BuildContext context) {
+  // ─────────────────────────────────────────────────────────────────────────
+  // 弹窗方法（全部使用 StatefulWidget 的 mounted context，确保安全）
+  // ─────────────────────────────────────────────────────────────────────────
+
+  void _showManageSubscription(BuildContext context, dynamic s) {
+    final petName = context.read<PetHealthProvider>().pet.name;
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       backgroundColor: AppColors.cream,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.fromLTRB(
+          28,
+          28,
+          28,
+          28 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Manage Subscription', style: AppTextStyles.headlineMedium),
+            Text(s.subSheetTitle, style: AppTextStyles.headlineMedium),
             const SizedBox(height: 8),
-            Text("You're making a difference for ${context.read<PetHealthProvider>().pet.name}'s wellbeing 🐾", style: AppTextStyles.bodyMedium),
+            Text(s.subSheetBody(petName), style: AppTextStyles.bodyMedium),
             const SizedBox(height: 20),
-            // Health data retention warning (anti-churn)
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.sageMuted, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: AppColors.sageMuted,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('📊 Your Health Progress This Month', style: AppTextStyles.headlineSmall),
+                  Text(s.subProgress, style: AppTextStyles.headlineSmall),
                   const SizedBox(height: 8),
-                  _ProgressRow(label: 'Anxiety events reduced', value: '↓ 34%', color: AppColors.sageGreen),
-                  _ProgressRow(label: 'Time to calm improved', value: '↓ 18%', color: AppColors.sageGreen),
-                  _ProgressRow(label: 'Sleep quality increased', value: '↑ 12%', color: AppColors.sageGreen),
+                  _ProgressRow(label: s.subAnxiety, value: '↓ 34%', color: AppColors.sageGreen),
+                  _ProgressRow(label: s.subTtc, value: '↓ 18%', color: AppColors.sageGreen),
+                  _ProgressRow(label: s.subSleep, value: '↑ 12%', color: AppColors.sageGreen),
                   const SizedBox(height: 8),
-                  Text('Pausing now means losing 34 days of behavioral baseline data.', style: AppTextStyles.bodySmall.copyWith(color: AppColors.alertRed, fontWeight: FontWeight.w600)),
+                  Text(
+                    s.subWarning,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.alertRed,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -229,7 +471,7 @@ class ProfileScreen extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () => Navigator.pop(ctx),
                 icon: const Icon(Icons.pause_circle_outline_rounded, size: 18),
-                label: const Text('Pause for 1 Month Instead'),
+                label: Text(s.subPause),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.warmOrange,
                   side: const BorderSide(color: AppColors.warmOrangeLight),
@@ -243,7 +485,10 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               child: TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: Text('Cancel Subscription', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                child: Text(
+                  s.subCancel,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                ),
               ),
             ),
           ],
@@ -252,105 +497,254 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showOrderHistory(BuildContext context) {
+  void _showOrderHistory(BuildContext context, dynamic s) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('Order History'),
+        title: Text(s.profileOrders),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _OrderRow(date: 'Jul 14, 2025', item: 'ZenBelly 3-Pack', status: 'Delivered', amount: '\$99.00'),
-            _OrderRow(date: 'Apr 08, 2025', item: 'ZenBelly Refill', status: 'Delivered', amount: '\$34.99'),
-            _OrderRow(date: 'Jan 02, 2025', item: 'Starter Bundle', status: 'Delivered', amount: '\$99.00'),
-          ],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-      ),
-    );
-  }
-
-  void _showSupport(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Row(children: [Text('💬 '), Text('Customer Support')]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('In the live app, this opens Crisp or Intercom live chat embedded inside the app, with your account pre-loaded.', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 16),
-            const Text('Response time: Usually < 2 hours', style: AppTextStyles.bodySmall),
+            _OrderRow(date: s.formatDate(DateTime(2025, 7, 14)), item: 'ZenBelly 3-Pack', status: s.orderDelivered, amount: '\$99.00'),
+            _OrderRow(date: s.formatDate(DateTime(2025, 4, 8)),  item: 'ZenBelly Refill', status: s.orderDelivered, amount: '\$34.99'),
+            _OrderRow(date: s.formatDate(DateTime(2025, 1, 2)),  item: 'Starter Bundle',  status: s.orderDelivered, amount: '\$99.00'),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Start Chat')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.close),
+          ),
         ],
       ),
     );
   }
 
-  void _showDeviceGuide(BuildContext context) {
+  void _showSupport(BuildContext context, dynamic s) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('📡 Device Setup Guide'),
+        title: Text(s.supportTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(s.supportDesc, style: AppTextStyles.bodyMedium),
+            const SizedBox(height: 16),
+            Text(s.supportResponse, style: AppTextStyles.bodySmall),
+            const SizedBox(height: 12),
+            // 联系方式
+            _ContactRow(icon: Icons.email_outlined, label: 'support@petoteco.com'),
+            const SizedBox(height: 6),
+            _ContactRow(icon: Icons.chat_bubble_outline_rounded, label: 'Live Chat (9am–6pm PST)'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.close),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            child: Text(s.supportChat, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeviceGuide(BuildContext context, dynamic s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Text(s.guideTitle),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _GuideStep(step: 1, text: 'Charge the ZenBelly collar for 2 hours before first use'),
-              _GuideStep(step: 2, text: 'Enable Bluetooth on your phone'),
-              _GuideStep(step: 3, text: 'Hold your phone within 30cm of the collar'),
-              _GuideStep(step: 4, text: 'Tap "Connect Device" in the My Pet tab'),
-              _GuideStep(step: 5, text: 'Attach collar to pet — not too tight, 2-finger gap'),
-              _GuideStep(step: 6, text: 'Data will begin syncing within 30 seconds'),
+              _GuideStep(step: 1, text: s.guideStep1),
+              _GuideStep(step: 2, text: s.guideStep2),
+              _GuideStep(step: 3, text: s.guideStep3),
+              _GuideStep(step: 4, text: s.guideStep4),
+              _GuideStep(step: 5, text: s.guideStep5),
+              _GuideStep(step: 6, text: s.guideStep6),
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Got it!'))],
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            child: Text(s.guideGotIt, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
 
-  void _showHealthReports(BuildContext context, PetHealthProvider provider) {
+  void _showHealthReports(BuildContext context, PetHealthProvider provider, dynamic s) {
     final sessions = provider.sessionHistory;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('📈 Health Reports'),
+        title: Text(s.profileReports),
         content: sessions.isEmpty
-            ? const Text('No feeding sessions recorded yet.\nStart tracking with the ZenBelly timer on the Health tab.')
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: sessions.take(5).map((s) => _SessionReportRow(session: s)).toList(),
+            ? Text(s.timerNoSessionDesc, style: AppTextStyles.bodyMedium)
+            : SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: sessions
+                      .take(5)
+                      .map((session) => _SessionReportRow(session: session))
+                      .toList(),
+                ),
               ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-      ),
-    );
-  }
-
-  void _showSignOut(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Sign Out', style: TextStyle(color: AppColors.alertRed))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.close),
+          ),
         ],
       ),
     );
   }
+
+  void _showSignOut(BuildContext context, dynamic s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Text(s.signOutTitle),
+        content: Text(s.signOutConfirm, style: AppTextStyles.bodyMedium),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.signOutBtn, style: const TextStyle(color: AppColors.alertRed)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReorderDialog(BuildContext context, dynamic s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Text(s.profileReorder),
+        content: Text(
+          s.reorderBody,
+          style: AppTextStyles.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // 打开商城弹窗 — 实际 App 中将跳转 WebView
+              _showStoreDialogFromProfile(context, s);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            child: Text(s.shopOpenBtn, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStoreDialogFromProfile(BuildContext context, dynamic s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Text(s.shopOpenTitle),
+        content: Text(s.shopOpenDesc),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            child: Text(s.shopOpenBtn, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 消息通知弹窗 — 内部直接读取当前语言，不依赖外部传入的 String
+  void _showNotifDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        // 内部用 Consumer 确保内容总是当前语言
+        return Consumer<LocaleProvider>(
+          builder: (_, lp, __) {
+            final ls = lp.strings;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+              title: Text(ls.profileNotifications),
+              content: Text(ls.notifSettingsBody, style: AppTextStyles.bodyMedium),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+                  child: Text(ls.ok, style: const TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 隐私弹窗 — 内部直接读取当前语言
+  void _showPrivacyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Consumer<LocaleProvider>(
+          builder: (_, lp, __) {
+            final ls = lp.strings;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+              title: Text(ls.profilePrivacy),
+              content: Text(ls.privacyBody, style: AppTextStyles.bodyMedium),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+                  child: Text(ls.ok, style: const TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 辅助小 Widgets
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SubStat extends StatelessWidget {
   final String label;
@@ -362,9 +756,26 @@ class _SubStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w400)),
+        // FittedBox: 字体放大时自动缩小 label，防止溢出
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w400),
+            maxLines: 1,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+            maxLines: 1,
+          ),
+        ),
       ],
     );
   }
@@ -377,44 +788,82 @@ class _MenuItem extends StatelessWidget {
   final String? badge;
   final VoidCallback onTap;
 
-  const _MenuItem({required this.icon, required this.iconColor, required this.label, this.badge, required this.onTap});
+  const _MenuItem({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    this.badge,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            children: [
+              // 图标容器
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 14),
+              // 标签
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // 徽章 + 箭头
+              if (badge != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.sageMuted,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.sageGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+            ],
+          ),
         ),
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(label, style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w500)),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (badge != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.sageMuted, borderRadius: BorderRadius.circular(8)),
-              child: Text(badge!, style: TextStyle(fontSize: 11, color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
-            ),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
-        ],
       ),
     );
   }
 }
 
 class _Divider extends StatelessWidget {
+  const _Divider();
+
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, indent: 68, endIndent: 20);
+    return const Divider(height: 1, indent: 74, endIndent: 20);
   }
 }
 
@@ -431,8 +880,11 @@ class _ProgressRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTextStyles.bodySmall),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+          Expanded(child: Text(label, style: AppTextStyles.bodySmall)),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color),
+          ),
         ],
       ),
     );
@@ -444,14 +896,22 @@ class _OrderRow extends StatelessWidget {
   final String item;
   final String status;
   final String amount;
-  const _OrderRow({required this.date, required this.item, required this.status, required this.amount});
+  const _OrderRow({
+    required this.date,
+    required this.item,
+    required this.status,
+    required this.amount,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -467,7 +927,14 @@ class _OrderRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(amount, style: AppTextStyles.labelLarge.copyWith(fontSize: 14)),
-              Text(status, style: TextStyle(fontSize: 12, color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
+              Text(
+                status,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.sageGreen,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],
@@ -491,13 +958,42 @@ class _GuideStep extends StatelessWidget {
           Container(
             width: 26,
             height: 26,
-            decoration: BoxDecoration(color: AppColors.sageGreen, shape: BoxShape.circle),
-            child: Center(child: Text('$step', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700))),
+            decoration: const BoxDecoration(
+              color: AppColors.sageGreen,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$step',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: AppTextStyles.bodyMedium)),
         ],
       ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _ContactRow({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.sageGreen),
+        const SizedBox(width: 8),
+        Text(label, style: AppTextStyles.bodySmall),
+      ],
     );
   }
 }
@@ -508,25 +1004,34 @@ class _SessionReportRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<LocaleProvider>().strings;
     final secs = session.timeToCalm as int? ?? 0;
     final mins = (secs / 60).toStringAsFixed(1);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(_timeAgo(session.feedTime), style: AppTextStyles.bodySmall),
-          Text('$mins min to calm', style: AppTextStyles.labelLarge.copyWith(fontSize: 14, color: AppColors.sageGreen)),
+          Text(_timeAgo(session.feedTime as DateTime, s), style: AppTextStyles.bodySmall),
+          Text(
+            s.sessionMinToCalm(mins),
+            style: AppTextStyles.labelLarge.copyWith(fontSize: 14, color: AppColors.sageGreen),
+          ),
         ],
       ),
     );
   }
 
-  String _timeAgo(DateTime t) {
+  String _timeAgo(DateTime t, dynamic s) {
     final diff = DateTime.now().difference(t);
-    if (diff.inDays > 0) return '${diff.inDays}d ago';
-    return 'Today';
+    if (diff.inDays > 0) return s.daysAgo(diff.inDays);
+    if (diff.inHours > 0) return s.hoursAgo(diff.inHours);
+    if (diff.inMinutes > 0) return s.minutesAgo(diff.inMinutes);
+    return s.today;
   }
 }

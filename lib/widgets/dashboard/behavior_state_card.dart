@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 
@@ -9,10 +11,12 @@ class BehaviorStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 监听语言切换
+    final s = context.watch<LocaleProvider>().strings;
     final behavior = provider.currentBehavior;
     final packet = provider.latestPacket;
 
-    final (bgColor, accentColor, label, desc) = _stateInfo(behavior);
+    final (bgColor, accentColor, label, desc) = _stateInfo(behavior, s);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -23,7 +27,7 @@ class BehaviorStateCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Emoji indicator
+          // 行为 Emoji
           Container(
             width: 60,
             height: 60,
@@ -32,8 +36,7 @@ class BehaviorStateCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Center(
-              child: Text(behavior.emoji,
-                  style: const TextStyle(fontSize: 30)),
+              child: Text(behavior.emoji, style: const TextStyle(fontSize: 30)),
             ),
           ),
           const SizedBox(width: 16),
@@ -41,20 +44,19 @@ class BehaviorStateCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // "当前状态" 标签行
                 Row(
                   children: [
                     Text(
-                      'Right Now: ',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textMuted,
-                      ),
+                      s.rightNow,
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
                     ),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: accentColor,
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: accentColor),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -65,27 +67,18 @@ class BehaviorStateCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      _MiniStat(
-                          icon: '😣',
-                          label: 'Stress',
-                          value: '${packet.strC}x'),
+                      _MiniStat(icon: '😣', label: s.statStress, value: '${packet.strC}x'),
                       const SizedBox(width: 12),
-                      _MiniStat(
-                          icon: '🚶',
-                          label: 'Pacing',
-                          value: '${packet.paceD}s'),
+                      _MiniStat(icon: '🚶', label: s.statPacing, value: '${packet.paceD}s'),
                       const SizedBox(width: 12),
-                      _MiniStat(
-                          icon: '🎾',
-                          label: 'Play',
-                          value: '${packet.playD}s'),
+                      _MiniStat(icon: '🎾', label: s.statPlay, value: '${packet.playD}s'),
                     ],
                   ),
                 ],
               ],
             ),
           ),
-          // Anxiety score ring
+          // 焦虑评分环
           if (packet != null)
             SizedBox(
               width: 50,
@@ -96,18 +89,12 @@ class BehaviorStateCard extends StatelessWidget {
                   CircularProgressIndicator(
                     value: packet.anxietyScore / 100,
                     strokeWidth: 5,
-                    backgroundColor:
-                        accentColor.withValues(alpha: 0.15),
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(accentColor),
+                    backgroundColor: accentColor.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                   ),
                   Text(
                     '${packet.anxietyScore}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: accentColor,
-                    ),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: accentColor),
                   ),
                 ],
               ),
@@ -117,50 +104,20 @@ class BehaviorStateCard extends StatelessWidget {
     );
   }
 
-  (Color, Color, String, String) _stateInfo(PetBehaviorState state) {
+  (Color, Color, String, String) _stateInfo(PetBehaviorState state, dynamic s) {
     switch (state) {
       case PetBehaviorState.calm:
-        return (
-          AppColors.sageMuted,
-          AppColors.sageGreen,
-          'Calm & Relaxed',
-          'Biscuit is resting comfortably'
-        );
+        return (AppColors.sageMuted, AppColors.sageGreen, s.stateCalm, s.stateCalmDesc);
       case PetBehaviorState.pacing:
-        return (
-          AppColors.warmOrangeMuted,
-          AppColors.warmOrange,
-          'Anxious Pacing',
-          'Repetitive movement detected'
-        );
+        return (AppColors.warmOrangeMuted, AppColors.warmOrange, s.statePacing, s.statePacingDesc);
       case PetBehaviorState.stressed:
-        return (
-          const Color(0xFFFFF0E0),
-          const Color(0xFFD97706),
-          'Stressed',
-          'High stress behavior detected'
-        );
+        return (const Color(0xFFFFF0E0), const Color(0xFFD97706), s.stateStressed, s.stateStressedDesc);
       case PetBehaviorState.playing:
-        return (
-          AppColors.sageMuted,
-          AppColors.sageGreen,
-          'Playing',
-          'Active, healthy movement!'
-        );
+        return (AppColors.sageMuted, AppColors.sageGreen, s.statePlaying, s.statePlayingDesc);
       case PetBehaviorState.shivering:
-        return (
-          AppColors.alertRedMuted,
-          AppColors.alertRed,
-          'Shivering ⚠️',
-          'Possible pain, fear, or cold'
-        );
+        return (AppColors.alertRedMuted, AppColors.alertRed, s.stateShivering, s.stateSiveringDesc);
       case PetBehaviorState.sleeping:
-        return (
-          const Color(0xFFF0F4FF),
-          const Color(0xFF6B7FD4),
-          'Sleeping',
-          'Resting peacefully'
-        );
+        return (const Color(0xFFF0F4FF), const Color(0xFF6B7FD4), s.stateSleeping, s.stateSleepingDesc);
     }
   }
 }
@@ -170,11 +127,7 @@ class _MiniStat extends StatelessWidget {
   final String label;
   final String value;
 
-  const _MiniStat({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _MiniStat({required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -185,11 +138,7 @@ class _MiniStat extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
         ),
       ],
     );
