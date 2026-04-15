@@ -1,9 +1,29 @@
+// =============================================================================
+// mock_ble_service.dart — BLE 硬件模拟服务
+// =============================================================================
+// 职责：在真实 BLE 硬件到位之前，模拟宠物项圈的实时数据推送。
+// 每秒生成一个 BlePacket，模拟一只有分离焦虑症的金毛寻回犬的一天。
+//
+// [TODO] 生产环境中，此文件应被替换为真实 BLE SDK 的实现，如：
+//   flutter_blue_plus: ^1.31.15
+//   替换要点：
+//     1. scan() → 扫描 BLE 设备，找到目标 UUID
+//     2. connect() → 建立 BLE 连接
+//     3. characteristic.setNotifyValue(true) → 订阅通知
+//     4. characteristic.onValueReceived → 接收字节数据，用 BlePacket.fromJson() 解析
+//     5. 断开/重连逻辑需要特别处理（蓝牙信号不稳定）
+//
+// 模拟的行为周期（configurable anxietyLevel）：
+//   anxietyLevel = 0.0 → 宠物全天平静（用于测试正常状态）
+//   anxietyLevel = 0.5 → 中度焦虑（默认）
+//   anxietyLevel = 1.0 → 高度焦虑（用于测试预警触发）
+// =============================================================================
 import 'dart:async';
 import 'dart:math';
 import '../models/models.dart';
 
-/// Mock BLE data generator that simulates real hardware packets
-/// Mimics a realistic dog day cycle with configurable anxiety level
+/// Mock BLE 数据生成器，模拟真实硬件数据包
+/// 模拟一只有分离焦虑症的狗的真实一天行为周期
 class MockBleService {
   static final MockBleService _instance = MockBleService._internal();
   factory MockBleService() => _instance;

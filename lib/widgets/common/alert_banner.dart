@@ -1,3 +1,16 @@
+// =============================================================================
+// alert_banner.dart — 全局预警横幅
+// =============================================================================
+// 当 PetHealthProvider.hasAlert == true 时，MainNavScreen 将此 Widget 定位在
+// 页面顶部，以横幅形式提醒用户关注宠物异常。
+//
+// 触发条件（在 PetHealthProvider._checkAlerts() 中定义）：
+//   • 'shiver'   — 宠物持续颤抖超过 30 秒
+//   • 'activity' — 白天活动量异常偏低（可能生病）
+//
+// 用户点击关闭按钮 → PetHealthProvider.dismissAlert() → hasAlert=false
+// → MainNavScreen 的 StreamBuilder 重建 → 横幅消失
+// =============================================================================
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 

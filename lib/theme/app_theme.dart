@@ -1,3 +1,24 @@
+// =============================================================================
+// app_theme.dart — 全局设计系统
+// =============================================================================
+// 包含：
+//   AppColors     — 所有颜色常量（主色调为暖绿色 #7BAE8B，辅色为暖橙色 #E8845A）
+//   AppTextStyles — 字体样式系统（基于 SF Pro Display，移动端最小 14sp）
+//   AppTheme      — Flutter ThemeData 配置（Material3）
+//   AppSpacing    — 间距常量（xs/sm/md/lg/xl/xxl）
+//   AppRadius     — 圆角常量
+//
+// 重要设计决策：
+//   1. useMaterial3: true — 启用 Material3 设计系统
+//   2. splashFactory: NoSplash — 全局禁用点击水波纹，避免蓝色蒙版问题
+//   3. surfaceTint: Colors.transparent — 禁用 Material3 的海拔着色层
+//      （该层会根据 primary 颜色给组件表面染色，在绿色主题下会偏蓝）
+//   4. focusColor: Colors.transparent — 禁用焦点高亮（Web 端键盘导航会触发）
+//   5. scrim: Colors.black — Dialog/BottomSheet 遮罩为纯黑色
+//
+// ⚠️ 注意：修改颜色时请同时更新 AppColors 和 colorScheme.copyWith 中的对应值，
+//          确保 Material3 自动生成的颜色被正确覆盖。
+// =============================================================================
 import 'package:flutter/material.dart';
 
 class AppColors {

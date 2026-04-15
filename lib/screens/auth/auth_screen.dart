@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../providers/locale_provider.dart';
 import '../../screens/main_nav_screen.dart';
 import '../../theme/app_theme.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AuthScreen — 登录 / 注册 / 忘记密码 三合一页面
-// firebaseAvailable: false 时为 Web 预览模式，按钮只做 UI 展示
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// AuthScreen — 登录 / 注册 / 忘记密码 三合一认证页面
+// =============================================================================
+// 核心设计原则：
+//   • 一个页面处理三种模式（_AuthMode），通过动画切换 → 减少路由跳转
+//   • firebaseAvailable=false 时为 UI 预览模式（开发期无 Firebase 环境可用）
+//   • 登录成功后 **不手动** 调用 Navigator.push，依赖 _AuthGate 的 StreamBuilder
+//     自动路由到 MainNavScreen，这样退出登录也能正常回来。
+//   • 错误/成功消息统一通过 _errorMsg / _successMsg 状态显示在表单下方
+// =============================================================================
 class AuthScreen extends StatefulWidget {
+  // firebaseAvailable: 控制页面工作模式
+  //   true  → 真实 Firebase 模式（生产/测试环境）
+  //   false → 纯 UI 预览模式（Firebase 初始化失败时的降级方案）
   final bool firebaseAvailable;
   const AuthScreen({super.key, this.firebaseAvailable = true});
 
@@ -17,6 +27,7 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
+// 页面的三种工作模式，通过 _switchMode 切换，切换时触发 fade 动画
 enum _AuthMode { login, register, forgotPassword }
 
 class _AuthScreenState extends State<AuthScreen>
@@ -61,16 +72,25 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   void _switchMode(_AuthMode mode) {
+    // 切换模式时清除上一次的错误/成功消息，避免模式间消息串行
     setState(() {
       _mode = mode;
       _errorMsg = null;
       _successMsg = null;
     });
+    // 重置动画，让新模式内容以 fade-in 方式出现
     _animController.reset();
     _animController.forward();
   }
 
-  // ── 提交（Firebase 不可用时直接跳主页做 UI 预览）────────────────────────────
+  // ── 提交表单 ──────────────────────────────────────────────────────────────
+  // 根据当前 _mode 调用不同的 AuthService 方法：
+  //   login        → signInWithEmail → 成功后 _AuthGate 自动跳主页
+  //   register     → signUpWithEmail → 成功后切换到 login 模式并显示提示
+  //   forgotPassword → sendPasswordResetEmail → 成功后显示"邮件已发送"提示
+  //
+  // 预览模式（firebaseAvailable=false）：
+  //   直接跳 MainNavScreen，用于开发期测试 UI 而无需真实账号
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -101,7 +121,9 @@ class _AuthScreenState extends State<AuthScreen>
           isZh: isZh,
         );
         if (result.isSuccess && mounted) {
-          // 不用手动跳转，_AuthGate 的 StreamBuilder 监听 authStateChanges，会自动切换到主页
+          // ✅ 登录成功：不手动跳转！
+          // Firebase authStateChanges 会推送新 User，_AuthGate 的 StreamBuilder
+          // 自动重建并显示 MainNavScreen。这样退出登录也能正常回到此页面。
           setState(() => _loading = false);
           return;
         }
@@ -114,6 +136,8 @@ class _AuthScreenState extends State<AuthScreen>
           isZh: isZh,
         );
         if (result.isSuccess) {
+          // 注册成功后切回登录模式，让用户主动登录（也可改为自动登录）
+          // [TODO: 异常处理] 如需强制验证邮箱才能登录，此处可加逻辑提示用户先点验证邮件
           setState(() {
             _successMsg = isZh
                 ? '注册成功！请查收验证邮件，验证后即可登录。'
@@ -130,10 +154,12 @@ class _AuthScreenState extends State<AuthScreen>
           isZh: isZh,
         );
         if (result.isSuccess) {
+          // 发送成功：显示提示，用户需去邮箱点击链接
+          // ⚠️ 重置链接有效期1小时，过期需重新申请
           setState(() {
             _successMsg = isZh
-                ? '重置邮件已发送，请查收邮箱。'
-                : 'Reset email sent! Please check your inbox.';
+                ? '重置邮件已发送，请查收邮箱。\n链接1小时内有效，过期请重新申请。'
+                : 'Reset email sent! Check your inbox.\nLink expires in 1 hour.';
             _loading = false;
           });
           return;
@@ -585,9 +611,76 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildGoogleButton(dynamic s) {
-    // 所有平台统一显示 Google 登录按钮
-    // Web 端使用 Popup 弹窗（需在 Firebase Console → Authorized Domains 添加域名）
-    // 移动端使用原生 Google Sign-In
+    // ── Web 沙盒预览：Firebase 已连接但网络无法访问 firebaseapp.com ──────────
+    // Google 弹窗需要加载 petoteco-5e807.firebaseapp.com/__/auth/handler，
+    // 沙盒环境该域名 ERR_CONNECTION_CLOSED，点击无效。
+    // 移动端 App（Android/iOS）用原生 Google SDK，不依赖此域名，可正常登录。
+    if (kIsWeb && widget.firebaseAvailable) {
+      return Column(
+        children: [
+          // 灰色禁用样式按钮（不可点击），视觉上与移动端按钮一致
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.sageMuted,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.divider, width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('G',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textMuted)),
+                const SizedBox(width: 10),
+                Text(
+                  s.authGoogleBtn,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 说明文字：告知用户如何在移动端使用
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFFE082)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: Color(0xFFF9A825), size: 15),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    s.locale == 'zh'
+                        ? 'Google 登录需在手机 App 中使用（iOS / Android）\n网页预览版仅支持邮箱登录'
+                        : 'Google login is available in the mobile App (iOS / Android)\nWeb preview supports email login only',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: const Color(0xFFF57F17),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ── 移动端 或 Web 预览模式（firebaseAvailable=false）：显示可点击按钮 ────
     return SizedBox(
       width: double.infinity,
       child: GestureDetector(
@@ -616,7 +709,8 @@ class _AuthScreenState extends State<AuthScreen>
               const SizedBox(width: 10),
               Text(
                 s.authGoogleBtn,
-                style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                style: AppTextStyles.bodyMedium
+                    .copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),

@@ -1,5 +1,27 @@
-/// BLE packet model - mirrors the exact hardware JSON protocol
-/// Hardware pushes one packet every 5 seconds via BLE
+// =============================================================================
+// models.dart — 应用核心数据模型定义
+// =============================================================================
+// 包含的模型：
+//   • BlePacket       — BLE 硬件设备实时推送的一个数据包（每 5 秒一次）
+//   • PetBehaviorState — 宠物当前行为状态枚举（平静/踱步/应激等）
+//   • PetProfile       — 宠物基本档案（名字/品种/年龄/健康标签）
+//   • FeedingSession    — 一次喂食会话记录（包含喂食前后压力对比）
+//   • BehaviorSnapshot  — 喂食后每 5 分钟的行为快照
+//   • JournalEntry      — 主人手动记录的健康日志
+//   • DailyStressDataPoint — 压力趋势图的单个数据点
+//   • DailyRecord       — 健康日历的单日完整记录（传感层 + 主人层）
+//   • SensorDaySummary  — 一天的传感器汇总数据
+//
+// [API 需求] 接入后端时，以下模型需要提供对应的 fromJson/toJson 方法：
+//   • PetProfile, FeedingSession, JournalEntry 需要与后端 API 交互
+//   • BlePacket 需要与硬件协议对齐（fromJson 已实现）
+// =============================================================================
+
+/// BLE 硬件设备实时推送的数据包——严格对应硬件 JSON 协议
+/// 硬件每 5 秒通过 BLE 推送一个包，字段定义与硬件团队确认过。
+/// [API 需求] 硬件 JSON 格式：
+///   { "timestamp":1700000000, "str_c":2, "str_d":15, "shiv_c":0, "shiv_d":0,
+///     "pace_d":10, "play_d":5, "roll_c":1, "battery":82, "rssi":-65 }
 class BlePacket {
   final int timestamp;
   final int strC;    // stress count (应激次数)
@@ -53,7 +75,8 @@ class BlePacket {
     'rssi': rssi,
   };
 
-  /// Derived behavior state from packet
+  /// 根据 BLE 数据包计算行为状态——优先级：颤抖 > 应激 > 踱步 > 玩耗 > 平静
+  /// 注：此为实时状态判断，不考虑历史趋势
   PetBehaviorState get behaviorState {
     if (shivD > 30) return PetBehaviorState.shivering;
     if (strC >= 3 || strD > 20) return PetBehaviorState.stressed;
@@ -62,7 +85,9 @@ class BlePacket {
     return PetBehaviorState.calm;
   }
 
-  /// Total anxiety score 0-100 for this packet
+  /// 当前数据包的综合焦虑分 0-100
+  /// 分值算法：应激次数×8 + 踱步时长×1.5 + 颤抖时长×2 + 应激将5秒
+  /// [TODO] 实际项目中应由数据科学家验证权重参数，目前为经验值
   int get anxietyScore {
     int score = 0;
     score += (strC * 8).clamp(0, 40);
@@ -72,7 +97,7 @@ class BlePacket {
     return score.clamp(0, 100);
   }
 
-  /// Activity score 0-100
+  /// 活动尽兴分 0-100（玩耗时长 + 打滚次数为主要贡献）
   int get activityScore {
     int score = 0;
     score += (playD * 2).clamp(0, 60);
@@ -82,6 +107,8 @@ class BlePacket {
   }
 }
 
+/// 宠物行为状态枚举——由 BlePacket.behaviorState 计算得出
+/// 也用于 UI 展示（emoji + 文字标签）
 enum PetBehaviorState {
   calm,
   pacing,
@@ -113,7 +140,12 @@ enum PetBehaviorState {
   }
 }
 
-/// Pet profile model
+/// 宠物档案——每个用户有一个宠物档案
+/// 用户可在宠物页面编辑，修改内存中的实例。
+/// [API 需求] 持久化时：
+///   GET  /api/pets/{userId}   返回: { id, name, species, breed, ageMonths, weightKg, healthTags[] }
+///   PUT  /api/pets/{id}       body: 同上
+///   POST /api/pets            创建新宠物
 class PetProfile {
   final String id;
   final String name;
@@ -167,7 +199,12 @@ class PetProfile {
   }
 }
 
-/// Feeding session — triggered when owner taps "Fed ZenBelly"
+/// 一次喂食会话——主人点击「已喂食」开始，到宠物平静自动结束
+/// Time-to-Calm = 坂食到平静的秒数（产品核心指标）
+/// [API 需求]
+///   POST  /api/feeding-sessions  body: { petId, feedTime, stressCountBefore }
+///   PATCH /api/feeding-sessions/{id}  body: { timeToCalm, stressCountAfter, timeline[] }
+///   GET   /api/feeding-sessions?petId={id}&limit=20  返回历史列表
 class FeedingSession {
   final String id;
   final DateTime feedTime;

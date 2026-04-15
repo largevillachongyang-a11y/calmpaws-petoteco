@@ -1,3 +1,29 @@
+// =============================================================================
+// profile_screen.dart — "我的" 个人中心页面
+// =============================================================================
+// 展示内容：
+//   1. 用户信息头像区：显示 Firebase 真实用户名和邮箱
+//      • displayName: 注册时填写的姓名（通过 updateDisplayName 保存）
+//      • email: Firebase Auth 账号邮箱
+//      [注意] 这里的名字是「用户名」，不是「宠物名」。
+//              宠物名（如 Biscuit）显示在 Dashboard 和宠物页面顶部。
+//
+//   2. 订阅卡片（_buildSubscriptionCard）：
+//      当前为 Demo 数据，显示固定的订阅状态和产品信息。
+//      [TODO: API 需求] 接入后端时替换为：GET /api/subscriptions/{userId}
+//        返回: { plan, status, nextBillingDate, daysLeft }
+//
+//   3. 菜单列表（_buildMenuSection）：
+//      各菜单项点击弹出对应 Dialog/BottomSheet，均已实现。
+//
+//   4. 退出登录（_showSignOutDialog）：
+//      调用 AuthService.signOut() → Firebase 清除登录状态
+//      → _AuthGate StreamBuilder 自动跳回登录页（无需手动 Navigator）
+//
+// 为什么是 StatefulWidget？
+//   需要响应语言切换（context.watch<LocaleProvider>()），
+//   StatefulWidget 配合 build() 中的 watch 确保语言切换后整页重建。
+// =============================================================================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';

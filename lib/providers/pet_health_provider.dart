@@ -1,13 +1,44 @@
+// =============================================================================
+// pet_health_provider.dart — 宠物健康数据状态管理（核心业务 Provider）
+// =============================================================================
+// 职责：作为应用的全局状态中心，管理以下所有业务数据：
+//   1. 宠物档案（PetProfile）：名称、品种、年龄、健康标签等
+//   2. BLE 设备连接状态和实时数据流（MockBleService 模拟）
+//   3. 喂食会话（FeedingSession）：开始/停止计时、记录历史
+//   4. 焦虑/行为状态（AnxietyLevel、BehaviorState）：来自 BLE 数据
+//   5. 健康日志（HealthLog）：用户手动记录的行为观察
+//   6. 全局预警（Alert）：焦虑过高时触发横幅提醒
+//
+// ⚠️ 重要架构说明：
+//   当前所有数据均为本地内存数据，宠物档案是硬编码的 Demo 数据（Biscuit）。
+//   用户在宠物页面编辑后，数据存在内存中，App 重启会还原。
+//
+//   [TODO: API 需求] 接入真实后端后，应在以下位置替换为 API 调用：
+//     • 宠物档案：GET /api/pets/{userId} 获取，PUT /api/pets/{id} 保存
+//     • 喂食历史：POST /api/feeding-sessions 创建，GET 获取历史
+//     • 健康日志：POST /api/health-logs 保存
+//     • BLE 数据：替换 MockBleService 为真实蓝牙 SDK（如 flutter_blue_plus）
+//
+//   [TODO: 异常处理] 当前所有 BLE 数据为模拟值，真实 BLE 接入时需处理：
+//     • 连接断开重连逻辑
+//     • 数据异常值过滤
+//     • 蓝牙权限请求（Android/iOS）
+// =============================================================================
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/mock_ble_service.dart';
 
 class PetHealthProvider extends ChangeNotifier {
-  // ── Pet Profile ──────────────────────────────────────────────────────────
+  // ── 宠物档案 ──────────────────────────────────────────────────────────────
+  // ⚠️ 当前为硬编码 Demo 数据（Biscuit / Golden Retriever）。
+  // Dashboard 和宠物页面顶部显示的名字就是 pet.name（宠物名），不是用户名。
+  // 用户可在宠物页面点击编辑图标修改，修改后内存更新，但 App 重启会还原。
+  // [TODO: API 需求] 接入后端后替换为：GET /api/pets/{userId}
+  //   返回格式：{ id, name, species, breed, ageMonths, weightKg, healthTags, createdAt }
   PetProfile _pet = PetProfile(
     id: 'pet_001',
-    name: 'Biscuit',
+    name: 'Biscuit',  // ← Demo 数据，用户可通过宠物页面编辑按钮修改
     species: 'dog',
     breed: 'Golden Retriever',
     ageMonths: 36,
@@ -18,11 +49,21 @@ class PetHealthProvider extends ChangeNotifier {
   PetProfile get pet => _pet;
 
   void updatePet(PetProfile updated) {
+    // 用户在宠物编辑弹窗保存后调用，更新内存中的宠物档案。
+    // notifyListeners() 触发所有使用 context.watch<PetHealthProvider>() 的 Widget 重建，
+    // Dashboard 和宠物页面的名字会立即更新。
+    // [TODO: API 需求] 同步保存到后端：PUT /api/pets/{id}  body: updated.toJson()
     _pet = updated;
     notifyListeners();
   }
 
-  // ── BLE / Device ─────────────────────────────────────────────────────────
+  // ── BLE 设备连接与实时数据流 ───────────────────────────────────────────────
+  // 当前使用 MockBleService 模拟蓝牙数据，每秒推送一次 BlePacket。
+  // [TODO] 正式接入真实硬件时，替换 MockBleService 为实际 BLE SDK（如 flutter_blue_plus）。
+  // 替换要点：
+  //   1. connectDevice() 中改为扫描并连接指定 UUID 的 BLE 外设
+  //   2. _onPacket() 中解析真实设备的字节数据为 BlePacket 对象
+  //   3. 需在 AndroidManifest.xml / Info.plist 添加蓝牙权限声明
   final _ble = MockBleService();
   StreamSubscription<BlePacket>? _bleSub;
   BlePacket? _latestPacket;
@@ -42,6 +83,8 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   void connectDevice() {
+    // 启动 BLE 数据流，订阅 stream → 每个数据包触发 _onPacket
+    // 构造函数中自动调用，模拟设备上线
     _ble.start();
     _deviceConnected = true;
     _bleSub = _ble.stream.listen(_onPacket);
@@ -49,12 +92,15 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   void disconnectDevice() {
+    // 停止 BLE 数据流，取消订阅，UI 显示设备离线状态
     _ble.stop();
     _bleSub?.cancel();
     _deviceConnected = false;
     notifyListeners();
   }
 
+  // 每收到一个 BLE 数据包就调用一次（约每秒一次）
+  // 负责：更新电量、保存历史包、检查预警、更新喂食会话
   void _onPacket(BlePacket packet) {
     _latestPacket = packet;
     _battery = packet.battery;
@@ -78,11 +124,16 @@ class PetHealthProvider extends ChangeNotifier {
       List.unmodifiable(_sessionHistory);
   int get sessionElapsedSeconds => _sessionElapsedSeconds;
 
-  /// Owner taps the "Fed ZenBelly" button
+  // 用户点击「已喂食」按钮时调用
+  // 业务逻辑：记录喂食前的压力值，开始计时，每秒更新 UI，
+  //           检测到连续平静状态后自动结束（Time-to-Calm 指标核心逻辑）
+  // [TODO: API 需求] 喂食事件应实时同步到后端：
+  //   POST /api/feeding-sessions { petId, feedTime, stressCountBefore }
+  //   会话结束后 PATCH /api/feeding-sessions/{id} { timeToCalm, stressCountAfter }
   void startFeedingSession() {
-    if (_activeSession != null) return;
+    if (_activeSession != null) return; // 防止重复开始
 
-    // Record stress count right before feeding
+    // 记录喂食前的压力计数，用于事后对比改善效果
     final preStress = _latestPacket?.strC ?? 0;
 
     _activeSession = FeedingSession(
@@ -98,12 +149,13 @@ class PetHealthProvider extends ChangeNotifier {
       _sessionElapsedSeconds++;
       notifyListeners();
 
-      // Auto-complete if pet has been calm for 5 minutes
+      // 自动完成：宠物持续平静 且 已喂食超过 2 分钟 → 记录 Time-to-Calm
+      // _isCalmState() 判断条件：无压力事件 + 徘徊次数低 + 无颤抖
       if (_activeSession != null && _isCalmState() && _sessionElapsedSeconds > 120) {
         _completeFeedingSession();
       }
 
-      // Auto-timeout after 90 minutes
+      // 安全超时：90 分钟后强制结束，防止用户忘记停止导致计时无限增长
       if (_sessionElapsedSeconds >= 5400) {
         _completeFeedingSession();
       }
@@ -162,7 +214,12 @@ class PetHealthProvider extends ChangeNotifier {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  // ── Alerts ────────────────────────────────────────────────────────────────
+  // ── 全局预警系统 ────────────────────────────────────────────────────────────
+  // 当 BLE 数据超过阈值时，设置 _hasAlert=true，MainNavScreen 顶部显示 AlertBanner。
+  // 预警类型：
+  //   'shiver'   → 宠物连续颤抖超过 30 秒（可能痛苦/寒冷/恐惧）
+  //   'activity' → 白天活动量过低（可能生病）
+  // 用户点击关闭按钮 → dismissAlert() 清除，直到下次 BLE 数据再次触发
   bool _hasAlert = false;
   String _alertMessage = '';
   String _alertType = ''; // 'shiver' | 'activity'
@@ -177,6 +234,8 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   void _checkAlerts(BlePacket packet) {
+    // 颤抖预警：持续颤抖超过 30 秒触发
+    // [TODO: 异常处理] 当前每个数据包都可能重复触发，建议加入冷却时间（如 5 分钟内只触发一次）
     if (packet.shivD > 30) {
       _hasAlert = true;
       _alertType = 'shiver';
@@ -184,6 +243,8 @@ class PetHealthProvider extends ChangeNotifier {
           '⚠️ ${_pet.name} has been shivering for over ${packet.shivD}s. Check for pain, cold, or fear.';
       notifyListeners();
     }
+    // 活动量预警：仅在白天（10:00-20:00）检查，避免夜间睡眠误报
+    // [TODO: 异常处理] activityScore < 10 的阈值是经验值，应根据宠物品种/年龄动态调整
     if (packet.activityScore < 10 && DateTime.now().hour >= 10 &&
         DateTime.now().hour < 20) {
       _hasAlert = true;
@@ -215,12 +276,18 @@ class PetHealthProvider extends ChangeNotifier {
     return '${s ~/ 60}m ${s % 60}s';
   }
 
-  // ── Journal ───────────────────────────────────────────────────────────────
+  // ── 健康日志（主人手动记录）────────────────────────────────────────────────
+  // 用户在 Dashboard 的「快速记录」卡片填写后调用 addJournalEntry。
+  // 日志数据存内存，App 重启丢失。
+  // [TODO: API 需求] 持久化到后端：POST /api/health-logs
+  //   body: { petId, date, stoolEmoji, moodEmoji, appetiteEmoji, energyEmoji, notes, negativeFlags }
+  // [TODO: API 需求] 初始化时从后端加载历史：GET /api/health-logs?petId={id}&days=30
   final List<JournalEntry> _journalEntries = [];
   List<JournalEntry> get journalEntries =>
       List.unmodifiable(_journalEntries);
 
   void addJournalEntry(JournalEntry entry) {
+    // 最新记录插入列表头部，UI 显示时自然按时间倒序
     _journalEntries.insert(0, entry);
     notifyListeners();
   }
@@ -306,15 +373,19 @@ class PetHealthProvider extends ChangeNotifier {
   double get todayCalmTrend => -18.5; // % change vs yesterday
 
   // ── Initialization ────────────────────────────────────────────────────────
+  // ── 构造函数：初始化 Demo 数据并自动连接模拟 BLE 设备 ─────────────────────
+  // 生产版本中，应将 _seedHistoricalSessions() 替换为从后端加载真实数据，
+  // connectDevice() 替换为请求蓝牙权限后再连接。
   PetHealthProvider() {
-    _stressChartData = generateDailyStressChart();
-    _seedHistoricalSessions();
-    // Auto-start BLE mock
-    connectDevice();
+    _stressChartData = generateDailyStressChart(); // 生成 14 天模拟压力曲线
+    _seedHistoricalSessions();                      // 注入历史喂食和日志 Demo 数据
+    connectDevice();                                // 自动启动 BLE 模拟数据流
   }
 
+  // 注入 Demo 历史数据（喂食记录 + 健康日志），让首次打开 App 时图表有数据展示
+  // [TODO] 生产版本中删除此方法，改为从后端接口加载真实历史数据
   void _seedHistoricalSessions() {
-    // Pre-populate 3 historical feeding sessions for demo purposes
+    // 3 条历史喂食记录，用于 Time-to-Calm 图表和喂食历史页面展示
     final now = DateTime.now();
     _sessionHistory.addAll([
       FeedingSession(

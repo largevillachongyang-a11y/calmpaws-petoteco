@@ -1,3 +1,15 @@
+// =============================================================================
+// feeding_timer_card.dart — 喂食计时卡片（首页核心 CTA）
+// =============================================================================
+// 业务逻辑：
+//   状态1：未喂食 → 显示「已喂食 ZenBelly」按钮，用户点击开始计时
+//   状态2：计时中 → 显示已经过去的时间 + 当前行为状态 + 取消按钮
+//   状态3：已完成 → 显示本次 Time-to-Calm 和上次比较
+//
+// Time-to-Calm 是产品的核心指标，证明 ZenBelly 工作有效。
+// 它由 PetHealthProvider.startFeedingSession() 开始，
+// BLE 数据检测到宠物持续平静后自动结束。
+// =============================================================================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';

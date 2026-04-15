@@ -1,3 +1,21 @@
+// =============================================================================
+// main_nav_screen.dart — 主导航框架
+// =============================================================================
+// 职责：
+//   1. 底部 Tab 栏导航（健康/宠物/商城/我的）
+//   2. 全局预警横幅（AlertBanner）悬浮在所有页面顶部
+//   3. 通过 IndexedStack 保持各 Tab 页面状态（切换 Tab 不会重建页面）
+//
+// 导航设计原则：
+//   • IndexedStack 保留所有页面实例，切换无延迟，但内存占用稍高
+//   • 如内存紧张可改为按需构建（pageIndex == _currentIndex 时才渲染）
+//   • _currentIndex 仅本地状态，不需要 Provider
+//
+// 退出登录流程：
+//   用户在 ProfileScreen 点击退出 → AuthService.signOut() → Firebase 清除状态
+//   → _AuthGate 的 StreamBuilder 收到 authStateChanges(null) → 重建显示 AuthScreen
+//   整个流程无需手动 Navigator.pop，由 StreamBuilder 自动完成。
+// =============================================================================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/pet_health_provider.dart';

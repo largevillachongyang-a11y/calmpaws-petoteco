@@ -1,3 +1,16 @@
+// =============================================================================
+// shop_screen.dart — 商城页面（Tab 3）
+// =============================================================================
+// 当前为 Demo 展示页面，展示 ZenBelly 宠物食品产品信息。
+// 所有商品数据均为硬编码 Demo 数据，无实际购买功能。
+//
+// [TODO: API 需求] 接入真实商城时替换为：
+//   GET /api/products?category=pet-food  返回商品列表
+//   POST /api/orders  创建订单
+//   GET /api/orders/{userId}  获取订单历史
+//
+// [TODO] 如需接入支付，需集成 Stripe/微信支付/Apple Pay 等第三方 SDK
+// =============================================================================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/locale_provider.dart';

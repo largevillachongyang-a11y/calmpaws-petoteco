@@ -1,3 +1,15 @@
+// =============================================================================
+// stress_chart_card.dart — 14天压力趋势折线图
+// =============================================================================
+// 展示过去14天的每日压力分 + 喂食日标注，直观呈现 ZenBelly 的长期效果。
+//
+// 数据来源：PetHealthProvider.stressChartData（List<DailyStressDataPoint>）
+//   当前为 generateDailyStressChart() 生成的模拟数据。
+//
+// [TODO: API 需求] 真实后端接入时替换为：
+//   GET /api/health-stats/{petId}?days=14
+//   返回: [{ date, stressScore, hasFeeding, timeToCalmSecs }]
+// =============================================================================
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
