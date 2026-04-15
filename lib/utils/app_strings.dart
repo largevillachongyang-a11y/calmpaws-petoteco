@@ -388,6 +388,36 @@ class AppStrings {
   String get orderShipped   => _t('Shipped', '已发货');
   String get orderPending   => _t('Processing', '处理中');
 
+  // ── Auth / Login ──────────────────────────────────────────────────────────
+  String get authLoginTitle      => _t('Welcome Back', '欢迎回来');
+  String get authLoginSubtitle   => _t('Sign in to monitor your pet\'s health', '登录以监测宠物健康状态');
+  String get authRegisterTitle   => _t('Create Account', '创建账号');
+  String get authRegisterSubtitle=> _t('Join Petoteco to start monitoring', '注册 Petoteco，开始健康监测');
+  String get authForgotTitle     => _t('Reset Password', '重置密码');
+  String get authForgotSubtitle  => _t('Enter your email and we\'ll send a reset link', '输入邮箱，我们将发送重置链接');
+  String get authEmail           => _t('Email', '邮箱');
+  String get authPassword        => _t('Password', '密码');
+  String get authConfirmPassword => _t('Confirm Password', '确认密码');
+  String get authName            => _t('Your Name', '您的昵称');
+  String get authLoginBtn        => _t('Sign In', '登录');
+  String get authRegisterBtn     => _t('Create Account', '注册');
+  String get authSendReset       => _t('Send Reset Email', '发送重置邮件');
+  String get authGoogleBtn       => _t('Continue with Google', '使用 Google 账号登录');
+  String get authOr              => _t('or', '或');
+  String get authForgotLink      => _t('Forgot password?', '忘记密码？');
+  String get authNoAccount       => _t('Don\'t have an account?', '还没有账号？');
+  String get authHasAccount      => _t('Already have an account?', '已有账号？');
+  String get authRegisterLink    => _t('Sign up', '立即注册');
+  String get authLoginLink       => _t('Sign in', '去登录');
+  String get authBackToLogin     => _t('← Back to Sign In', '← 返回登录');
+  // 验证错误
+  String get authEmailRequired   => _t('Please enter your email', '请输入邮箱');
+  String get authEmailInvalid    => _t('Please enter a valid email', '请输入有效的邮箱地址');
+  String get authPasswordRequired=> _t('Please enter your password', '请输入密码');
+  String get authPasswordTooShort=> _t('Password must be at least 6 characters', '密码不能少于6位');
+  String get authPasswordMismatch=> _t('Passwords do not match', '两次密码不一致');
+  String get authNameRequired    => _t('Please enter your name', '请输入昵称');
+
   /// 格式化日期：zh → "7月14日"，en → "Jul 14, 2025"
   String formatDate(DateTime d) {
     if (locale == 'zh') {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "847480478175",
+    "project_id": "petoteco-5e807",
+    "storage_bucket": "petoteco-5e807.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:847480478175:android:1b0dd7256c0ec74e45cc6a",
+        "android_client_info": {
+          "package_name": "com.petoteco.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxR9wEoAD3h9slHvc7Hb90VSEOBvd-5so"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

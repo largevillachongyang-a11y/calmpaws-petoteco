@@ -788,7 +788,8 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.sageGreen,
+
+                    overlayColor: Colors.transparent,                    backgroundColor: AppColors.sageGreen,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

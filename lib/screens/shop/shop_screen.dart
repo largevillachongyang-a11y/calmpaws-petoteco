@@ -409,7 +409,7 @@ void _showStoreDialog(BuildContext context, dynamic s) {
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(ctx),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+          style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
           child: Text(s.shopOpenBtn, style: const TextStyle(color: Colors.white)),
         ),
       ],

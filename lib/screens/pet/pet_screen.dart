@@ -268,7 +268,8 @@ class PetScreen extends StatelessWidget {
               ),
               label: Text(connected ? s.petDisconnect : s.petConnectBtn),
               style: OutlinedButton.styleFrom(
-                foregroundColor: connected ? AppColors.alertRed : AppColors.sageGreen,
+
+                overlayColor: Colors.transparent,                foregroundColor: connected ? AppColors.alertRed : AppColors.sageGreen,
                 side: BorderSide(color: connected ? AppColors.alertRed : AppColors.sageGreen),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -500,7 +501,7 @@ class _JournalRow extends StatelessWidget {
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
             child: Text(ls.close, style: const TextStyle(color: Colors.white)),
           ),
         ],
@@ -638,7 +639,8 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.sageGreen,
+
+                    overlayColor: Colors.transparent,                    backgroundColor: AppColors.sageGreen,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

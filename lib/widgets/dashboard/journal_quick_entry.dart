@@ -119,7 +119,8 @@ class _QuickLogRow extends StatelessWidget {
             icon: const Icon(Icons.edit_note_rounded, size: 18),
             label: Text(s.journalFullEntry),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.warmOrange,
+
+              overlayColor: Colors.transparent,              foregroundColor: AppColors.warmOrange,
               side: const BorderSide(color: AppColors.warmOrangeLight),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -274,7 +275,8 @@ class _FullJournalDialogState extends State<_FullJournalDialog> {
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.sageGreen,
+
+                    overlayColor: Colors.transparent,                    backgroundColor: AppColors.sageGreen,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

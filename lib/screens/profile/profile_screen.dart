@@ -473,7 +473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: const Icon(Icons.pause_circle_outline_rounded, size: 18),
                 label: Text(s.subPause),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.warmOrange,
+
+                  overlayColor: Colors.transparent,                  foregroundColor: AppColors.warmOrange,
                   side: const BorderSide(color: AppColors.warmOrangeLight),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -548,7 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
             child: Text(s.supportChat, style: const TextStyle(color: Colors.white)),
           ),
         ],
@@ -579,7 +580,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
             child: Text(s.guideGotIt, style: const TextStyle(color: Colors.white)),
           ),
         ],
@@ -658,7 +659,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // 打开商城弹窗 — 实际 App 中将跳转 WebView
               _showStoreDialogFromProfile(context, s);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
             child: Text(s.shopOpenBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
@@ -680,7 +681,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+            style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
             child: Text(s.shopOpenBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
@@ -704,7 +705,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               actions: [
                 ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+                  style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
                   child: Text(ls.ok, style: const TextStyle(color: Colors.white)),
                 ),
               ],
@@ -730,7 +731,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               actions: [
                 ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.sageGreen),
+                  style: ElevatedButton.styleFrom(overlayColor: Colors.transparent, backgroundColor: AppColors.sageGreen),
                   child: Text(ls.ok, style: const TextStyle(color: Colors.white)),
                 ),
               ],
