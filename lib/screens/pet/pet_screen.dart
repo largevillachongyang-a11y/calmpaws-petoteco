@@ -566,18 +566,43 @@ class _EditPetDialog extends StatefulWidget {
 
 class _EditPetDialogState extends State<_EditPetDialog> {
   late TextEditingController _nameCtrl;
+  late TextEditingController _breedCtrl;
+  late TextEditingController _ageCtrl;
+  late TextEditingController _weightCtrl;
+  late String _species; // 'dog' 或 'cat'
   late List<String> _selectedTags;
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.pet.name);
+    _breedCtrl = TextEditingController(text: widget.pet.breed);
+    _ageCtrl = TextEditingController(text: widget.pet.ageMonths.toString());
+    _weightCtrl = TextEditingController(text: widget.pet.weightKg.toString());
+    _species = widget.pet.species;
     _selectedTags = List.from(widget.pet.healthTags);
   }
 
   @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _breedCtrl.dispose();
+    _ageCtrl.dispose();
+    _weightCtrl.dispose();
+    super.dispose();
+  }
+
+  // 统一的输入框样式
+  InputDecoration _inputDecoration(String label) => InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: AppColors.cream,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      );
+
+  @override
   Widget build(BuildContext context) {
-    // 实时监听语言切换（弹窗内也能切换）
     final locS = context.watch<LocaleProvider>().strings;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -590,16 +615,66 @@ class _EditPetDialogState extends State<_EditPetDialog> {
             children: [
               Text(locS.petEditTitle, style: AppTextStyles.headlineMedium),
               const SizedBox(height: 20),
+
+              // ── 宠物名称 ──
               TextField(
                 controller: _nameCtrl,
-                decoration: InputDecoration(
-                  labelText: locS.petNameLabel,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: AppColors.cream,
-                ),
+                decoration: _inputDecoration(locS.petNameLabel),
+              ),
+              const SizedBox(height: 12),
+
+              // ── 宠物类型（狗狗 / 猫咪）──
+              Text(locS.petSpeciesLabel, style: AppTextStyles.labelLarge),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _SpeciesChip(
+                    label: locS.petSpeciesDog,
+                    emoji: '🐶',
+                    selected: _species == 'dog',
+                    onTap: () => setState(() => _species = 'dog'),
+                  ),
+                  const SizedBox(width: 10),
+                  _SpeciesChip(
+                    label: locS.petSpeciesCat,
+                    emoji: '🐱',
+                    selected: _species == 'cat',
+                    onTap: () => setState(() => _species = 'cat'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // ── 品种 ──
+              TextField(
+                controller: _breedCtrl,
+                decoration: _inputDecoration(locS.petBreedLabel),
+              ),
+              const SizedBox(height: 12),
+
+              // ── 年龄 + 体重（同排）──
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ageCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: _inputDecoration(locS.petAgeLabel),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _weightCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: _inputDecoration(locS.petWeightLabel),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
+
+              // ── 健康标签 ──
               Text(locS.petHealthTags, style: AppTextStyles.labelLarge),
               const SizedBox(height: 10),
               Wrap(
@@ -631,20 +706,30 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
+
+              // ── 保存按钮 ──
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // updatePet 现在是 async（保存到 SharedPreferences），
-                    // 但不需要 await，因为 UI 更新已经在 updatePet 内同步完成
+                    // 解析年龄和体重，无效输入保留原值
+                    final age = int.tryParse(_ageCtrl.text.trim()) ?? widget.pet.ageMonths;
+                    final weight = double.tryParse(_weightCtrl.text.trim()) ?? widget.pet.weightKg;
                     widget.provider.updatePet(
-                      widget.pet.copyWith(name: _nameCtrl.text, healthTags: _selectedTags),
+                      widget.pet.copyWith(
+                        name: _nameCtrl.text.trim(),
+                        species: _species,
+                        breed: _breedCtrl.text.trim(),
+                        ageMonths: age,
+                        weightKg: weight,
+                        healthTags: _selectedTags,
+                      ),
                     );
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-
-                    overlayColor: Colors.transparent,                    backgroundColor: AppColors.sageGreen,
+                    overlayColor: Colors.transparent,
+                    backgroundColor: AppColors.sageGreen,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -653,6 +738,54 @@ class _EditPetDialogState extends State<_EditPetDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// 物种选择 chip（狗狗 / 猫咪）
+class _SpeciesChip extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SpeciesChip({
+    required this.label,
+    required this.emoji,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.sageMuted : AppColors.cream,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.sageGreen : AppColors.divider,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: selected ? AppColors.sageGreen : AppColors.textSecondary,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
         ),
       ),
     );

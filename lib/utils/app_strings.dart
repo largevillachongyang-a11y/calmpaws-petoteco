@@ -173,6 +173,12 @@ class AppStrings {
   String get petNoJournal => _t('No journal entries yet.', '暂无日记记录。');
   String get petEditTitle => _t('Edit Pet Profile', '编辑宠物档案');
   String get petNameLabel => _t('Pet Name', '宠物名称');
+  String get petBreedLabel => _t('Breed', '品种');
+  String get petAgeLabel => _t('Age (months)', '年龄（月）');
+  String get petWeightLabel => _t('Weight (kg)', '体重（kg）');
+  String get petSpeciesLabel => _t('Species', '宠物类型');
+  String get petSpeciesDog => _t('Dog', '狗狗');
+  String get petSpeciesCat => _t('Cat', '猫咪');
   String get petSave => _t('Save Changes', '保存修改');
 
   // ── Shop ──────────────────────────────────────────────────────────────────
