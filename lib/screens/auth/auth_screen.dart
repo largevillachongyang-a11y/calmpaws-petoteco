@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../providers/locale_provider.dart';
+import '../../screens/main_nav_screen.dart';
 import '../../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AuthScreen — 登录/注册/忘记密码 三合一页面
+// AuthScreen — 登录 / 注册 / 忘记密码 三合一页面
+// firebaseAvailable: false 时为 Web 预览模式，按钮只做 UI 展示
 // ─────────────────────────────────────────────────────────────────────────────
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  final bool firebaseAvailable;
+  const AuthScreen({super.key, this.firebaseAvailable = true});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -21,7 +24,6 @@ class _AuthScreenState extends State<AuthScreen>
   final _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
 
-  // 表单控制器
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
@@ -68,9 +70,18 @@ class _AuthScreenState extends State<AuthScreen>
     _animController.forward();
   }
 
-  // ── 提交表单 ──────────────────────────────────────────────────────────────
+  // ── 提交（Firebase 不可用时直接跳主页做 UI 预览）────────────────────────────
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // Web 预览模式：直接跳主页，不调用 Firebase
+    if (!widget.firebaseAvailable) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavScreen()),
+      );
+      return;
+    }
+
     setState(() {
       _loading = true;
       _errorMsg = null;
@@ -85,6 +96,12 @@ class _AuthScreenState extends State<AuthScreen>
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
         );
+        if (result.isSuccess && mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainNavScreen()),
+          );
+          return;
+        }
         break;
       case _AuthMode.register:
         result = await _authService.signUpWithEmail(
@@ -115,24 +132,33 @@ class _AuthScreenState extends State<AuthScreen>
 
     setState(() {
       _loading = false;
-      if (!result.isSuccess) {
-        _errorMsg = result.errorMessage;
-      }
+      if (!result.isSuccess) _errorMsg = result.errorMessage;
     });
   }
 
   // ── Google登录 ────────────────────────────────────────────────────────────
   Future<void> _googleSignIn() async {
+    // Web 预览模式
+    if (!widget.firebaseAvailable) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavScreen()),
+      );
+      return;
+    }
     setState(() {
       _loading = true;
       _errorMsg = null;
     });
     final result = await _authService.signInWithGoogle();
+    if (result.isSuccess && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavScreen()),
+      );
+      return;
+    }
     setState(() {
       _loading = false;
-      if (!result.isSuccess) {
-        _errorMsg = result.errorMessage;
-      }
+      if (!result.isSuccess) _errorMsg = result.errorMessage;
     });
   }
 
@@ -154,9 +180,39 @@ class _AuthScreenState extends State<AuthScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // ── Logo区域 ───────────────────────────────────────────────
+                  // ── Logo ──────────────────────────────────────────────────
                   _buildLogo(),
                   const SizedBox(height: 32),
+
+                  // Web预览提示条
+                  if (!widget.firebaseAvailable)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.warningAmberMuted,
+                        borderRadius: BorderRadius.circular(10),
+                        border:
+                            Border.all(color: AppColors.warningAmber, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              color: AppColors.warningAmber, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Web 预览模式 · 点击任意按钮可直接进入主页',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.warningAmber,
+                                  fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   // ── 标题 ──────────────────────────────────────────────────
                   Text(
@@ -184,33 +240,30 @@ class _AuthScreenState extends State<AuthScreen>
                     key: _formKey,
                     child: Column(
                       children: [
-                        // 昵称（仅注册时显示）
                         if (isRegister) ...[
                           _buildTextField(
                             controller: _nameCtrl,
                             label: s.authName,
                             icon: Icons.person_outline_rounded,
-                            validator: (v) =>
-                                (v == null || v.trim().isEmpty) ? s.authNameRequired : null,
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? s.authNameRequired
+                                : null,
                           ),
                           const SizedBox(height: 14),
                         ],
-
-                        // 邮箱
                         _buildTextField(
                           controller: _emailCtrl,
                           label: s.authEmail,
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty) return s.authEmailRequired;
+                            if (v == null || v.trim().isEmpty)
+                              return s.authEmailRequired;
                             if (!v.contains('@')) return s.authEmailInvalid;
                             return null;
                           },
                         ),
                         const SizedBox(height: 14),
-
-                        // 密码（忘记密码时不显示）
                         if (!isForgot) ...[
                           _buildTextField(
                             controller: _passwordCtrl,
@@ -220,15 +273,15 @@ class _AuthScreenState extends State<AuthScreen>
                             toggleObscure: () => setState(
                                 () => _obscurePassword = !_obscurePassword),
                             validator: (v) {
-                              if (v == null || v.isEmpty) return s.authPasswordRequired;
-                              if (isRegister && v.length < 6) return s.authPasswordTooShort;
+                              if (v == null || v.isEmpty)
+                                return s.authPasswordRequired;
+                              if (isRegister && v.length < 6)
+                                return s.authPasswordTooShort;
                               return null;
                             },
                           ),
                           const SizedBox(height: 14),
                         ],
-
-                        // 确认密码（仅注册时）
                         if (isRegister) ...[
                           _buildTextField(
                             controller: _confirmPasswordCtrl,
@@ -238,7 +291,8 @@ class _AuthScreenState extends State<AuthScreen>
                             toggleObscure: () => setState(
                                 () => _obscureConfirm = !_obscureConfirm),
                             validator: (v) {
-                              if (v != _passwordCtrl.text) return s.authPasswordMismatch;
+                              if (v != _passwordCtrl.text)
+                                return s.authPasswordMismatch;
                               return null;
                             },
                           ),
@@ -248,7 +302,6 @@ class _AuthScreenState extends State<AuthScreen>
                     ),
                   ),
 
-                  // 忘记密码链接（仅登录时显示）
                   if (isLogin)
                     Align(
                       alignment: Alignment.centerRight,
@@ -266,9 +319,10 @@ class _AuthScreenState extends State<AuthScreen>
 
                   const SizedBox(height: 20),
 
-                  // 错误提示
-                  if (_errorMsg != null) _buildMessage(_errorMsg!, isError: true),
-                  if (_successMsg != null) _buildMessage(_successMsg!, isError: false),
+                  if (_errorMsg != null)
+                    _buildMessage(_errorMsg!, isError: true),
+                  if (_successMsg != null)
+                    _buildMessage(_successMsg!, isError: false),
 
                   const SizedBox(height: 8),
 
@@ -278,8 +332,8 @@ class _AuthScreenState extends State<AuthScreen>
                     child: ElevatedButton(
                       onPressed: _loading ? null : _submit,
                       style: ElevatedButton.styleFrom(
-
-                        overlayColor: Colors.transparent,                        backgroundColor: AppColors.sageGreen,
+                        overlayColor: Colors.transparent,
+                        backgroundColor: AppColors.sageGreen,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
@@ -306,7 +360,6 @@ class _AuthScreenState extends State<AuthScreen>
                     ),
                   ),
 
-                  // Google登录（仅登录和注册页显示）
                   if (!isForgot) ...[
                     const SizedBox(height: 14),
                     _buildDivider(s.authOr),
@@ -316,7 +369,6 @@ class _AuthScreenState extends State<AuthScreen>
 
                   const SizedBox(height: 24),
 
-                  // ── 切换登录/注册 ─────────────────────────────────────────
                   if (!isForgot)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -340,7 +392,6 @@ class _AuthScreenState extends State<AuthScreen>
                       ],
                     ),
 
-                  // 返回登录（忘记密码页）
                   if (isForgot)
                     GestureDetector(
                       onTap: () => _switchMode(_AuthMode.login),
@@ -361,7 +412,6 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Logo ──────────────────────────────────────────────────────────────────
   Widget _buildLogo() {
     return Column(
       children: [
@@ -401,7 +451,6 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── 输入框 ────────────────────────────────────────────────────────────────
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -425,7 +474,9 @@ class _AuthScreenState extends State<AuthScreen>
             ? GestureDetector(
                 onTap: toggleObscure,
                 child: Icon(
-                  obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  obscure
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   color: AppColors.textMuted,
                   size: 20,
                 ),
@@ -433,7 +484,8 @@ class _AuthScreenState extends State<AuthScreen>
             : null,
         filled: true,
         fillColor: AppColors.cardBackground,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.divider),
@@ -444,7 +496,8 @@ class _AuthScreenState extends State<AuthScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.sageGreen, width: 1.5),
+          borderSide:
+              const BorderSide(color: AppColors.sageGreen, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -452,13 +505,13 @@ class _AuthScreenState extends State<AuthScreen>
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.alertRed, width: 1.5),
+          borderSide:
+              const BorderSide(color: AppColors.alertRed, width: 1.5),
         ),
       ),
     );
   }
 
-  // ── 分割线 ────────────────────────────────────────────────────────────────
   Widget _buildDivider(String text) {
     return Row(
       children: [
@@ -472,7 +525,6 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Google按钮 ────────────────────────────────────────────────────────────
   Widget _buildGoogleButton(dynamic s) {
     return SizedBox(
       width: double.infinity,
@@ -494,22 +546,16 @@ class _AuthScreenState extends State<AuthScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Google G 图标
-              Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(shape: BoxShape.circle),
-                child: const Text('G',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF4285F4))),
-              ),
+              const Text('G',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF4285F4))),
               const SizedBox(width: 10),
               Text(
                 s.authGoogleBtn,
-                style: AppTextStyles.bodyMedium
-                    .copyWith(fontWeight: FontWeight.w600),
+                style:
+                    AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -518,7 +564,6 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── 消息提示 ──────────────────────────────────────────────────────────────
   Widget _buildMessage(String message, {required bool isError}) {
     return Container(
       width: double.infinity,
@@ -535,7 +580,9 @@ class _AuthScreenState extends State<AuthScreen>
       child: Row(
         children: [
           Icon(
-            isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+            isError
+                ? Icons.error_outline_rounded
+                : Icons.check_circle_outline_rounded,
             color: isError ? AppColors.alertRed : AppColors.successGreen,
             size: 18,
           ),

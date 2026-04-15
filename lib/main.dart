@@ -10,20 +10,19 @@ import 'screens/main_nav_screen.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
 
-// Firebase是否成功初始化（Web预览时可能因appId未配置而失败）
+// Firebase 初始化状态（Web 预览时可能失败）
 bool _firebaseReady = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化 Firebase（出错时降级为本地模式）
+  // 初始化 Firebase — 失败时降级，不崩溃
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     _firebaseReady = true;
-  } catch (e) {
-    // Web预览时Firebase可能未配置Web应用，降级运行
+  } catch (_) {
     _firebaseReady = false;
   }
 
@@ -70,9 +69,7 @@ class PetotecoApp extends StatelessWidget {
                 ),
               );
             },
-    // ── 根据登录状态决定显示哪个页面 ──────────────────────────────────
-            // 🔧 临时：强制显示登录页预览（确认UI后改回 _AuthGate）
-            home: const AuthScreen(),
+            home: const _AuthGate(),
           );
         },
       ),
@@ -81,30 +78,28 @@ class PetotecoApp extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AuthGate — 监听 Firebase Auth 状态，自动切换登录页/主页
+// AuthGate — 根据 Firebase 状态决定显示登录页还是主页
 // ─────────────────────────────────────────────────────────────────────────────
 class _AuthGate extends StatelessWidget {
   const _AuthGate();
 
   @override
   Widget build(BuildContext context) {
-    // Firebase未初始化（Web预览模式）→ 直接进主页
+    // Firebase 未初始化（Web 预览）→ 显示登录页（不调用 FirebaseAuth）
     if (!_firebaseReady) {
-      return const MainNavScreen();
+      return const AuthScreen(firebaseAvailable: false);
     }
+    // Firebase 已初始化 → 监听登录状态
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // 等待连接
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SplashScreen();
         }
-        // 已登录 → 进主页
         if (snapshot.hasData && snapshot.data != null) {
           return const MainNavScreen();
         }
-        // 未登录 → 进登录页
-        return const AuthScreen();
+        return const AuthScreen(firebaseAvailable: true);
       },
     );
   }
