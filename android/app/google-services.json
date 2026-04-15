@@ -12,7 +12,20 @@
           "package_name": "com.petoteco.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "847480478175-ganmcnciktgte1c8jte2eacofd0d72cu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petoteco.app",
+            "certificate_hash": "564a58904e026b83c6157b3b92e0948e3e339697"
+          }
+        },
+        {
+          "client_id": "847480478175-skoeftrpj7gk6g7mspnabu303hr2908b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAxR9wEoAD3h9slHvc7Hb90VSEOBvd-5so"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "847480478175-skoeftrpj7gk6g7mspnabu303hr2908b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "847480478175-he2jcrudg3ag94rp6sftct17mavjon1e.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.petoteco.app"
+              }
+            }
+          ]
         }
       }
     }
