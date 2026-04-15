@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../providers/locale_provider.dart';
@@ -158,10 +157,22 @@ class _AuthScreenState extends State<AuthScreen>
     }
     final isZh = context.read<LocaleProvider>().strings.locale == 'zh';
     setState(() { _loading = true; _errorMsg = null; });
-    // Redirect 模式：调用后页面跳走，下面代码不再执行
-    // 回来后由 _AuthGate.getRedirectResult() 处理
-    await _authService.signInWithGoogle(isZh: isZh);
-    if (mounted) setState(() => _loading = false);
+    // Popup 模式：等待弹窗结果后继续
+    // COOP 警告 "window.closed would be blocked" 是正常现象，不影响登录
+    // 登录成功后 _AuthGate 的 StreamBuilder 会自动跳转到主页
+    final result = await _authService.signInWithGoogle(isZh: isZh);
+    if (!mounted) return;
+    if (!result.isSuccess && result.errorMessage != null) {
+      // 只在真正失败时显示错误（取消登录不算错误）
+      final msg = result.errorMessage!;
+      if (!msg.contains('取消') && !msg.contains('cancelled')) {
+        setState(() { _loading = false; _errorMsg = msg; });
+      } else {
+        setState(() => _loading = false);
+      }
+    } else {
+      setState(() => _loading = false);
+    }
   }
 
   @override
@@ -574,33 +585,9 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildGoogleButton(dynamic s) {
-    // Web 预览环境：Google Redirect 登录在沙盒里受网络限制无法完成
-    // 正式 App（Android/iOS）原生 Google 登录完全正常
-    if (kIsWeb && widget.firebaseAvailable) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: AppColors.sageMuted,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.divider),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              s.locale == 'zh'
-                  ? 'Google 登录仅限移动端 App'
-                  : 'Google login available in mobile app',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
-            ),
-          ],
-        ),
-      );
-    }
-    // 移动端 or Web 预览模式（firebaseAvailable=false）：正常显示按钮
+    // 所有平台统一显示 Google 登录按钮
+    // Web 端使用 Popup 弹窗（需在 Firebase Console → Authorized Domains 添加域名）
+    // 移动端使用原生 Google Sign-In
     return SizedBox(
       width: double.infinity,
       child: GestureDetector(

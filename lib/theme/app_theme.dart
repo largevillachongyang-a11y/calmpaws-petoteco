@@ -149,16 +149,25 @@ class AppTheme {
       scrim: Colors.black,
     ).copyWith(
       // Material3 fromSeed 可能生成蓝色 primaryContainer/secondaryContainer
-      // 强制覆盖为绿色调
+      // 强制覆盖为绿色调，彻底消灭一切蓝色来源
       primaryContainer: AppColors.sageMuted,
       secondaryContainer: const Color(0xFFFFF3E8),
       onPrimaryContainer: AppColors.sageGreen,
       onSecondaryContainer: AppColors.warmOrange,
       // surfaceContainerHighest 是 InkWell hover 的来源之一
       surfaceContainerHighest: AppColors.sageMuted,
+      surfaceContainerHigh: AppColors.cream,
+      surfaceContainer: AppColors.cream,
+      surfaceContainerLow: AppColors.cream,
+      surfaceContainerLowest: AppColors.cream,
+      surfaceTint: Colors.transparent, // 消除 Material3 的主题着色层
       onSurface: AppColors.textPrimary,
+      onSurfaceVariant: AppColors.textSecondary,
       outline: AppColors.divider,
       outlineVariant: AppColors.divider,
+      // 确保 scrim/barrier 相关颜色为纯黑色
+      scrim: Colors.black,
+      shadow: Colors.black12,
     );
 
     return ThemeData(
@@ -250,6 +259,18 @@ class AppTheme {
         thickness: 1,
         space: 0,
       ),
+      // ── 所有 Surface 相关 Widget 禁用 Material3 的 surfaceTint 蓝色渲染 ───
+      tooltipTheme: const TooltipThemeData(
+        decoration: BoxDecoration(color: AppColors.textPrimary),
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: AppColors.cardBackground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
       // ── Dialog内按钮也禁用蓝色蒙版 ──────────────────────────────────────────
       // Dialog在Material3里有自己的buttonTheme，会覆盖全局textButtonTheme
       // 必须在此单独声明，否则Dialog里的TextButton鼠标悬停仍显示蓝色
@@ -257,6 +278,20 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: AppColors.cardBackground,
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        // 强制 Dialog 遮罩为纯黑色，避免 Material3 scrim 颜色偏蓝
+        barrierColor: Colors.black54,
+      ),
+      // ── BottomSheet：强制遮罩为纯黑色 ──────────────────────────────────────
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.cream,
+        modalBackgroundColor: AppColors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        // Material3 BottomSheet 使用 colorScheme.scrim 作为遮罩
+        // surfaceTintColor 会给表面添加着色层 - 设为透明
+        surfaceTintColor: Colors.transparent,
+        modalBarrierColor: Colors.black54,
       ),
     );
   }

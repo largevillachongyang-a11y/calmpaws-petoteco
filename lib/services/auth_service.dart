@@ -58,14 +58,25 @@ class AuthService {
   Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
     try {
       if (kIsWeb) {
-        // Web 端：使用 Redirect，避免 COOP/__/auth/handler 两类问题
-        // 调用后页面跳到 Google，选账号后跳回 app
-        // _AuthGate 的 getRedirectResult() 接收结果，authStateChanges 自动路由
+        // Web 端：使用 Popup 弹窗选账号（不做全屏跳转）
+        // COOP 警告 "window.closed call would be blocked" 是正常现象，不影响功能
+        // Firebase 内部会在 postMessage 收到结果后关闭弹窗
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
-        await _auth.signInWithRedirect(provider);
-        return AuthResult.success(null); // 不会到达此行
+        // 捕获所有异常，包括 COOP 引发的 popup_closed_by_user
+        try {
+          final userCredential = await _auth.signInWithPopup(provider);
+          return AuthResult.success(userCredential.user);
+        } catch (popupError) {
+          final errStr = popupError.toString();
+          // 用户主动关闭弹窗
+          if (errStr.contains('popup_closed') || errStr.contains('cancelled')) {
+            return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
+          }
+          // 重新抛出让外层处理
+          rethrow;
+        }
       } else {
         // 移动端：原生 Google Sign-In
         final googleUser = await _googleSignIn.signIn();
@@ -84,12 +95,21 @@ class AuthService {
       if (e.code == 'unauthorized-domain') {
         return AuthResult.failure(
           isZh
-              ? 'Google 登录需要在 Firebase Console 中授权当前域名。'
-              : 'Domain not authorized. Please add this domain in Firebase Console.',
+              ? '当前域名未授权，请在 Firebase Console → Authentication → Settings → Authorized domains 中添加此域名'
+              : 'Domain not authorized. Add this domain in Firebase Console → Authentication → Settings → Authorized domains',
         );
+      }
+      if (e.code == 'popup-closed-by-user' || e.code == 'popup_closed_by_user') {
+        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
       }
       return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
+      final errStr = e.toString();
+      if (errStr.contains('popup_closed') || errStr.contains('cancelled') ||
+          errStr.contains('window.closed')) {
+        // COOP 警告或用户关闭弹窗，不是真正的错误
+        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
+      }
       return AuthResult.failure(isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
     }
   }
@@ -97,7 +117,15 @@ class AuthService {
   // ── 忘记密码 ──────────────────────────────────────────────────────────────
   Future<AuthResult> sendPasswordResetEmail(String email, {bool isZh = false}) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      // 设置 continueUrl，点击邮件链接后跳回 app 登录页
+      // 注意：沙盒域名需要在 Firebase Console → Authentication → Settings → Authorized domains 添加
+      await _auth.sendPasswordResetEmail(
+        email: email.trim(),
+        actionCodeSettings: ActionCodeSettings(
+          url: 'https://petoteco-5e807.firebaseapp.com/__/auth/action',
+          handleCodeInApp: false, // false = 直接在浏览器处理，不跳回 app
+        ),
+      );
       return AuthResult.success(null);
     } on FirebaseAuthException catch (e) {
       return AuthResult.failure(_mapError(e.code, isZh: isZh));

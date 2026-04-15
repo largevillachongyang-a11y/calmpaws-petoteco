@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -75,46 +74,16 @@ class PetotecoApp extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AuthGate — StatefulWidget，处理 Redirect 回调后的状态恢复
+// _AuthGate：根据 Firebase 登录状态决定显示登录页还是主页
+// 使用 Popup 模式，不需要处理 Redirect 回调
 // ─────────────────────────────────────────────────────────────────────────────
-class _AuthGate extends StatefulWidget {
+class _AuthGate extends StatelessWidget {
   const _AuthGate();
-  @override
-  State<_AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<_AuthGate> {
-  // Web Redirect 回调处理中
-  bool _processingRedirect = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_firebaseReady && kIsWeb) {
-      _handleRedirectResult();
-    }
-  }
-
-  Future<void> _handleRedirectResult() async {
-    setState(() => _processingRedirect = true);
-    try {
-      // 消费 Redirect 结果；普通刷新时返回空结果，不抛异常
-      await FirebaseAuth.instance.getRedirectResult();
-      // 成功后 authStateChanges 自动触发，StreamBuilder 自动切换页面
-    } catch (_) {
-      // 普通刷新或网络错误时忽略
-    }
-    if (mounted) setState(() => _processingRedirect = false);
-  }
 
   @override
   Widget build(BuildContext context) {
     if (!_firebaseReady) {
       return const AuthScreen(firebaseAvailable: false);
-    }
-    // Redirect 处理期间显示 splash，避免闪现登录页
-    if (_processingRedirect) {
-      return const _SplashScreen();
     }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
