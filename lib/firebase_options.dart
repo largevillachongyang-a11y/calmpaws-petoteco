@@ -22,15 +22,15 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Web平台配置
-  // TODO: 在 Firebase Console → 项目设置 → 添加应用 → Web，获取真实 appId
+  // Web平台配置（已在 Firebase Console 注册 Web 应用）
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAxR9wEoAD3h9slHvc7Hb90VSEOBvd-5so',
-    appId: '1:847480478175:web:1b0dd7256c0ec74e45cc6a', // 临时使用Android appId
+    apiKey: 'AIzaSyBUEY5rILv3La2iwI-Ot40uCTkZt0Rreto',
+    appId: '1:847480478175:web:5209c62a778cbee445cc6a',
     messagingSenderId: '847480478175',
     projectId: 'petoteco-5e807',
     storageBucket: 'petoteco-5e807.firebasestorage.app',
     authDomain: 'petoteco-5e807.firebaseapp.com',
+    measurementId: 'G-WXC5R3PL5D',
   );
 
   // Android配置
