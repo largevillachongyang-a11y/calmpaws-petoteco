@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html show window;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -58,12 +60,14 @@ class AuthService {
   Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
     try {
       if (kIsWeb) {
-        // Web 端：Popup 方式
+        // Web 端：改用 Redirect 方式，彻底避免 COOP/window.close 错误
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
-        final credential = await _auth.signInWithPopup(provider);
-        return AuthResult.success(credential.user);
+        await _auth.signInWithRedirect(provider);
+        // signInWithRedirect 会跳转页面，下面代码不会执行
+        // 页面回来后 AuthGate 的 authStateChanges 会自动处理
+        return AuthResult.success(null);
       } else {
         // 移动端
         final googleUser = await _googleSignIn.signIn();
@@ -79,24 +83,15 @@ class AuthService {
         return AuthResult.success(userCredential.user);
       }
     } on FirebaseAuthException catch (e) {
-      // unauthorized-domain 特别处理：给用户看得懂的提示
       if (e.code == 'unauthorized-domain') {
         return AuthResult.failure(
           isZh
-              ? 'Google 登录需要在 Firebase Console 中授权当前域名。邮箱登录可正常使用。'
-              : 'This domain is not authorized for Google sign-in. Please use email/password login.',
+              ? 'Google 登录需要在 Firebase Console 中授权当前域名。'
+              : 'This domain is not authorized for Google sign-in.',
         );
       }
       return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
-      final msg = e.toString();
-      if (msg.contains('unauthorized-domain') || msg.contains('auth/unauthorized-domain')) {
-        return AuthResult.failure(
-          isZh
-              ? 'Google 登录需要在 Firebase Console 中授权当前域名。邮箱登录可正常使用。'
-              : 'This domain is not authorized for Google sign-in. Please use email/password login.',
-        );
-      }
       return AuthResult.failure(isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
     }
   }
@@ -119,6 +114,10 @@ class AuthService {
       _auth.signOut(),
       _googleSignIn.signOut(),
     ]);
+    // Web 端：强制刷新页面，确保状态彻底清除
+    if (kIsWeb) {
+      html.window.location.reload();
+    }
   }
 
   // ── 错误码转提示文字（中英双语）────────────────────────────────────────────

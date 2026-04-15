@@ -185,14 +185,49 @@ class _AuthScreenState extends State<AuthScreen>
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+        child: Stack(
+          children: [
+            // ── 右上角语言切换 ──────────────────────────────────────────────
+            Positioned(
+              top: 8,
+              right: 16,
+              child: GestureDetector(
+                onTap: () => context.read<LocaleProvider>().toggle(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBackground,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.watch<LocaleProvider>().languageFlag,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        context.watch<LocaleProvider>().languageLabel,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // ── 主内容区 ────────────────────────────────────────────────────
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                   // ── Logo ──────────────────────────────────────────────────
                   _buildLogo(),
                   const SizedBox(height: 32),
@@ -429,7 +464,9 @@ class _AuthScreenState extends State<AuthScreen>
             ),
           ),
         ),
-      ),
+          ],  // Stack children 结束
+        ),    // Stack 结束
+      ),      // SafeArea 结束
     );
   }
 
