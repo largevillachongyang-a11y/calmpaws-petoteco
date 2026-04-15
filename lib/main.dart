@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,34 +11,17 @@ import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
 
 bool _firebaseReady = false;
-// Web Redirect 登录回来后，用户信息已经被 Firebase 自动恢复
-// 不需要额外处理，authStateChanges 会自动触发
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     _firebaseReady = true;
-
-    // Web Redirect 回调处理：从 Google 跳转回来后，
-    // Firebase 会自动恢复用户状态并触发 authStateChanges
-    // getRedirectResult() 确保 redirect 结果被消费
-    if (kIsWeb) {
-      try {
-        await FirebaseAuth.instance.getRedirectResult();
-        // 成功则 authStateChanges 自动触发 → _AuthGate 自动跳主页
-        // 失败（普通刷新）则忽略
-      } catch (_) {
-        // 普通页面刷新时 getRedirectResult 会抛异常，忽略即可
-      }
-    }
   } catch (_) {
     _firebaseReady = false;
   }
-
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,

@@ -157,19 +157,17 @@ class _AuthScreenState extends State<AuthScreen>
       return;
     }
     final isZh = context.read<LocaleProvider>().strings.locale == 'zh';
-    setState(() {
-      _loading = true;
-      _errorMsg = null;
-    });
+    setState(() { _loading = true; _errorMsg = null; });
 
-    // signInWithRedirect 会让页面直接跳转到 Google
-    // 跳转后这里的代码不再执行
-    // 回来后 main.dart 的 getRedirectResult() + _AuthGate 自动处理
-    await _authService.signInWithGoogle(isZh: isZh);
-
-    // 只有 Web Redirect 以外的情况才会到这里（移动端或错误）
+    final result = await _authService.signInWithGoogle(isZh: isZh);
     if (!mounted) return;
-    setState(() => _loading = false);
+
+    if (result.isSuccess) {
+      // Popup 成功后 authStateChanges 自动触发 → _AuthGate 自动跳主页
+      setState(() => _loading = false);
+    } else {
+      setState(() { _loading = false; _errorMsg = result.errorMessage; });
+    }
   }
 
   @override

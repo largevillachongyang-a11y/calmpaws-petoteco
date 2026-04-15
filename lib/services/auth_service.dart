@@ -58,16 +58,14 @@ class AuthService {
   Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
     try {
       if (kIsWeb) {
-        // Web 端：使用 Redirect 方式，避免 COOP 蓝色蒙版问题
-        // signInWithRedirect 会跳转页面，不会触发 window.closed
-        // 跳转回来后由 main.dart 的 getRedirectResult() 处理
+        // Web 端：Popup 模式
+        // authDomain 已在 firebase_options.dart 设为沙盒域名，
+        // 所以 Popup 不需要经过 firebaseapp.com 中转，COOP 问题也不存在
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
-        await _auth.signInWithRedirect(provider);
-        // 页面会跳走，下面代码不会执行
-        // 回来后 _AuthGate 的 authStateChanges 自动处理路由
-        return AuthResult.success(null); // 不会到达这里
+        final userCredential = await _auth.signInWithPopup(provider);
+        return AuthResult.success(userCredential.user);
       } else {
         // 移动端
         final googleUser = await _googleSignIn.signIn();
@@ -90,8 +88,15 @@ class AuthService {
               : 'Domain not authorized. Please add this domain in Firebase Console.',
         );
       }
+      if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
+        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
+      }
       return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('popup_closed') || msg.contains('cancelled')) {
+        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
+      }
       return AuthResult.failure(isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
     }
   }
