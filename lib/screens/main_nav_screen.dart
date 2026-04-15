@@ -132,13 +132,10 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.sageMuted
-              : Colors.transparent,
+          color: isSelected ? AppColors.sageMuted : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(

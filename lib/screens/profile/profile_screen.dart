@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../services/auth_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfileScreen — StatefulWidget（修复语言切换 & 菜单弹窗）
@@ -641,8 +642,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(s.cancel),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
-            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(overlayColor: Colors.transparent),
+            onPressed: () async {
+              Navigator.pop(ctx); // 先关弹窗
+              await AuthService().signOut(); // 真正退出登录
+              // AuthGate 监听 Firebase 状态变化，会自动跳转回登录页
+            },
             child: Text(s.signOutBtn, style: const TextStyle(color: AppColors.alertRed)),
           ),
         ],
