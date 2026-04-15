@@ -205,9 +205,12 @@ class _AuthGateState extends State<_AuthGate> {
           return const _SplashScreen();
         }
 
-        // 有登录用户 → 进入主页（注意：这里不判断 emailVerified，如需强制验证邮箱可在此加逻辑）
+        // 有登录用户 → 进入主页
+        // 关键：用 user.uid 作为 key，确保切换账号时 MainNavScreen 完全重建
+        // 这样 initState 会重新触发，loadPetForUser 会加载新账号的宠物数据
+        // 如果不加 key，Flutter 会复用旧的 MainNavScreen 实例，initState 不再执行
         if (snapshot.hasData && snapshot.data != null) {
-          return const MainNavScreen();
+          return MainNavScreen(key: ValueKey(snapshot.data!.uid));
         }
 
         // 无登录用户 → 进入登录页
