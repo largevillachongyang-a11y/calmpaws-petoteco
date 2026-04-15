@@ -9,10 +9,19 @@
 //   5. 健康日志（HealthLog）：用户手动记录的行为观察
 //   6. 全局预警（Alert）：焦虑过高时触发横幅提醒
 //
-// ⚠️ 重要架构说明：
-//   当前所有数据均为本地内存数据，宠物档案是硬编码的 Demo 数据（Biscuit）。
-//   用户在宠物页面编辑后，数据存在内存中，App 重启会还原。
+// ✅ 数据持久化架构（用户级别隔离）：
+//   宠物档案通过 SharedPreferences 按 Firebase userId 隔离持久化。
+//   • 用户 A 的宠物数据 key：pet_name_{uid_A}、pet_breed_{uid_A} ...
+//   • 用户 B 的宠物数据 key：pet_name_{uid_B}、pet_breed_{uid_B} ...
+//   这样不同账号登录后看到各自的宠物信息。
 //
+//   使用 loadPetForUser(userId) 在登录后加载数据，
+//   updatePet() 保存时自动关联当前 userId。
+//
+//   首次登录（无已保存数据）：显示 Demo 数据（Biscuit），引导用户编辑。
+//
+// ⚠️ 重要架构说明：
+//   喂食历史、健康日志等数据当前仍为内存数据，App 重启会还原。
 //   [TODO: API 需求] 接入真实后端后，应在以下位置替换为 API 调用：
 //     • 宠物档案：GET /api/pets/{userId} 获取，PUT /api/pets/{id} 保存
 //     • 喂食历史：POST /api/feeding-sessions 创建，GET 获取历史
@@ -26,19 +35,26 @@
 // =============================================================================
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/mock_ble_service.dart';
 
 class PetHealthProvider extends ChangeNotifier {
+  // ── 当前已登录用户 ID（用于 SharedPreferences key 隔离）──────────────────
+  // 未登录时为 null，loadPetForUser() 会在登录后设置
+  String? _currentUserId;
+  String? get currentUserId => _currentUserId;
+
   // ── 宠物档案 ──────────────────────────────────────────────────────────────
-  // ⚠️ 当前为硬编码 Demo 数据（Biscuit / Golden Retriever）。
-  // Dashboard 和宠物页面顶部显示的名字就是 pet.name（宠物名），不是用户名。
-  // 用户可在宠物页面点击编辑图标修改，修改后内存更新，但 App 重启会还原。
+  // 默认为 Demo 数据（Biscuit），作为首次登录用户未设置宠物时的占位。
+  // 调用 loadPetForUser(userId) 后会替换为该用户保存的宠物数据。
+  // Dashboard 和宠物页面顶部显示的是 pet.name（宠物名），不是 Firebase 用户名。
+  //
   // [TODO: API 需求] 接入后端后替换为：GET /api/pets/{userId}
   //   返回格式：{ id, name, species, breed, ageMonths, weightKg, healthTags, createdAt }
   PetProfile _pet = PetProfile(
     id: 'pet_001',
-    name: 'Biscuit',  // ← Demo 数据，用户可通过宠物页面编辑按钮修改
+    name: 'Biscuit',  // ← 首次登录 Demo 数据，用户可通过宠物页面编辑按钮修改
     species: 'dog',
     breed: 'Golden Retriever',
     ageMonths: 36,
@@ -48,13 +64,97 @@ class PetHealthProvider extends ChangeNotifier {
   );
   PetProfile get pet => _pet;
 
-  void updatePet(PetProfile updated) {
-    // 用户在宠物编辑弹窗保存后调用，更新内存中的宠物档案。
-    // notifyListeners() 触发所有使用 context.watch<PetHealthProvider>() 的 Widget 重建，
-    // Dashboard 和宠物页面的名字会立即更新。
-    // [TODO: API 需求] 同步保存到后端：PUT /api/pets/{id}  body: updated.toJson()
-    _pet = updated;
+  // ── 加载指定用户的宠物数据（登录后调用）────────────────────────────────────
+  // 从 SharedPreferences 读取以 userId 为 key 前缀的宠物档案。
+  // 首次登录（无已保存数据）：保持 Demo 数据 Biscuit，引导用户编辑。
+  //
+  // 调用时机：MainNavScreen 的 initState 中，Firebase 登录成功后立即调用。
+  //
+  // 业务逻辑：
+  //   1. 保存 userId 供后续 updatePet 使用
+  //   2. 读取 SharedPreferences 中该用户的宠物数据
+  //   3. 如果有保存的数据 → 替换内存中的 _pet
+  //   4. 如果没有（首次登录）→ 保持 Demo 数据，同时把 Demo 保存一份（方便调试）
+  //   5. notifyListeners() 触发 Dashboard 和宠物页面刷新
+  Future<void> loadPetForUser(String userId) async {
+    _currentUserId = userId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // SharedPreferences key 以 userId 为前缀，实现不同账号数据隔离
+      final name = prefs.getString('pet_name_$userId');
+      if (name != null && name.isNotEmpty) {
+        // 该用户有已保存的宠物数据 → 从 SharedPreferences 恢复
+        _pet = PetProfile(
+          id: prefs.getString('pet_id_$userId') ?? 'pet_$userId',
+          name: name,
+          species: prefs.getString('pet_species_$userId') ?? 'dog',
+          breed: prefs.getString('pet_breed_$userId') ?? '',
+          ageMonths: prefs.getInt('pet_age_$userId') ?? 0,
+          weightKg: prefs.getDouble('pet_weight_$userId') ?? 0.0,
+          healthTags: prefs.getStringList('pet_tags_$userId') ?? [],
+          createdAt: DateTime.tryParse(
+                prefs.getString('pet_created_$userId') ?? '') ??
+              DateTime.now(),
+        );
+        notifyListeners(); // 触发 UI 刷新，显示该用户的宠物名
+      }
+      // 如果没有已保存数据（首次登录），保持默认 Demo 数据 Biscuit
+      // 用户进入宠物页面编辑并保存后，updatePet 会写入 SharedPreferences
+    } catch (e) {
+      // [TODO: 异常处理] SharedPreferences 读取失败（极少见，通常是系统级问题）
+      // 当前静默失败，保持 Demo 数据，不影响 App 使用
+      debugPrint('loadPetForUser error: $e');
+    }
+  }
+
+  // ── 清除用户数据（退出登录时调用）───────────────────────────────────────────
+  // 重置宠物数据为 Demo 状态，清除 currentUserId。
+  // 防止退出后仍显示上一个用户的宠物信息。
+  void clearUserData() {
+    _currentUserId = null;
+    _pet = PetProfile(
+      id: 'pet_001',
+      name: 'Biscuit',
+      species: 'dog',
+      breed: 'Golden Retriever',
+      ageMonths: 36,
+      weightKg: 28.5,
+      healthTags: const ['Separation Anxiety', 'Joint Stiffness'],
+      createdAt: DateTime(2024, 1, 15),
+    );
     notifyListeners();
+  }
+
+  // ── 更新并持久化宠物档案 ─────────────────────────────────────────────────
+  // 用户在宠物编辑弹窗保存后调用，更新内存并写入 SharedPreferences。
+  // notifyListeners() 触发所有使用 context.watch<PetHealthProvider>() 的 Widget 重建，
+  // Dashboard 和宠物页面的名字会立即更新。
+  //
+  // [TODO: API 需求] 接入后端后，额外调用：PUT /api/pets/{id}  body: updated.toJson()
+  Future<void> updatePet(PetProfile updated) async {
+    _pet = updated;
+    notifyListeners(); // 先立即更新 UI，再异步保存（避免保存延迟导致 UI 卡顿）
+
+    if (_currentUserId != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final uid = _currentUserId!;
+        // 以 userId 为 key 前缀保存，实现用户数据隔离
+        await prefs.setString('pet_name_$uid', updated.name);
+        await prefs.setString('pet_id_$uid', updated.id);
+        await prefs.setString('pet_species_$uid', updated.species);
+        await prefs.setString('pet_breed_$uid', updated.breed);
+        await prefs.setInt('pet_age_$uid', updated.ageMonths);
+        await prefs.setDouble('pet_weight_$uid', updated.weightKg);
+        await prefs.setStringList('pet_tags_$uid', updated.healthTags);
+        await prefs.setString(
+            'pet_created_$uid', updated.createdAt.toIso8601String());
+      } catch (e) {
+        // [TODO: 异常处理] SharedPreferences 写入失败（极少见）
+        // 内存已更新，UI 正常，但下次重启 App 数据会丢失
+        debugPrint('updatePet save error: $e');
+      }
+    }
   }
 
   // ── BLE 设备连接与实时数据流 ───────────────────────────────────────────────

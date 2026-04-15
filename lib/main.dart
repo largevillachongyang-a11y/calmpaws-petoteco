@@ -18,6 +18,12 @@
 // 为什么用 StreamBuilder 而不是 Navigator？
 //   StreamBuilder 监听 Firebase auth 流，登录/退出时自动重建 Widget 树，
 //   无需手动调用 Navigator.push，彻底避免路由栈混乱导致退出无效的问题。
+//
+// Redirect 回调处理：
+//   当 signInWithPopup 因网络问题失败时，auth_service.dart 会自动降级到
+//   signInWithRedirect（全页跳转）。用户完成 Google 授权后浏览器跳回 App，
+//   此时 _AuthGate 调用 getRedirectResult() 获取登录结果。
+//   getRedirectResult() 成功后，Firebase 推送 authStateChanges，路由自动跳转。
 // =============================================================================
 
 import 'package:flutter/material.dart';
@@ -25,6 +31,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'firebase_options.dart';
 import 'providers/pet_health_provider.dart';
 import 'providers/locale_provider.dart';
@@ -121,24 +128,73 @@ class PetotecoApp extends StatelessWidget {
 }
 
 // =============================================================================
-// _AuthGate — 路由守卫
+// _AuthGate — 路由守卫（含 Redirect 回调处理）
 // =============================================================================
 // 这是整个 App 导航的核心控制器。
 // 通过监听 Firebase authStateChanges 流，实现无代码跳转的自动路由：
 //   - 用户登录成功 → Firebase 推送 User 对象 → StreamBuilder 重建 → 显示 MainNavScreen
 //   - 用户退出登录 → Firebase 推送 null → StreamBuilder 重建 → 显示 AuthScreen
 //
-// 为什么是 StatelessWidget？
-//   因为 _AuthGate 本身不维护状态，所有状态由 Firebase 的 Stream 驱动。
-//   使用 StreamBuilder 就足够了，无需 setState。
-class _AuthGate extends StatelessWidget {
+// Redirect 流程说明：
+//   当 Google Popup 因网络问题失败时，auth_service 自动调用 signInWithRedirect。
+//   用户完成授权后，浏览器跳回 App，此处的 _handleRedirectResult 会消费这个结果。
+//   一旦消费成功，Firebase authStateChanges 推送新 User，路由自动跳转到 MainNavScreen。
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  // 是否正在处理 redirect 回调（防止在处理期间显示登录页闪烁）
+  bool _handlingRedirect = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Web 环境下，检查是否有 redirect 登录结果待处理
+    // 这发生在：signInWithRedirect 完成后浏览器跳回 App 的场景
+    if (kIsWeb && _firebaseReady) {
+      _handleRedirectResult();
+    }
+  }
+
+  // 处理 Google signInWithRedirect 的回调结果
+  // 正常情况下（popup 成功）这里没有结果，会快速返回 null
+  Future<void> _handleRedirectResult() async {
+    try {
+      setState(() => _handlingRedirect = true);
+      // getRedirectResult：检查当前页面是否是从 Google redirect 回来的
+      // 如果是 → 消费登录结果（Firebase 会更新 authStateChanges）
+      // 如果不是 → 返回 null，不影响正常流程
+      final result = await FirebaseAuth.instance.getRedirectResult();
+      if (result.user != null) {
+        // Redirect 登录成功：Firebase authStateChanges 会自动推送，路由跳转
+        // 无需手动 Navigator.push
+        debugPrint('Redirect login success: ${result.user?.email}');
+      }
+    } catch (e) {
+      // getRedirectResult 失败（通常是没有 redirect 结果，正常情况）
+      // 静默处理，不影响正常登录流程
+      debugPrint('getRedirectResult error (usually normal): $e');
+    } finally {
+      if (mounted) {
+        setState(() => _handlingRedirect = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // Firebase 未就绪时进入纯 UI 预览模式（开发调试用）
     if (!_firebaseReady) {
       return const AuthScreen(firebaseAvailable: false);
+    }
+
+    // 正在处理 redirect 回调时显示启动页，避免短暂显示登录页
+    if (_handlingRedirect) {
+      return const _SplashScreen();
     }
 
     return StreamBuilder<User?>(

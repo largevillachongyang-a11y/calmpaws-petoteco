@@ -681,6 +681,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextButton.styleFrom(overlayColor: Colors.transparent),
             onPressed: () async {
               Navigator.pop(ctx); // 先关弹窗
+              // 退出前清除宠物数据，防止下一个账号登录后短暂显示上一个用户的宠物名
+              if (ctx.mounted) {
+                ctx.read<PetHealthProvider>().clearUserData();
+              }
               await AuthService().signOut(); // 真正退出登录
               // AuthGate 监听 Firebase 状态变化，会自动跳转回登录页
             },

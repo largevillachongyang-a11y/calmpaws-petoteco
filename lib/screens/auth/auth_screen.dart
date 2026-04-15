@@ -155,11 +155,11 @@ class _AuthScreenState extends State<AuthScreen>
         );
         if (result.isSuccess) {
           // 发送成功：显示提示，用户需去邮箱点击链接
-          // ⚠️ 重置链接有效期1小时，过期需重新申请
+          // ⚠️ 重置链接有效期1小时；链接指向 Firebase 托管页面，若遇网络问题可能无法打开
           setState(() {
             _successMsg = isZh
-                ? '重置邮件已发送，请查收邮箱。\n链接1小时内有效，过期请重新申请。'
-                : 'Reset email sent! Check your inbox.\nLink expires in 1 hour.';
+                ? '重置邮件已发送！\n请查收邮箱并点击链接（链接1小时内有效）。\n若链接无法打开，请使用正常网络环境或稍后重试。'
+                : 'Reset email sent!\nCheck your inbox and click the link (expires in 1 hour).\nIf link fails to open, try on a different network.';
             _loading = false;
           });
           return;
@@ -612,75 +612,9 @@ class _AuthScreenState extends State<AuthScreen>
 
   Widget _buildGoogleButton(dynamic s) {
     // ── Web 沙盒预览：Firebase 已连接但网络无法访问 firebaseapp.com ──────────
-    // Google 弹窗需要加载 petoteco-5e807.firebaseapp.com/__/auth/handler，
-    // 沙盒环境该域名 ERR_CONNECTION_CLOSED，点击无效。
-    // 移动端 App（Android/iOS）用原生 Google SDK，不依赖此域名，可正常登录。
-    if (kIsWeb && widget.firebaseAvailable) {
-      return Column(
-        children: [
-          // 灰色禁用样式按钮（不可点击），视觉上与移动端按钮一致
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.sageMuted,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.divider, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('G',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textMuted)),
-                const SizedBox(width: 10),
-                Text(
-                  s.authGoogleBtn,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // 说明文字：告知用户如何在移动端使用
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF8E1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFFE082)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.info_outline_rounded,
-                    color: Color(0xFFF9A825), size: 15),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    s.locale == 'zh'
-                        ? 'Google 登录需在手机 App 中使用（iOS / Android）\n网页预览版仅支持邮箱登录'
-                        : 'Google login is available in the mobile App (iOS / Android)\nWeb preview supports email login only',
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: const Color(0xFFF57F17),
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    // ── 移动端 或 Web 预览模式（firebaseAvailable=false）：显示可点击按钮 ────
+    // Web + 移动端 统一显示可点击的 Google 登录按钮
+    // Web 端使用 signInWithPopup，域名已在 Firebase Authorized Domains 中授权
+    // 移动端使用原生 Google Sign-In SDK
     return SizedBox(
       width: double.infinity,
       child: GestureDetector(

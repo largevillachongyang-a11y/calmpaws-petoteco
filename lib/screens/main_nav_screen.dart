@@ -5,19 +5,28 @@
 //   1. 底部 Tab 栏导航（健康/宠物/商城/我的）
 //   2. 全局预警横幅（AlertBanner）悬浮在所有页面顶部
 //   3. 通过 IndexedStack 保持各 Tab 页面状态（切换 Tab 不会重建页面）
+//   4. 登录后加载当前用户的宠物数据（loadPetForUser）
 //
 // 导航设计原则：
 //   • IndexedStack 保留所有页面实例，切换无延迟，但内存占用稍高
 //   • 如内存紧张可改为按需构建（pageIndex == _currentIndex 时才渲染）
 //   • _currentIndex 仅本地状态，不需要 Provider
 //
+// 用户数据加载流程：
+//   _AuthGate → 检测到 Firebase User → 显示 MainNavScreen
+//   → initState 调用 PetHealthProvider.loadPetForUser(uid)
+//   → SharedPreferences 读取该用户的宠物数据
+//   → Dashboard 和宠物页面自动刷新显示该用户的宠物名
+//
 // 退出登录流程：
 //   用户在 ProfileScreen 点击退出 → AuthService.signOut() → Firebase 清除状态
 //   → _AuthGate 的 StreamBuilder 收到 authStateChanges(null) → 重建显示 AuthScreen
+//   → PetHealthProvider.clearUserData() 清除宠物数据（防止下一个用户看到上一个人的数据）
 //   整个流程无需手动 Navigator.pop，由 StreamBuilder 自动完成。
 // =============================================================================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/pet_health_provider.dart';
 import '../providers/locale_provider.dart';
 import '../theme/app_theme.dart';
@@ -43,6 +52,26 @@ class _MainNavScreenState extends State<MainNavScreen> {
     ShopScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // 登录成功后立即加载该用户的宠物数据
+    // 使用 addPostFrameCallback 确保 Widget 树已构建完成（可安全访问 context）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserPetData();
+    });
+  }
+
+  // 根据当前 Firebase 登录用户加载其宠物档案
+  // 业务逻辑：Firebase User.uid 作为数据 key，不同账号互相隔离
+  Future<void> _loadUserPetData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && mounted) {
+      // 将 Firebase uid 传给 PetHealthProvider，从 SharedPreferences 读取该用户的宠物数据
+      await context.read<PetHealthProvider>().loadPetForUser(user.uid);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

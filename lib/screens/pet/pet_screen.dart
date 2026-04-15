@@ -635,6 +635,8 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    // updatePet 现在是 async（保存到 SharedPreferences），
+                    // 但不需要 await，因为 UI 更新已经在 updatePet 内同步完成
                     widget.provider.updatePet(
                       widget.pet.copyWith(name: _nameCtrl.text, healthTags: _selectedTags),
                     );
