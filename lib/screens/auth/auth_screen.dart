@@ -373,22 +373,17 @@ class _AuthScreenState extends State<AuthScreen>
                     ),
                   ),
 
+                  // ── 注册/登录切换（紧靠主按钮下方，最显眼）─────────────────
                   if (!isForgot) ...[
-                    const SizedBox(height: 14),
-                    _buildDivider(s.authOr),
-                    const SizedBox(height: 14),
-                    _buildGoogleButton(s),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  if (!isForgot)
+                    const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           isLogin ? s.authNoAccount : s.authHasAccount,
-                          style: AppTextStyles.bodySmall,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textMuted,
+                          ),
                         ),
                         const SizedBox(width: 4),
                         GestureDetector(
@@ -399,11 +394,24 @@ class _AuthScreenState extends State<AuthScreen>
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.sageGreen,
                               fontWeight: FontWeight.w700,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppColors.sageGreen,
                             ),
                           ),
                         ),
                       ],
                     ),
+                  ],
+
+                  // ── Google 登录 ───────────────────────────────────────────
+                  if (!isForgot) ...[
+                    const SizedBox(height: 20),
+                    _buildDivider(s.authOr),
+                    const SizedBox(height: 14),
+                    _buildGoogleButton(s),
+                  ],
+
+                  const SizedBox(height: 20),
 
                   if (isForgot)
                     GestureDetector(
