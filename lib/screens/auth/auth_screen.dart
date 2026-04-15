@@ -149,7 +149,6 @@ class _AuthScreenState extends State<AuthScreen>
 
   // ── Google登录 ────────────────────────────────────────────────────────────
   Future<void> _googleSignIn() async {
-    // Web 预览模式 - 直接跳主页
     if (!widget.firebaseAvailable) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavScreen()),
@@ -158,16 +157,10 @@ class _AuthScreenState extends State<AuthScreen>
     }
     final isZh = context.read<LocaleProvider>().strings.locale == 'zh';
     setState(() { _loading = true; _errorMsg = null; });
-
-    final result = await _authService.signInWithGoogle(isZh: isZh);
-    if (!mounted) return;
-
-    if (result.isSuccess) {
-      // Popup 成功后 authStateChanges 自动触发 → _AuthGate 自动跳主页
-      setState(() => _loading = false);
-    } else {
-      setState(() { _loading = false; _errorMsg = result.errorMessage; });
-    }
+    // Redirect 模式：调用后页面跳走，下面代码不再执行
+    // 回来后由 _AuthGate.getRedirectResult() 处理
+    await _authService.signInWithGoogle(isZh: isZh);
+    if (mounted) setState(() => _loading = false);
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -74,28 +75,56 @@ class PetotecoApp extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AuthGate — 根据 Firebase authStateChanges 决定路由
+// AuthGate — StatefulWidget，处理 Redirect 回调后的状态恢复
 // ─────────────────────────────────────────────────────────────────────────────
-class _AuthGate extends StatelessWidget {
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  // Web Redirect 回调处理中
+  bool _processingRedirect = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_firebaseReady && kIsWeb) {
+      _handleRedirectResult();
+    }
+  }
+
+  Future<void> _handleRedirectResult() async {
+    setState(() => _processingRedirect = true);
+    try {
+      // 消费 Redirect 结果；普通刷新时返回空结果，不抛异常
+      await FirebaseAuth.instance.getRedirectResult();
+      // 成功后 authStateChanges 自动触发，StreamBuilder 自动切换页面
+    } catch (_) {
+      // 普通刷新或网络错误时忽略
+    }
+    if (mounted) setState(() => _processingRedirect = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     if (!_firebaseReady) {
       return const AuthScreen(firebaseAvailable: false);
     }
+    // Redirect 处理期间显示 splash，避免闪现登录页
+    if (_processingRedirect) {
+      return const _SplashScreen();
+    }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // 等待 Firebase 初始化（包括 Redirect 回调处理）
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SplashScreen();
         }
-        // 已登录 → 主页
         if (snapshot.hasData && snapshot.data != null) {
           return const MainNavScreen();
         }
-        // 未登录 → 登录页
         return const AuthScreen(firebaseAvailable: true);
       },
     );

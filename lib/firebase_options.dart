@@ -29,7 +29,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '847480478175',
     projectId: 'petoteco-5e807',
     storageBucket: 'petoteco-5e807.firebasestorage.app',
-    authDomain: '5060-ix0gn3gj900bc21kuk2wm-a402f90a.sandbox.novita.ai',
+    authDomain: 'petoteco-5e807.firebaseapp.com',
     measurementId: 'G-WXC5R3PL5D',
   );
 
