@@ -408,6 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showManageSubscription(BuildContext context, dynamic s) {
     final petName = context.read<PetHealthProvider>().pet.name;
     showModalBottomSheet(
+      barrierColor: Colors.black54,
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -501,6 +502,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showOrderHistory(BuildContext context, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -526,6 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showSupport(BuildContext context, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -562,6 +565,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showDeviceGuide(BuildContext context, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -594,6 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showHealthReports(BuildContext context, PetHealthProvider provider, dynamic s) {
     final sessions = provider.sessionHistory;
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -623,6 +628,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showSignOut(BuildContext context, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -646,6 +652,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showReorderDialog(BuildContext context, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -676,6 +683,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showStoreDialogFromProfile(BuildContext context, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -700,6 +708,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // 消息通知弹窗 — 内部直接读取当前语言，不依赖外部传入的 String
   void _showNotifDialog(BuildContext context) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) {
         // 内部用 Consumer 确保内容总是当前语言
@@ -727,6 +736,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // 隐私弹窗 — 内部直接读取当前语言
   void _showPrivacyDialog(BuildContext context) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) {
         return Consumer<LocaleProvider>(

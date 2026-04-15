@@ -154,7 +154,11 @@ class _QuickLogRow extends StatelessWidget {
   }
 
   void _showFullJournalDialog(BuildContext context) {
-    showDialog(context: context, builder: (ctx) => _FullJournalDialog(provider: provider));
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => _FullJournalDialog(provider: provider),
+    );
   }
 }
 

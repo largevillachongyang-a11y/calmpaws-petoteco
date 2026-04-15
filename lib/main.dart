@@ -70,8 +70,9 @@ class PetotecoApp extends StatelessWidget {
                 ),
               );
             },
-            // ── 根据登录状态决定显示哪个页面 ──────────────────────────────────
-            home: const _AuthGate(),
+    // ── 根据登录状态决定显示哪个页面 ──────────────────────────────────
+            // 🔧 临时：强制显示登录页预览（确认UI后改回 _AuthGate）
+            home: const AuthScreen(),
           );
         },
       ),

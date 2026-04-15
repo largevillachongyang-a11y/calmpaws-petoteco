@@ -373,6 +373,7 @@ class _ActiveTimer extends StatelessWidget {
   void _showCancelDialog(BuildContext context) {
     final s = context.read<LocaleProvider>().strings;
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(

@@ -283,6 +283,7 @@ class PetScreen extends StatelessWidget {
 
   void _showEditDialog(BuildContext context, PetProfile pet, PetHealthProvider provider, dynamic s) {
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => _EditPetDialog(pet: pet, provider: provider, s: s),
     );
@@ -429,6 +430,7 @@ class _JournalRow extends StatelessWidget {
     }
 
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),

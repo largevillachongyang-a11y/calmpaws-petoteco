@@ -156,6 +156,10 @@ class AppTheme {
         surface: AppColors.cream,
         brightness: Brightness.light,
         error: AppColors.alertRed,
+        // ⚠️ 关键：scrim 是 Dialog/BottomSheet 弹出时的全屏遮罩颜色
+        // Material3 的 fromSeed 会生成蓝色调 scrim，导致"全屏蓝色蒙版"
+        // 必须强制设为黑色半透明
+        scrim: Colors.black,
       ),
       scaffoldBackgroundColor: AppColors.cream,
       cardTheme: CardThemeData(

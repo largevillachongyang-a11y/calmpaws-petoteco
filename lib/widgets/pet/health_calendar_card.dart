@@ -141,6 +141,7 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
         e.date.month == today.month &&
         e.date.day == today.day);
     showDialog(
+      barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => _WriteJournalDialog(
         provider: provider,

@@ -397,6 +397,7 @@ class _VisitStoreButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 void _showStoreDialog(BuildContext context, dynamic s) {
   showDialog(
+    barrierColor: Colors.black54,
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
