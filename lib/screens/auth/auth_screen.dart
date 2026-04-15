@@ -82,6 +82,9 @@ class _AuthScreenState extends State<AuthScreen>
       return;
     }
 
+    final s = context.read<LocaleProvider>().strings;
+    final isZh = s.locale == 'zh';
+
     setState(() {
       _loading = true;
       _errorMsg = null;
@@ -95,6 +98,7 @@ class _AuthScreenState extends State<AuthScreen>
         result = await _authService.signInWithEmail(
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
+          isZh: isZh,
         );
         if (result.isSuccess && mounted) {
           Navigator.of(context).pushReplacement(
@@ -108,10 +112,13 @@ class _AuthScreenState extends State<AuthScreen>
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
           displayName: _nameCtrl.text,
+          isZh: isZh,
         );
         if (result.isSuccess) {
           setState(() {
-            _successMsg = '注册成功！请查收验证邮件，验证后即可登录。';
+            _successMsg = isZh
+                ? '注册成功！请查收验证邮件，验证后即可登录。'
+                : 'Account created! Please check your email to verify.';
             _loading = false;
           });
           _switchMode(_AuthMode.login);
@@ -119,10 +126,15 @@ class _AuthScreenState extends State<AuthScreen>
         }
         break;
       case _AuthMode.forgotPassword:
-        result = await _authService.sendPasswordResetEmail(_emailCtrl.text);
+        result = await _authService.sendPasswordResetEmail(
+          _emailCtrl.text,
+          isZh: isZh,
+        );
         if (result.isSuccess) {
           setState(() {
-            _successMsg = '重置邮件已发送，请查收邮箱。';
+            _successMsg = isZh
+                ? '重置邮件已发送，请查收邮箱。'
+                : 'Reset email sent! Please check your inbox.';
             _loading = false;
           });
           return;
@@ -145,11 +157,12 @@ class _AuthScreenState extends State<AuthScreen>
       );
       return;
     }
+    final isZh = context.read<LocaleProvider>().strings.locale == 'zh';
     setState(() {
       _loading = true;
       _errorMsg = null;
     });
-    final result = await _authService.signInWithGoogle();
+    final result = await _authService.signInWithGoogle(isZh: isZh);
     if (result.isSuccess && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavScreen()),

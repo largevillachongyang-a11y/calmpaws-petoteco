@@ -18,21 +18,20 @@ class AuthService {
     required String email,
     required String password,
     required String displayName,
+    bool isZh = false,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
-      // 设置显示名称
       await credential.user?.updateDisplayName(displayName.trim());
-      // 发送邮箱验证
       await credential.user?.sendEmailVerification();
       return AuthResult.success(credential.user);
     } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_mapFirebaseError(e.code));
+      return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
-      return AuthResult.failure('注册失败，请稍后重试');
+      return AuthResult.failure(isZh ? '注册失败，请稍后重试' : 'Registration failed, please try again');
     }
   }
 
@@ -40,6 +39,7 @@ class AuthService {
   Future<AuthResult> signInWithEmail({
     required String email,
     required String password,
+    bool isZh = false,
   }) async {
     try {
       final credential = await _auth.signInWithEmailAndPassword(
@@ -48,25 +48,27 @@ class AuthService {
       );
       return AuthResult.success(credential.user);
     } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_mapFirebaseError(e.code));
+      return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
-      return AuthResult.failure('登录失败，请稍后重试');
+      return AuthResult.failure(isZh ? '登录失败，请稍后重试' : 'Sign in failed, please try again');
     }
   }
 
   // ── Google登录 ────────────────────────────────────────────────────────────
-  Future<AuthResult> signInWithGoogle() async {
+  Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
     try {
       if (kIsWeb) {
-        // Web端使用Popup方式
+        // Web 端：Popup 方式
         final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
         final credential = await _auth.signInWithPopup(provider);
         return AuthResult.success(credential.user);
       } else {
         // 移动端
         final googleUser = await _googleSignIn.signIn();
         if (googleUser == null) {
-          return AuthResult.failure('已取消Google登录');
+          return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
         }
         final googleAuth = await googleUser.authentication;
         final credential = GoogleAuthProvider.credential(
@@ -77,21 +79,37 @@ class AuthService {
         return AuthResult.success(userCredential.user);
       }
     } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_mapFirebaseError(e.code));
+      // unauthorized-domain 特别处理：给用户看得懂的提示
+      if (e.code == 'unauthorized-domain') {
+        return AuthResult.failure(
+          isZh
+              ? 'Google 登录需要在 Firebase Console 中授权当前域名。邮箱登录可正常使用。'
+              : 'This domain is not authorized for Google sign-in. Please use email/password login.',
+        );
+      }
+      return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
-      return AuthResult.failure('Google登录失败，请稍后重试');
+      final msg = e.toString();
+      if (msg.contains('unauthorized-domain') || msg.contains('auth/unauthorized-domain')) {
+        return AuthResult.failure(
+          isZh
+              ? 'Google 登录需要在 Firebase Console 中授权当前域名。邮箱登录可正常使用。'
+              : 'This domain is not authorized for Google sign-in. Please use email/password login.',
+        );
+      }
+      return AuthResult.failure(isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
     }
   }
 
   // ── 忘记密码 ──────────────────────────────────────────────────────────────
-  Future<AuthResult> sendPasswordResetEmail(String email) async {
+  Future<AuthResult> sendPasswordResetEmail(String email, {bool isZh = false}) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
       return AuthResult.success(null);
     } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(_mapFirebaseError(e.code));
+      return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
-      return AuthResult.failure('发送失败，请稍后重试');
+      return AuthResult.failure(isZh ? '发送失败，请稍后重试' : 'Failed to send email, please try again');
     }
   }
 
@@ -103,29 +121,36 @@ class AuthService {
     ]);
   }
 
-  // ── Firebase错误码转中文 ───────────────────────────────────────────────────
-  String _mapFirebaseError(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return '该邮箱尚未注册';
-      case 'wrong-password':
-        return '密码错误，请重试';
-      case 'email-already-in-use':
-        return '该邮箱已被注册';
-      case 'weak-password':
-        return '密码强度不足，请使用6位以上';
-      case 'invalid-email':
-        return '邮箱格式不正确';
-      case 'user-disabled':
-        return '该账号已被禁用';
-      case 'too-many-requests':
-        return '操作过于频繁，请稍后再试';
-      case 'network-request-failed':
-        return '网络连接失败，请检查网络';
-      case 'invalid-credential':
-        return '邮箱或密码错误';
-      default:
-        return '操作失败（$code）';
+  // ── 错误码转提示文字（中英双语）────────────────────────────────────────────
+  String _mapError(String code, {bool isZh = false}) {
+    if (isZh) {
+      switch (code) {
+        case 'user-not-found':       return '该邮箱尚未注册';
+        case 'wrong-password':       return '密码错误，请重试';
+        case 'email-already-in-use': return '该邮箱已被注册';
+        case 'weak-password':        return '密码强度不足，请使用6位以上';
+        case 'invalid-email':        return '邮箱格式不正确';
+        case 'user-disabled':        return '该账号已被禁用';
+        case 'too-many-requests':    return '操作过于频繁，请稍后再试';
+        case 'network-request-failed': return '网络连接失败，请检查网络';
+        case 'invalid-credential':   return '邮箱或密码错误';
+        case 'unauthorized-domain':  return 'Google 登录需授权域名，请使用邮箱登录';
+        default:                     return '操作失败，请稍后重试';
+      }
+    } else {
+      switch (code) {
+        case 'user-not-found':       return 'No account found with this email';
+        case 'wrong-password':       return 'Incorrect password, please try again';
+        case 'email-already-in-use': return 'This email is already registered';
+        case 'weak-password':        return 'Password too weak, use 6+ characters';
+        case 'invalid-email':        return 'Invalid email format';
+        case 'user-disabled':        return 'This account has been disabled';
+        case 'too-many-requests':    return 'Too many attempts, please try again later';
+        case 'network-request-failed': return 'Network error, please check connection';
+        case 'invalid-credential':   return 'Incorrect email or password';
+        case 'unauthorized-domain':  return 'Domain not authorized, please use email login';
+        default:                     return 'Operation failed, please try again';
+      }
     }
   }
 }
