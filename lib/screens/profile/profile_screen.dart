@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
@@ -76,8 +77,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
-                      child: const Text(
-                        'Alex Johnson',
+                      child: Text(
+                        () {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user == null) return 'Guest';
+                          if (user.displayName != null && user.displayName!.isNotEmpty) {
+                            return user.displayName!;
+                          }
+                          // 没有 displayName 时用邮箱 @ 前的部分
+                          final email = user.email ?? '';
+                          return email.contains('@') ? email.split('@').first : email;
+                        }(),
                         style: AppTextStyles.headlineMedium,
                         maxLines: 1,
                       ),
@@ -86,8 +96,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
-                      child: const Text(
-                        'alex@petoteco.com',
+                      child: Text(
+                        FirebaseAuth.instance.currentUser?.email ?? '',
                         style: AppTextStyles.bodySmall,
                         maxLines: 1,
                       ),

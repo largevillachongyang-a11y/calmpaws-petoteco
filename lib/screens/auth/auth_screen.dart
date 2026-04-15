@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../providers/locale_provider.dart';
@@ -573,6 +574,33 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildGoogleButton(dynamic s) {
+    // Web 预览环境：Google Redirect 登录在沙盒里受网络限制无法完成
+    // 正式 App（Android/iOS）原生 Google 登录完全正常
+    if (kIsWeb && widget.firebaseAvailable) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.sageMuted,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              s.locale == 'zh'
+                  ? 'Google 登录仅限移动端 App'
+                  : 'Google login available in mobile app',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+    // 移动端 or Web 预览模式（firebaseAvailable=false）：正常显示按钮
     return SizedBox(
       width: double.infinity,
       child: GestureDetector(
@@ -601,8 +629,7 @@ class _AuthScreenState extends State<AuthScreen>
               const SizedBox(width: 10),
               Text(
                 s.authGoogleBtn,
-                style:
-                    AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
