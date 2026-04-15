@@ -161,17 +161,15 @@ class _AuthScreenState extends State<AuthScreen>
       _loading = true;
       _errorMsg = null;
     });
-    final result = await _authService.signInWithGoogle(isZh: isZh);
+
+    // signInWithRedirect 会让页面直接跳转到 Google
+    // 跳转后这里的代码不再执行
+    // 回来后 main.dart 的 getRedirectResult() + _AuthGate 自动处理
+    await _authService.signInWithGoogle(isZh: isZh);
+
+    // 只有 Web Redirect 以外的情况才会到这里（移动端或错误）
     if (!mounted) return;
-    if (result.isSuccess) {
-      // 不手动跳转，_AuthGate 的 StreamBuilder 监听 authStateChanges 自动切换
-      setState(() => _loading = false);
-      return;
-    }
-    setState(() {
-      _loading = false;
-      _errorMsg = result.errorMessage;
-    });
+    setState(() => _loading = false);
   }
 
   @override
@@ -492,9 +490,10 @@ class _AuthScreenState extends State<AuthScreen>
         const SizedBox(height: 12),
         Text(
           'Petoteco',
-          style: AppTextStyles.headlineMedium.copyWith(
+          style: AppTextStyles.headlineLarge.copyWith(
             color: AppColors.sageGreen,
-            letterSpacing: 1,
+            letterSpacing: 1.5,
+            fontWeight: FontWeight.w800,
           ),
         ),
         Text(

@@ -58,13 +58,16 @@ class AuthService {
   Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
     try {
       if (kIsWeb) {
-        // Web 端：使用 Popup 方式，直接等待结果
-        // COOP 警告可忽略，不影响功能
+        // Web 端：使用 Redirect 方式，避免 COOP 蓝色蒙版问题
+        // signInWithRedirect 会跳转页面，不会触发 window.closed
+        // 跳转回来后由 main.dart 的 getRedirectResult() 处理
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
-        final userCredential = await _auth.signInWithPopup(provider);
-        return AuthResult.success(userCredential.user);
+        await _auth.signInWithRedirect(provider);
+        // 页面会跳走，下面代码不会执行
+        // 回来后 _AuthGate 的 authStateChanges 自动处理路由
+        return AuthResult.success(null); // 不会到达这里
       } else {
         // 移动端
         final googleUser = await _googleSignIn.signIn();
@@ -83,19 +86,12 @@ class AuthService {
       if (e.code == 'unauthorized-domain') {
         return AuthResult.failure(
           isZh
-              ? 'Google 登录需要在 Firebase Console 中授权当前域名。\n请添加域名后再试。'
+              ? 'Google 登录需要在 Firebase Console 中授权当前域名。'
               : 'Domain not authorized. Please add this domain in Firebase Console.',
         );
       }
-      if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
-        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
-      }
       return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
-      final msg = e.toString();
-      if (msg.contains('popup_closed') || msg.contains('cancelled')) {
-        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
-      }
       return AuthResult.failure(isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
     }
   }
