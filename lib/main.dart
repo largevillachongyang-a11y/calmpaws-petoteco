@@ -10,13 +10,11 @@ import 'screens/main_nav_screen.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
 
-// Firebase 初始化状态（Web 预览时可能失败）
 bool _firebaseReady = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化 Firebase — 失败时降级，不崩溃
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

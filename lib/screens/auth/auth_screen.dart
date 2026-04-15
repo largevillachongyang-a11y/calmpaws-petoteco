@@ -101,9 +101,8 @@ class _AuthScreenState extends State<AuthScreen>
           isZh: isZh,
         );
         if (result.isSuccess && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainNavScreen()),
-          );
+          // 不用手动跳转，_AuthGate 的 StreamBuilder 监听 authStateChanges，会自动切换到主页
+          setState(() => _loading = false);
           return;
         }
         break;
@@ -150,7 +149,7 @@ class _AuthScreenState extends State<AuthScreen>
 
   // ── Google登录 ────────────────────────────────────────────────────────────
   Future<void> _googleSignIn() async {
-    // Web 预览模式
+    // Web 预览模式 - 直接跳主页
     if (!widget.firebaseAvailable) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavScreen()),
@@ -163,15 +162,15 @@ class _AuthScreenState extends State<AuthScreen>
       _errorMsg = null;
     });
     final result = await _authService.signInWithGoogle(isZh: isZh);
-    if (result.isSuccess && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavScreen()),
-      );
+    if (!mounted) return;
+    if (result.isSuccess) {
+      // 不手动跳转，_AuthGate 的 StreamBuilder 监听 authStateChanges 自动切换
+      setState(() => _loading = false);
       return;
     }
     setState(() {
       _loading = false;
-      if (!result.isSuccess) _errorMsg = result.errorMessage;
+      _errorMsg = result.errorMessage;
     });
   }
 

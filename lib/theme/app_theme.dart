@@ -138,29 +138,40 @@ class AppTextStyles {
 
 class AppTheme {
   static ThemeData get lightTheme {
+    // 先生成 colorScheme，然后完整覆盖所有蓝色相关颜色
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: AppColors.sageGreen,
+      primary: AppColors.sageGreen,
+      secondary: AppColors.warmOrange,
+      surface: AppColors.cream,
+      brightness: Brightness.light,
+      error: AppColors.alertRed,
+      scrim: Colors.black,
+    ).copyWith(
+      // Material3 fromSeed 可能生成蓝色 primaryContainer/secondaryContainer
+      // 强制覆盖为绿色调
+      primaryContainer: AppColors.sageMuted,
+      secondaryContainer: const Color(0xFFFFF3E8),
+      onPrimaryContainer: AppColors.sageGreen,
+      onSecondaryContainer: AppColors.warmOrange,
+      // surfaceContainerHighest 是 InkWell hover 的来源之一
+      surfaceContainerHighest: AppColors.sageMuted,
+      onSurface: AppColors.textPrimary,
+      outline: AppColors.divider,
+      outlineVariant: AppColors.divider,
+    );
+
     return ThemeData(
       useMaterial3: true,
+      colorScheme: colorScheme,
       // ─────────────────────────────────────────────────────────────────────
-      // 🔑 全局禁用 InkWell/InkResponse 的蓝色 splash/highlight/hover 蒙版
-      // Web 端鼠标悬浮时 Material3 默认用 primaryContainer(偏蓝)填充，
-      // 设为 NoSplash + 透明 highlightColor 一次性解决所有蒙版问题
+      // 🔑 全局禁用所有 InkWell/InkResponse 的蓝色 splash/highlight/hover 蒙版
       // ─────────────────────────────────────────────────────────────────────
       splashFactory: NoSplash.splashFactory,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.sageGreen,
-        primary: AppColors.sageGreen,
-        secondary: AppColors.warmOrange,
-        surface: AppColors.cream,
-        brightness: Brightness.light,
-        error: AppColors.alertRed,
-        // ⚠️ 关键：scrim 是 Dialog/BottomSheet 弹出时的全屏遮罩颜色
-        // Material3 的 fromSeed 会生成蓝色调 scrim，导致"全屏蓝色蒙版"
-        // 必须强制设为黑色半透明
-        scrim: Colors.black,
-      ),
+      focusColor: Colors.transparent,
       scaffoldBackgroundColor: AppColors.cream,
       cardTheme: CardThemeData(
         color: AppColors.cardBackground,

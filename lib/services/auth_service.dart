@@ -1,8 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html show window;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -60,14 +58,13 @@ class AuthService {
   Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
     try {
       if (kIsWeb) {
-        // Web 端：改用 Redirect 方式，彻底避免 COOP/window.close 错误
+        // Web 端：使用 Popup 方式，直接等待结果
+        // COOP 警告可忽略，不影响功能
         final provider = GoogleAuthProvider();
         provider.addScope('email');
         provider.addScope('profile');
-        await _auth.signInWithRedirect(provider);
-        // signInWithRedirect 会跳转页面，下面代码不会执行
-        // 页面回来后 AuthGate 的 authStateChanges 会自动处理
-        return AuthResult.success(null);
+        final userCredential = await _auth.signInWithPopup(provider);
+        return AuthResult.success(userCredential.user);
       } else {
         // 移动端
         final googleUser = await _googleSignIn.signIn();
@@ -86,12 +83,19 @@ class AuthService {
       if (e.code == 'unauthorized-domain') {
         return AuthResult.failure(
           isZh
-              ? 'Google 登录需要在 Firebase Console 中授权当前域名。'
-              : 'This domain is not authorized for Google sign-in.',
+              ? 'Google 登录需要在 Firebase Console 中授权当前域名。\n请添加域名后再试。'
+              : 'Domain not authorized. Please add this domain in Firebase Console.',
         );
+      }
+      if (e.code == 'popup-closed-by-user' || e.code == 'cancelled-popup-request') {
+        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
       }
       return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('popup_closed') || msg.contains('cancelled')) {
+        return AuthResult.failure(isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
+      }
       return AuthResult.failure(isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
     }
   }
@@ -110,14 +114,14 @@ class AuthService {
 
   // ── 退出登录 ──────────────────────────────────────────────────────────────
   Future<void> signOut() async {
-    await Future.wait([
-      _auth.signOut(),
-      _googleSignIn.signOut(),
-    ]);
-    // Web 端：强制刷新页面，确保状态彻底清除
-    if (kIsWeb) {
-      html.window.location.reload();
-    }
+    try {
+      await _auth.signOut();
+    } catch (_) {}
+    try {
+      if (!kIsWeb) {
+        await _googleSignIn.signOut();
+      }
+    } catch (_) {}
   }
 
   // ── 错误码转提示文字（中英双语）────────────────────────────────────────────
