@@ -235,6 +235,14 @@ class AppTheme {
         thickness: 1,
         space: 0,
       ),
+      // ── Dialog内按钮也禁用蓝色蒙版 ──────────────────────────────────────────
+      // Dialog在Material3里有自己的buttonTheme，会覆盖全局textButtonTheme
+      // 必须在此单独声明，否则Dialog里的TextButton鼠标悬停仍显示蓝色
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppColors.cardBackground,
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ),
     );
   }
 }

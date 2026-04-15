@@ -485,6 +485,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: TextButton(
+                style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
                 onPressed: () => Navigator.pop(ctx),
                 child: Text(
                   s.subCancel,
@@ -514,6 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.close),
           ),
@@ -544,6 +546,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.close),
           ),
@@ -609,6 +612,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.close),
           ),
@@ -626,10 +630,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text(s.signOutConfirm, style: AppTextStyles.bodyMedium),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.cancel),
           ),
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.signOutBtn, style: const TextStyle(color: AppColors.alertRed)),
           ),
@@ -650,6 +656,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.cancel),
           ),
@@ -676,6 +683,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text(s.shopOpenDesc),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
             onPressed: () => Navigator.pop(ctx),
             child: Text(s.cancel),
           ),

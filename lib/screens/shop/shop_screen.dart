@@ -404,6 +404,7 @@ void _showStoreDialog(BuildContext context, dynamic s) {
       content: Text(s.shopOpenDesc),
       actions: [
         TextButton(
+          style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
           onPressed: () => Navigator.pop(ctx),
           child: Text(s.cancel),
         ),
