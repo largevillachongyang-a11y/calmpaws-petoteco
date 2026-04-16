@@ -56,11 +56,14 @@ class FirestoreService {
 
   /// 保存宠物档案到 Firestore
   /// 调用时机：用户在宠物页面编辑并保存宠物信息后
-  /// 路径：users/{uid}/pet/profile
-  Future<void> savePetProfile(String uid, PetProfile pet) async {
+  /// 路径：users/{uid}/pet_profile（顶层文档，避免子集合规则问题）
+  /// 返回值：true = 写入成功，false = 写入失败（可让调用方显示提示）
+  Future<bool> savePetProfile(String uid, PetProfile pet) async {
     try {
+      // 使用顶层路径 users/{uid}/pet_profile，规则更简单：
+      //   match /users/{uid}/pet_profile { allow read, write: if request.auth.uid == uid; }
       await _db.collection('users').doc(uid)
-          .collection('pet').doc('profile').set({
+          .collection('pet_profile').doc('main').set({
         'pet_id':   pet.id,
         'name':     pet.name,
         'species':  pet.species,
@@ -70,34 +73,60 @@ class FirestoreService {
         'health_tags': pet.healthTags,
         'created_at': Timestamp.fromDate(pet.createdAt),
         'updated_at': FieldValue.serverTimestamp(),
+        'owner_uid': uid, // 冗余字段，方便规则调试
       }, SetOptions(merge: true));
+      debugFirestore('savePetProfile OK: uid=$uid name=${pet.name}');
+      return true;
     } catch (e) {
-      debugFirestore('savePetProfile error: $e');
+      debugFirestore('savePetProfile FAILED: $e');
+      return false;
     }
   }
 
-  /// 从 Firestore 加载宠物档案
-  /// 调用时机：用户登录时（SharedPreferences 无数据时作为备用）
+  /// 从 Firestore 加载宠物档案（换机恢复）
+  /// 先尝试新路径 pet_profile，再 fallback 旧路径 pet/profile
   Future<PetProfile?> loadPetProfile(String uid) async {
+    // ── 先尝试新路径 ──────────────────────────────────────────────────
+    try {
+      final doc = await _db.collection('users').doc(uid)
+          .collection('pet_profile').doc('main').get();
+      if (doc.exists && doc.data() != null) {
+        final d = doc.data()!;
+        debugFirestore('loadPetProfile OK (new path): ${d['name']}');
+        return _petFromMap(d, uid);
+      }
+    } catch (e) {
+      debugFirestore('loadPetProfile new-path error: $e');
+    }
+
+    // ── fallback：旧路径（兼容已有数据）──────────────────────────────
     try {
       final doc = await _db.collection('users').doc(uid)
           .collection('pet').doc('profile').get();
-      if (!doc.exists || doc.data() == null) return null;
-      final d = doc.data()!;
-      return PetProfile(
-        id:         (d['pet_id']   as String?) ?? 'pet_$uid',
-        name:       (d['name']     as String?) ?? '',
-        species:    (d['species']  as String?) ?? 'dog',
-        breed:      (d['breed']    as String?) ?? '',
-        ageMonths:  (d['age_months'] as num?)?.toInt() ?? 0,
-        weightKg:   (d['weight_kg']  as num?)?.toDouble() ?? 0.0,
-        healthTags: List<String>.from(d['health_tags'] ?? []),
-        createdAt:  (d['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      );
+      if (doc.exists && doc.data() != null) {
+        final d = doc.data()!;
+        debugFirestore('loadPetProfile OK (legacy path): ${d['name']}');
+        return _petFromMap(d, uid);
+      }
     } catch (e) {
-      debugFirestore('loadPetProfile error: $e');
-      return null;
+      debugFirestore('loadPetProfile legacy-path error: $e');
     }
+
+    debugFirestore('loadPetProfile: no data found for uid=$uid');
+    return null;
+  }
+
+  PetProfile _petFromMap(Map<String, dynamic> d, String uid) {
+    return PetProfile(
+      id:         (d['pet_id']   as String?) ?? 'pet_$uid',
+      name:       (d['name']     as String?) ?? '',
+      species:    (d['species']  as String?) ?? 'dog',
+      breed:      (d['breed']    as String?) ?? '',
+      ageMonths:  (d['age_months'] as num?)?.toInt() ?? 0,
+      weightKg:   (d['weight_kg']  as num?)?.toDouble() ?? 0.0,
+      healthTags: List<String>.from(d['health_tags'] ?? []),
+      createdAt:  (d['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
   }
 
   // =============================================================================

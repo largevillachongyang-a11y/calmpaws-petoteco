@@ -160,10 +160,12 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── 更新并持久化宠物档案 ─────────────────────────────────────────────────
   // P0-1：同时写入 SharedPreferences（本地快速读取）和 Firestore（云端备份）
-  Future<void> updatePet(PetProfile updated) async {
+  // 返回 true = 云端写入成功；false = 云端写入失败（本地仍保存）
+  Future<bool> updatePet(PetProfile updated) async {
     _pet = updated;
     notifyListeners();
 
+    bool cloudSaved = false;
     if (_currentUserId != null) {
       final uid = _currentUserId!;
       // 1. 写入 SharedPreferences（本地快速读取）
@@ -172,9 +174,13 @@ class PetHealthProvider extends ChangeNotifier {
       } catch (e) {
         debugPrint('updatePet local save error: $e');
       }
-      // 2. 异步写入 Firestore（云端备份，不阻塞 UI）
-      _firestoreService.savePetProfile(uid, updated);
+      // 2. await 等待 Firestore 写入结果（不再 fire-and-forget）
+      cloudSaved = await _firestoreService.savePetProfile(uid, updated);
+      if (!cloudSaved) {
+        debugPrint('⚠️ updatePet: Firestore write failed — data saved locally only');
+      }
     }
+    return cloudSaved;
   }
 
   // 将宠物档案写入 SharedPreferences（内部辅助方法）

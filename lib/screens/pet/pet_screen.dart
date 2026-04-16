@@ -711,28 +711,44 @@ class _EditPetDialogState extends State<_EditPetDialog> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // 解析年龄和体重，无效输入保留原值
-                    final age = int.tryParse(_ageCtrl.text.trim()) ?? widget.pet.ageMonths;
-                    final weight = double.tryParse(_weightCtrl.text.trim()) ?? widget.pet.weightKg;
-                    widget.provider.updatePet(
-                      widget.pet.copyWith(
-                        name: _nameCtrl.text.trim(),
-                        species: _species,
-                        breed: _breedCtrl.text.trim(),
-                        ageMonths: age,
-                        weightKg: weight,
-                        healthTags: _selectedTags,
-                      ),
-                    );
-                    Navigator.pop(context);
-                  },
                   style: ElevatedButton.styleFrom(
                     overlayColor: Colors.transparent,
                     backgroundColor: AppColors.sageGreen,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
+                  onPressed: () async {
+                    // 解析年龄和体重，无效输入保留原值
+                    final age = int.tryParse(_ageCtrl.text.trim()) ?? widget.pet.ageMonths;
+                    final weight = double.tryParse(_weightCtrl.text.trim()) ?? widget.pet.weightKg;
+                    final newPet = widget.pet.copyWith(
+                      name: _nameCtrl.text.trim(),
+                      species: _species,
+                      breed: _breedCtrl.text.trim(),
+                      ageMonths: age,
+                      weightKg: weight,
+                      healthTags: _selectedTags,
+                    );
+                    // 先保存数据，再关闭对话框，确保 SnackBar 可显示在父页面
+                    final cloudOk = await widget.provider.updatePet(newPet);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      // 通过 SnackBar 告知用户云端同步状态
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            cloudOk
+                              ? '✅ 宠物档案已保存并同步到云端'
+                              : '⚠️ 已保存到本机，云端同步失败\n请检查网络或 Firestore 规则',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          backgroundColor: cloudOk ? const Color(0xFF4CAF50) : const Color(0xFFF59E0B),
+                          duration: Duration(seconds: cloudOk ? 2 : 4),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
                   child: Text(locS.petSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                 ),
               ),
