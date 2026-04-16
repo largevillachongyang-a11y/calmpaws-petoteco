@@ -93,8 +93,13 @@ class PetotecoApp extends StatelessWidget {
       providers: [
         // PetHealthProvider：宠物健康数据（喂食计时、行为状态、BLE 设备等）
         ChangeNotifierProvider(create: (_) => PetHealthProvider()),
-        // LocaleProvider：语言切换（中文/英文），控制整个 App 的文案语言
-        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        // LocaleProvider：语言切换（中文/英文），P0-2 持久化用户语言偏好
+        // create 内同步创建，然后异步加载已保存的语言偏好（不影响首帧渲染）
+        ChangeNotifierProvider(create: (_) {
+          final provider = LocaleProvider();
+          provider.initLocale(); // 异步加载 SharedPreferences 中的语言偏好
+          return provider;
+        }),
         // NotificationProvider：应用内通知中心（预警/喂食记录/日志提醒）
         // 登录后通过 loadForUser() 加载该用户的历史通知，退出后 clearUserData() 清除
         ChangeNotifierProvider(create: (_) => NotificationProvider()),

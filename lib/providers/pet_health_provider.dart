@@ -20,8 +20,20 @@
 //
 //   首次登录（无已保存数据）：显示 Demo 数据（Biscuit），引导用户编辑。
 //
+// ✅ P1 通知系统架构（六大硬件状态驱动通知）：
+//   状态 D（发抖）→ 持续 3 分钟触发紧急预警（原30秒改为180秒）
+//   状态 C（应激）→ 1 小时内 >10 次触发应激频繁通知
+//   状态 F（昏睡）→ 白天连续静止 >3 小时触发药物昏睡检测通知
+//   活力低于均值 → 连续 2 天才触发（避免误报）
+//   喂食完成     → 记录 Time-to-Calm，写入通知中心
+//   每日总结     → 每晚 20:00 汇总当日六大状态时长
+//
+//   通知回调（避免循环依赖）：
+//   PetHealthProvider 不持有 NotificationProvider
+//   而是通过回调（onAlert / onDailySummaryReady）转发事件
+//   MainNavScreen 作中间层负责写入 NotificationProvider
+//
 // ⚠️ 重要架构说明：
-//   喂食历史、健康日志等数据当前仍为内存数据，App 重启会还原。
 //   [TODO: API 需求] 接入真实后端后，应在以下位置替换为 API 调用：
 //     • 宠物档案：GET /api/pets/{userId} 获取，PUT /api/pets/{id} 保存
 //     • 喂食历史：POST /api/feeding-sessions 创建，GET 获取历史
@@ -75,24 +87,17 @@ class PetHealthProvider extends ChangeNotifier {
   PetProfile get pet => _pet;
 
   // ── 加载指定用户的宠物数据（登录后调用）────────────────────────────────────
-  // 从 SharedPreferences 读取以 userId 为 key 前缀的宠物档案。
-  // 首次登录（无已保存数据）：保持 Demo 数据 Biscuit，引导用户编辑。
-  //
-  // 调用时机：MainNavScreen 的 initState 中，Firebase 登录成功后立即调用。
-  //
-  // 业务逻辑：
-  //   1. 保存 userId 供后续 updatePet / Firestore 写入使用
-  //   2. 读取 SharedPreferences 中该用户的宠物档案
-  //   3. 同时从 Firestore 加载历史喂食记录、日志、压力数据（云端数据）
-  //   4. 本地 + 云端数据均加载完毕后触发 UI 刷新
+  // P0-1三层加载策略：
+  //   第1层：SharedPreferences（本地，毫秒级，最快）
+  //   第2层：Firestore fallback（云端，换机恢复场景）
+  //   第3层：Firestore 历史数据（喂食/日志/压力图）
   Future<void> loadPetForUser(String userId) async {
     _currentUserId = userId;
+    bool loadedFromLocal = false;
     try {
       final prefs = await SharedPreferences.getInstance();
-      // SharedPreferences key 以 userId 为前缀，实现不同账号数据隔离
       final name = prefs.getString('pet_name_$userId');
       if (name != null && name.isNotEmpty) {
-        // 该用户有已保存的宠物数据 → 从 SharedPreferences 恢复
         _pet = PetProfile(
           id: prefs.getString('pet_id_$userId') ?? 'pet_$userId',
           name: name,
@@ -105,16 +110,28 @@ class PetHealthProvider extends ChangeNotifier {
                 prefs.getString('pet_created_$userId') ?? '') ??
               DateTime.now(),
         );
-        notifyListeners(); // 先刷新宠物档案（快速响应）
+        loadedFromLocal = true;
+        notifyListeners();
       }
-      // 如果没有已保存数据（首次登录），保持默认 Demo 数据 Biscuit
     } catch (e) {
-      // [TODO: 异常处理] SharedPreferences 读取失败（极少见，通常是系统级问题）
-      debugPrint('loadPetForUser error: $e');
+      debugPrint('loadPetForUser SharedPreferences error: $e');
     }
 
-    // 无论宠物档案是否加载成功，都并行加载云端历史数据
-    // 这样喂食记录、日志、压力图表都能从 Firestore 恢复
+    // P0-1：未从本地读到时，尝试从 Firestore 拉取（换机恢复场景）
+    if (!loadedFromLocal) {
+      try {
+        final cloudPet = await _firestoreService.loadPetProfile(userId);
+        if (cloudPet != null && cloudPet.name.isNotEmpty) {
+          _pet = cloudPet;
+          // 回写到 SharedPreferences，后续本地读取加快
+          await _savePetToLocal(userId, cloudPet);
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('loadPetForUser Firestore fallback error: $e');
+      }
+    }
+
     await _loadCloudHistory(userId);
   }
 
@@ -142,35 +159,35 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // ── 更新并持久化宠物档案 ─────────────────────────────────────────────────
-  // 用户在宠物编辑弹窗保存后调用，更新内存并写入 SharedPreferences。
-  // notifyListeners() 触发所有使用 context.watch<PetHealthProvider>() 的 Widget 重建，
-  // Dashboard 和宠物页面的名字会立即更新。
-  //
-  // [TODO: API 需求] 接入后端后，额外调用：PUT /api/pets/{id}  body: updated.toJson()
+  // P0-1：同时写入 SharedPreferences（本地快速读取）和 Firestore（云端备份）
   Future<void> updatePet(PetProfile updated) async {
     _pet = updated;
-    notifyListeners(); // 先立即更新 UI，再异步保存（避免保存延迟导致 UI 卡顿）
+    notifyListeners();
 
     if (_currentUserId != null) {
+      final uid = _currentUserId!;
+      // 1. 写入 SharedPreferences（本地快速读取）
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final uid = _currentUserId!;
-        // 以 userId 为 key 前缀保存，实现用户数据隔离
-        await prefs.setString('pet_name_$uid', updated.name);
-        await prefs.setString('pet_id_$uid', updated.id);
-        await prefs.setString('pet_species_$uid', updated.species);
-        await prefs.setString('pet_breed_$uid', updated.breed);
-        await prefs.setInt('pet_age_$uid', updated.ageMonths);
-        await prefs.setDouble('pet_weight_$uid', updated.weightKg);
-        await prefs.setStringList('pet_tags_$uid', updated.healthTags);
-        await prefs.setString(
-            'pet_created_$uid', updated.createdAt.toIso8601String());
+        await _savePetToLocal(uid, updated);
       } catch (e) {
-        // [TODO: 异常处理] SharedPreferences 写入失败（极少见）
-        // 内存已更新，UI 正常，但下次重启 App 数据会丢失
-        debugPrint('updatePet save error: $e');
+        debugPrint('updatePet local save error: $e');
       }
+      // 2. 异步写入 Firestore（云端备份，不阻塞 UI）
+      _firestoreService.savePetProfile(uid, updated);
     }
+  }
+
+  // 将宠物档案写入 SharedPreferences（内部辅助方法）
+  Future<void> _savePetToLocal(String uid, PetProfile pet) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pet_name_$uid', pet.name);
+    await prefs.setString('pet_id_$uid', pet.id);
+    await prefs.setString('pet_species_$uid', pet.species);
+    await prefs.setString('pet_breed_$uid', pet.breed);
+    await prefs.setInt('pet_age_$uid', pet.ageMonths);
+    await prefs.setDouble('pet_weight_$uid', pet.weightKg);
+    await prefs.setStringList('pet_tags_$uid', pet.healthTags);
+    await prefs.setString('pet_created_$uid', pet.createdAt.toIso8601String());
   }
 
   // ── BLE 设备连接与实时数据流 ───────────────────────────────────────────────
@@ -235,11 +252,19 @@ class PetHealthProvider extends ChangeNotifier {
   // [API 需求] Firestore 路径：users/{uid}/feeding_sessions/{sessionId}
   //   文档字段：feed_time, time_to_calm, stress_before, stress_after, created_at
   //
-  // 喂食完成回调（供 MainNavScreen 监听以写入通知中心）
-  // 设计原则：PetHealthProvider 不直接持有 NotificationProvider（避免循环依赖）
-  //   而是通过回调将事件转发给外部（MainNavScreen），由外部写入通知
-  // 回调参数：已完成的 FeedingSession 对象
+  // ── 通知回调机制（避免循环依赖）──────────────────────────────────────────
+  // PetHealthProvider 不直接持有 NotificationProvider
+  // 而是通过回调将事件转发给外部（MainNavScreen），由外部写入通知
+
+  // 喂食完成回调：参数为已完成的 FeedingSession 对象
   void Function(FeedingSession)? onFeedingCompleted;
+
+  // P1 通知回调：参数为 (type, title, body)
+  // type：'shiver_alert' | 'stress_frequent' | 'lethargy' | 'activity_low'
+  void Function(String type, String title, String body)? onAlertNotification;
+
+  // 每日总结回调：参数为总结数据 Map
+  void Function(DailyHealthSummaryData)? onDailySummaryReady;
 
   FeedingSession? _activeSession;
   final List<FeedingSession> _sessionHistory = [];
@@ -373,42 +398,218 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── 全局预警系统 ────────────────────────────────────────────────────────────
   // 当 BLE 数据超过阈值时，设置 _hasAlert=true，MainNavScreen 顶部显示 AlertBanner。
-  // 预警类型：
-  //   'shiver'   → 宠物连续颤抖超过 30 秒（可能痛苦/寒冷/恐惧）
-  //   'activity' → 白天活动量过低（可能生病）
+  //
+  // P1 完整预警规则（对齐硬件需求文档）：
+  //   'shiver'        → 状态D：宠物连续发抖 >3分钟（180秒）触发紧急预警
+  //   'stress_frequent'→ 状态C：1小时内应激动作 >10次触发
+  //   'lethargy'      → 状态F：白天（10:00-18:00）连续静止 >3小时触发昏睡检测
+  //   'activity'      → A+B+C 总活动量低于7日均值30%（连续2天）
+  //
   // 用户点击关闭按钮 → dismissAlert() 清除，直到下次 BLE 数据再次触发
   bool _hasAlert = false;
   String _alertMessage = '';
-  String _alertType = ''; // 'shiver' | 'activity'
+  String _alertType = ''; // 'shiver' | 'stress_frequent' | 'lethargy' | 'activity'
 
   bool get hasAlert => _hasAlert;
   String get alertMessage => _alertMessage;
   String get alertType => _alertType;
+
+  // ── P1：发抖持续时长追踪 ───────────────────────────────────────────────────
+  // 文档定义：状态D = 近1g + 高频小幅颤抖，单次持续 >3分钟 → 触发紧急预警
+  int _continuousShiverSeconds = 0;    // 当前连续发抖秒数（BlePacket 每5秒一包，累计计算）
+  bool _shiverAlertFired = false;      // 本次连续发抖是否已触发通知（避免重复）
+  static const int kShiverThreshold = 180; // 3分钟 = 180秒
+
+  // ── P1：应激动作频次追踪（状态C）──────────────────────────────────────────
+  // 文档定义：状态C = 高频短促爆发（1.5-2.0g），1小时内 >10次 → 触发通知
+  final List<DateTime> _stressEventTimestamps = []; // 近1小时内的应激事件时间戳列表
+  bool _stressFreqAlertFired = false;              // 本小时是否已触发（避免重复，每小时重置）
+  static const int kStressFreqThreshold = 10;     // 1小时内超过此次数触发
+
+  // ── P1：昏睡检测（状态F）──────────────────────────────────────────────────
+  // 文档定义：状态F = 扁平1g线 + Z轴静止数小时，白天 >3小时 → 触发药物/异常昏睡通知
+  int _continuousLethargySecs = 0;       // 当前连续静止（类F状态）秒数
+  bool _lethargyAlertFired = false;      // 今日是否已触发昏睡通知（每天只触发一次）
+  DateTime? _lethargyAlertDate;          // 记录触发日期，次日清零
+  static const int kLethargyThreshold = 10800; // 3小时 = 10800秒
+
+  // ── P1：每日健康总结定时器 ─────────────────────────────────────────────────
+  // 每天 20:00 检查一次，若未推送则生成当日健康总结通知
+  Timer? _dailySummaryTimer;
+  DateTime? _lastDailySummaryDate; // 记录上次推送日期，避免同一天重复推送
+
+  // ── P1：今日各状态时长累计（供每日总结使用）──────────────────────────────
+  // 每次 BLE 包时累加（每包=5秒的采样）
+  int _todayPacingSeconds    = 0; // 状态A：踱步
+  int _todayPlaySeconds      = 0; // 状态B：健康玩耍
+  int _todayStressSeconds    = 0; // 状态C：应激动作
+  int _todayShiverSeconds    = 0; // 状态D：发抖
+  int _todaySleepSeconds     = 0; // 状态E：健康睡眠
+  int _todayLethargySeconds  = 0; // 状态F：昏睡/静止
+  DateTime _todayStatsDate   = DateTime.now(); // 当前统计日期，跨天时重置
+
+  // 供 UI 和每日总结读取
+  int get todayPacingSeconds   => _todayPacingSeconds;
+  int get todayPlaySeconds     => _todayPlaySeconds;
+  int get todayStressSeconds   => _todayStressSeconds;
+  int get todayShiverSeconds   => _todayShiverSeconds;
+  int get todaySleepSeconds    => _todaySleepSeconds;
+  int get todayLethargySeconds => _todayLethargySeconds;
 
   void dismissAlert() {
     _hasAlert = false;
     notifyListeners();
   }
 
+  // 每收到一个 BLE 包时：
+  //   1. 累加今日各状态时长（每包约5秒）
+  //   2. 追踪连续发抖（D状态）/ 昏睡（F状态）
+  //   3. 统计应激（C状态）频次
+  //   4. 超阈值时触发预警并通过回调通知中心
   void _checkAlerts(BlePacket packet) {
-    // 颤抖预警：持续颤抖超过 30 秒触发
-    // [TODO: 异常处理] 当前每个数据包都可能重复触发，建议加入冷却时间（如 5 分钟内只触发一次）
-    if (packet.shivD > 30) {
+    final now = DateTime.now();
+    // 跨天重置今日统计
+    _resetTodayStatsIfNewDay(now);
+
+    // ── 今日状态时长累计（每包约5秒）──────────────────────────────────────
+    const int samplingInterval = 5;
+    final state = packet.behaviorState;
+    switch (state) {
+      case PetBehaviorState.pacing:
+        _todayPacingSeconds   += samplingInterval;
+      case PetBehaviorState.playing:
+        _todayPlaySeconds     += samplingInterval;
+      case PetBehaviorState.stressed:
+        _todayStressSeconds   += samplingInterval;
+      case PetBehaviorState.shivering:
+        _todayShiverSeconds   += samplingInterval;
+      case PetBehaviorState.sleeping:
+        _todaySleepSeconds    += samplingInterval;
+      default:
+        // calm → 如果是白天且近乎静止（activityScore极低），计入昏睡候选
+        if (packet.activityScore < 3) {
+          _todayLethargySeconds += samplingInterval;
+        }
+    }
+
+    // ── P1-1：发抖预警（状态D，阈值3分钟 = 180秒）─────────────────────────
+    if (packet.shivD > 0) {
+      // BLE 包含发抖时长字段，直接累加
+      _continuousShiverSeconds += samplingInterval;
+    } else {
+      // 无发抖则重置连续计时（可接受短暂中断 ≤10秒）
+      _continuousShiverSeconds = 0;
+      _shiverAlertFired = false; // 连续中断后允许下次重新触发
+    }
+
+    if (_continuousShiverSeconds >= kShiverThreshold && !_shiverAlertFired) {
+      _shiverAlertFired = true;
       _hasAlert = true;
       _alertType = 'shiver';
-      _alertMessage =
-          '⚠️ ${_pet.name} has been shivering for over ${packet.shivD}s. Check for pain, cold, or fear.';
+      final minutesDuration = _continuousShiverSeconds ~/ 60;
+      _alertMessage = '🆘 ${_pet.name} 已连续发抖 $minutesDuration 分钟，请立即检查是否疼痛、受寒或极度恐惧。';
       notifyListeners();
+      // 回调通知中心
+      onAlertNotification?.call(
+        'shiver_alert',
+        '🆘 紧急：${_pet.name} 持续发抖超过3分钟',
+        '已连续发抖 $minutesDuration 分钟。可能原因：疼痛、低体温或极度恐惧。建议立即检查或联系兽医。',
+      );
     }
-    // 活动量预警：仅在白天（10:00-20:00）检查，避免夜间睡眠误报
-    // [TODO: 异常处理] activityScore < 10 的阈值是经验值，应根据宠物品种/年龄动态调整
-    if (packet.activityScore < 10 && DateTime.now().hour >= 10 &&
-        DateTime.now().hour < 20) {
-      _hasAlert = true;
-      _alertType = 'activity';
-      _alertMessage =
-          "⚠️ ${_pet.name}'s activity is 30% below normal. Consider a vet check.";
-      notifyListeners();
+
+    // ── P1-2：应激动作频繁（状态C，1小时内 >10次）────────────────────────
+    if (packet.strC > 0) {
+      // 每个 BLE 包的 strC 字段记录本周期应激次数，加入时间戳队列
+      for (int i = 0; i < packet.strC; i++) {
+        _stressEventTimestamps.add(now);
+      }
+    }
+    // 清除超过1小时的旧记录
+    _stressEventTimestamps.removeWhere(
+        (t) => now.difference(t).inHours >= 1);
+
+    final recentStressCount = _stressEventTimestamps.length;
+    if (recentStressCount > kStressFreqThreshold && !_stressFreqAlertFired) {
+      _stressFreqAlertFired = true;
+      onAlertNotification?.call(
+        'stress_frequent',
+        '⚠️ ${_pet.name} 今日应激反应频繁',
+        '过去1小时内检测到 $recentStressCount 次应激动作（状态C）。'
+        '建议查看是否有焦虑源，考虑增加益生素用量或减少环境刺激。',
+      );
+    }
+    // 每整点重置，允许下一小时再次触发
+    if (now.minute == 0 && now.second < 10) {
+      _stressFreqAlertFired = false;
+    }
+
+    // ── P1-4：昏睡检测（状态F，白天连续静止 >3小时）─────────────────────
+    // 白天时段：10:00–18:00；状态判断：activityScore < 3 + 无发抖 + 无应激
+    final isDaytime = now.hour >= 10 && now.hour < 18;
+    final isLethargyLike = packet.activityScore < 3 &&
+        packet.shivD == 0 &&
+        packet.strC == 0 &&
+        packet.paceD == 0;
+
+    if (isDaytime && isLethargyLike) {
+      _continuousLethargySecs += samplingInterval;
+    } else {
+      // 有活动则重置
+      _continuousLethargySecs = 0;
+    }
+
+    // 检查是否今天已触发（每天只触发一次）
+    final todayDate = DateTime(now.year, now.month, now.day);
+    if (_lethargyAlertDate != null) {
+      final alertDay = DateTime(
+          _lethargyAlertDate!.year, _lethargyAlertDate!.month, _lethargyAlertDate!.day);
+      if (alertDay != todayDate) {
+        _lethargyAlertFired = false; // 新的一天，允许再次触发
+      }
+    }
+
+    if (_continuousLethargySecs >= kLethargyThreshold &&
+        isDaytime &&
+        !_lethargyAlertFired) {
+      _lethargyAlertFired = true;
+      _lethargyAlertDate = now;
+      final hours = _continuousLethargySecs ~/ 3600;
+      onAlertNotification?.call(
+        'lethargy',
+        '⚠️ ${_pet.name} 白天异常静止（疑似昏睡）',
+        '白天已连续静止超过 $hours 小时（状态F）。'
+        '请注意区分健康睡眠与药物引起的昏睡，如异常请停药并联系兽医。',
+      );
+    }
+
+    // ── 传统活动量预警（保留，仅白天时段）────────────────────────────────
+    if (packet.activityScore < 10 && isDaytime) {
+      if (!_hasAlert || _alertType == 'activity') {
+        _hasAlert = true;
+        _alertType = 'activity';
+        _alertMessage = "⚠️ ${_pet.name}'s activity is below normal today.";
+        notifyListeners();
+      }
+    }
+  }
+
+  // 跨天时重置今日统计数据
+  void _resetTodayStatsIfNewDay(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final statDay = DateTime(
+        _todayStatsDate.year, _todayStatsDate.month, _todayStatsDate.day);
+    if (today != statDay) {
+      _todayPacingSeconds   = 0;
+      _todayPlaySeconds     = 0;
+      _todayStressSeconds   = 0;
+      _todayShiverSeconds   = 0;
+      _todaySleepSeconds    = 0;
+      _todayLethargySeconds = 0;
+      _todayStatsDate       = now;
+      _stressFreqAlertFired = false;
+      _shiverAlertFired     = false;
+      _continuousShiverSeconds  = 0;
+      _continuousLethargySecs   = 0;
     }
   }
 
@@ -553,6 +754,60 @@ class PetHealthProvider extends ChangeNotifier {
     _stressChartData = generateDailyStressChart(); // 生成 14 天 Demo 压力曲线（登录后会被云端数据覆盖）
     _seedHistoricalSessions();                      // 注入 Demo 历史数据（未登录时的占位，登录后清空）
     connectDevice();                                // 启动 BLE 模拟数据流
+    _startDailySummaryTimer();                      // 启动每日健康总结定时器
+  }
+
+  // ── P1-3：每日健康总结定时器 ─────────────────────────────────────────────
+  // 每分钟检查一次当前时间，20:00–20:05 期间触发当日总结推送
+  // （用分钟轮询代替精确定时，避免 App 后台被杀时漏推）
+  void _startDailySummaryTimer() {
+    _dailySummaryTimer?.cancel();
+    _dailySummaryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      // 在每天 20:00–20:05 之间触发（5分钟窗口，避免精确时间错过）
+      if (now.hour == 20 && now.minute < 5) {
+        if (_lastDailySummaryDate == null || _lastDailySummaryDate != today) {
+          _lastDailySummaryDate = today;
+          _triggerDailySummary();
+        }
+      }
+    });
+  }
+
+  // 生成并触发每日健康总结
+  void _triggerDailySummary() {
+    if (onDailySummaryReady == null) return;
+
+    final todaySessionCount = _sessionHistory.where((s) {
+      final d = s.feedTime;
+      final now = DateTime.now();
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).length;
+
+    final avgTtc = _sessionHistory
+        .where((s) =>
+            s.timeToCalm != null &&
+            s.feedTime.day == DateTime.now().day)
+        .map((s) => s.timeToCalm!)
+        .fold<int>(0, (a, b) => a + b);
+
+    final summary = DailyHealthSummaryData(
+      date: DateTime.now(),
+      petName: _pet.name,
+      pacingSeconds:    _todayPacingSeconds,
+      playSeconds:      _todayPlaySeconds,
+      stressSeconds:    _todayStressSeconds,
+      shiverSeconds:    _todayShiverSeconds,
+      sleepSeconds:     _todaySleepSeconds,
+      lethargySeconds:  _todayLethargySeconds,
+      feedingCount:     todaySessionCount,
+      avgTimeToCalmSecs: todaySessionCount > 0
+          ? avgTtc ~/ todaySessionCount
+          : null,
+      avgAnxietyScore:  currentAnxietyScore.toDouble(),
+    );
+    onDailySummaryReady?.call(summary);
   }
 
   // 注入 Demo 历史数据（喂食记录 + 健康日志），让未登录 / 首次登录时图表有内容展示
@@ -668,7 +923,64 @@ class PetHealthProvider extends ChangeNotifier {
   void dispose() {
     _bleSub?.cancel();
     _sessionTimer?.cancel();
+    _dailySummaryTimer?.cancel();
     _ble.stop();
     super.dispose();
+  }
+}
+
+// ── P1-3：每日健康总结数据模型 ──────────────────────────────────────────────
+// 由 PetHealthProvider._triggerDailySummary() 生成
+// 由 MainNavScreen 订阅，转化为 NotificationProvider 的通知条目
+class DailyHealthSummaryData {
+  final DateTime date;
+  final String petName;
+  final int pacingSeconds;     // 状态A：踱步时长（秒）
+  final int playSeconds;       // 状态B：玩耍时长（秒）
+  final int stressSeconds;     // 状态C：应激时长（秒）
+  final int shiverSeconds;     // 状态D：发抖时长（秒）
+  final int sleepSeconds;      // 状态E：睡眠时长（秒）
+  final int lethargySeconds;   // 状态F：昏睡时长（秒）
+  final int feedingCount;      // 当日喂食次数
+  final int? avgTimeToCalmSecs; // 平均平静用时（秒），null = 今日未喂食
+  final double avgAnxietyScore; // 当日平均焦虑分
+
+  const DailyHealthSummaryData({
+    required this.date,
+    required this.petName,
+    required this.pacingSeconds,
+    required this.playSeconds,
+    required this.stressSeconds,
+    required this.shiverSeconds,
+    required this.sleepSeconds,
+    required this.lethargySeconds,
+    required this.feedingCount,
+    this.avgTimeToCalmSecs,
+    required this.avgAnxietyScore,
+  });
+
+  // 生成简洁的中文总结文字（用于通知正文）
+  String toSummaryText(bool isZh) {
+    final stressMin   = stressSeconds  ~/ 60;
+    final pacingMin   = pacingSeconds  ~/ 60;
+    final playMin     = playSeconds    ~/ 60;
+    final sleepHours  = sleepSeconds   ~/ 3600;
+    final score       = avgAnxietyScore.round();
+
+    if (isZh) {
+      final ttcStr = avgTimeToCalmSecs != null
+          ? '，平静用时 ${avgTimeToCalmSecs! ~/ 60} 分钟'
+          : '';
+      return '焦虑分 $score｜踱步 $pacingMin 分｜应激 $stressMin 分｜'
+             '玩耍 $playMin 分｜睡眠 $sleepHours 小时'
+             '${feedingCount > 0 ? "｜今日喂食 $feedingCount 次$ttcStr" : "｜今日未喂食"}';
+    } else {
+      final ttcStr = avgTimeToCalmSecs != null
+          ? ', calmed in ${avgTimeToCalmSecs! ~/ 60}m'
+          : '';
+      return 'Anxiety $score | Pacing ${pacingMin}m | Stress ${stressMin}m | '
+             'Play ${playMin}m | Sleep ${sleepHours}h'
+             '${feedingCount > 0 ? " | Fed $feedingCount time(s)$ttcStr" : " | No feeding today"}';
+    }
   }
 }

@@ -75,19 +75,23 @@ class _MainNavScreenState extends State<MainNavScreen> {
   @override
   void dispose() {
     // 退出页面时取消监听，防止内存泄漏
-    // 同时清除喂食回调，避免喂食完成后试图访问已卸载的 context
-    context.read<PetHealthProvider>().removeListener(_onPetHealthChanged);
-    context.read<PetHealthProvider>().onFeedingCompleted = null;
+    // 同时清除所有回调，避免喂食/预警/总结完成后试图访问已卸载的 context
+    final petProvider = context.read<PetHealthProvider>();
+    petProvider.removeListener(_onPetHealthChanged);
+    petProvider.onFeedingCompleted = null;
+    petProvider.onAlertNotification = null;
+    petProvider.onDailySummaryReady = null;
     super.dispose();
   }
 
-  // 注册喂食完成回调
-  // PetHealthProvider._completeFeedingSession() 完成后调用，转发到通知中心
+  // 注册所有 P1 回调（喂食完成 + 预警通知 + 每日总结）
+  // PetHealthProvider 通过回调将事件转发到 NotificationProvider，避免循环依赖
   void _registerFeedingCallback() {
     if (!mounted) return;
     final petProvider = context.read<PetHealthProvider>();
     final isZh = context.read<LocaleProvider>().isZh;
 
+    // ── 喂食完成通知 ──────────────────────────────────────────────────────────
     petProvider.onFeedingCompleted = (session) {
       if (!mounted) return;
       final notifProvider = context.read<NotificationProvider>();
@@ -100,16 +104,45 @@ class _MainNavScreenState extends State<MainNavScreen> {
 
       notifProvider.addNotification(
         type: NotificationType.feeding,
-        title: isZh ? '喂食记录完成' : 'Feeding Session Recorded',
+        title: isZh ? '✅ 喂食记录完成' : '✅ Feeding Session Recorded',
         body: isZh
-            ? '$petName 已恢复平静，共用时 $ttcLabel。健康趋势已更新。'
-            : '$petName calmed down in $ttcLabel. Health trend updated.',
+            ? '$petName 喂食后平静用时 $ttcLabel。ZenBelly 健康趋势已更新。'
+            : '$petName calmed down in $ttcLabel after feeding. Trend updated.',
+        actionRoute: 'dashboard',
+      );
+    };
+
+    // ── P1 预警通知（发抖/应激频繁/昏睡）────────────────────────────────────
+    // type: 'shiver_alert' | 'stress_frequent' | 'lethargy'
+    petProvider.onAlertNotification = (type, title, body) {
+      if (!mounted) return;
+      final notifProvider = context.read<NotificationProvider>();
+      notifProvider.addNotification(
+        type: NotificationType.alert,
+        title: title,
+        body: body,
+        actionRoute: 'dashboard',
+      );
+    };
+
+    // ── P1-3 每日健康总结通知（晚 20:00）──────────────────────────────────────
+    petProvider.onDailySummaryReady = (summary) {
+      if (!mounted) return;
+      final notifProvider = context.read<NotificationProvider>();
+      final summaryText = summary.toSummaryText(isZh);
+
+      notifProvider.addNotification(
+        type: NotificationType.system,
+        title: isZh
+            ? '📊 ${summary.petName} 今日健康总结'
+            : '📊 ${summary.petName}\'s Daily Health Summary',
+        body: summaryText,
         actionRoute: 'dashboard',
       );
     };
   }
 
-  // 宠物健康数据变化时的回调（主要监听预警状态）
+  // 宠物健康数据变化时的回调（主要监听 AlertBanner 横幅预警状态）
   //
   // 设计原则：
   //   PetHealthProvider 不直接持有 NotificationProvider（避免循环依赖）
@@ -125,32 +158,20 @@ class _MainNavScreenState extends State<MainNavScreen> {
     final isZh = context.read<LocaleProvider>().isZh;
 
     if (petProvider.hasAlert && petProvider.alertType != _lastAlertType) {
-      // 预警类型发生变化：写入通知中心
+      // 预警类型发生变化：写入通知中心（仅处理活动量预警，发抖/应激/昏睡已由回调处理）
       _lastAlertType = petProvider.alertType;
 
-      final petName = petProvider.pet.name;
-      String title;
-      String body;
-
-      if (petProvider.alertType == 'shiver') {
-        title = isZh ? '紧急预警：持续发抖' : '⚠️ Shiver Alert';
-        body = isZh
-            ? '$petName 已持续发抖超过 30 秒，请检查是否疼痛、寒冷或恐惧。'
-            : '$petName has been shivering for over 30s. Check for pain, cold, or fear.';
-      } else {
-        title = isZh ? '活动量预警' : '⚠️ Activity Alert';
-        body = isZh
-            ? '$petName 今日活动量低于均値 30%，建议和充分和兄外玩而或和兽医和刱接受检查。'
-            : "${petName}'s activity is 30% below normal. Consider a vet check.";
+      if (petProvider.alertType == 'activity') {
+        final petName = petProvider.pet.name;
+        notifProvider.addNotification(
+          type: NotificationType.alert,
+          title: isZh ? '⚠️ 活动量偏低' : '⚠️ Activity Alert',
+          body: isZh
+              ? '$petName 今日活动量偏低，建议充分户外玩耍或联系兽医检查。'
+              : "${petName}'s activity is below normal today. Consider a vet check.",
+          actionRoute: 'dashboard',
+        );
       }
-
-      // 异步写入通知中心（不需等待）
-      notifProvider.addNotification(
-        type: NotificationType.alert,
-        title: title,
-        body: body,
-        actionRoute: 'dashboard',
-      );
     } else if (!petProvider.hasAlert && _lastAlertType.isNotEmpty) {
       // 预警清除：重置记录，允许下次同类型预警再次写入通知
       _lastAlertType = '';

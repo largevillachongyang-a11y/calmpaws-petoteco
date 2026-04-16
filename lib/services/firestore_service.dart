@@ -51,6 +51,56 @@ class FirestoreService {
       _db.collection('users').doc(uid).collection('daily_stress');
 
   // =============================================================================
+  // 宠物档案（PetProfile）P0-1：换机不丢宠物档案
+  // =============================================================================
+
+  /// 保存宠物档案到 Firestore
+  /// 调用时机：用户在宠物页面编辑并保存宠物信息后
+  /// 路径：users/{uid}/pet/profile
+  Future<void> savePetProfile(String uid, PetProfile pet) async {
+    try {
+      await _db.collection('users').doc(uid)
+          .collection('pet').doc('profile').set({
+        'pet_id':   pet.id,
+        'name':     pet.name,
+        'species':  pet.species,
+        'breed':    pet.breed,
+        'age_months': pet.ageMonths,
+        'weight_kg':  pet.weightKg,
+        'health_tags': pet.healthTags,
+        'created_at': Timestamp.fromDate(pet.createdAt),
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugFirestore('savePetProfile error: \$e');
+    }
+  }
+
+  /// 从 Firestore 加载宠物档案
+  /// 调用时机：用户登录时（SharedPreferences 无数据时作为备用）
+  Future<PetProfile?> loadPetProfile(String uid) async {
+    try {
+      final doc = await _db.collection('users').doc(uid)
+          .collection('pet').doc('profile').get();
+      if (!doc.exists || doc.data() == null) return null;
+      final d = doc.data()!;
+      return PetProfile(
+        id:         (d['pet_id']   as String?) ?? 'pet_\$uid',
+        name:       (d['name']     as String?) ?? '',
+        species:    (d['species']  as String?) ?? 'dog',
+        breed:      (d['breed']    as String?) ?? '',
+        ageMonths:  (d['age_months'] as num?)?.toInt() ?? 0,
+        weightKg:   (d['weight_kg']  as num?)?.toDouble() ?? 0.0,
+        healthTags: List<String>.from(d['health_tags'] ?? []),
+        createdAt:  (d['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    } catch (e) {
+      debugFirestore('loadPetProfile error: \$e');
+      return null;
+    }
+  }
+
+  // =============================================================================
   // 喂食记录（FeedingSession）
   // =============================================================================
 
