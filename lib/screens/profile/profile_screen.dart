@@ -29,6 +29,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 
@@ -681,9 +682,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextButton.styleFrom(overlayColor: Colors.transparent),
             onPressed: () async {
               Navigator.pop(ctx); // 先关弹窗
-              // 退出前清除宠物数据，防止下一个账号登录后短暂显示上一个用户的宠物名
+              // 退出前同时清除宠物数据和通知数据，防止下一个账号登录后短暂显示上一个用户的数据
               if (ctx.mounted) {
                 ctx.read<PetHealthProvider>().clearUserData();
+                ctx.read<NotificationProvider>().clearUserData(); // 清除通知记录
               }
               await AuthService().signOut(); // 真正退出登录
               // AuthGate 监听 Firebase 状态变化，会自动跳转回登录页

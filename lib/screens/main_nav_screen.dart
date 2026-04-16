@@ -29,6 +29,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/pet_health_provider.dart';
 import '../providers/locale_provider.dart';
+import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'pet/pet_screen.dart';
@@ -53,6 +54,10 @@ class _MainNavScreenState extends State<MainNavScreen> {
     ProfileScreen(),
   ];
 
+  // 监听 PetHealthProvider 的预警状态，自动将预警转发到通知中心
+  // 这样用户就算关闭预警横幅，历史通知记录仍然保留
+  String _lastAlertType = ''; // 记录上一次处理的预警类型，防止重复写入
+
   @override
   void initState() {
     super.initState();
@@ -60,16 +65,114 @@ class _MainNavScreenState extends State<MainNavScreen> {
     // 使用 addPostFrameCallback 确保 Widget 树已构建完成（可安全访问 context）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserPetData();
+      // 注册 PetHealthProvider 监听器，预警变化时自动写入通知
+      context.read<PetHealthProvider>().addListener(_onPetHealthChanged);
+      // 注册喂食完成回调
+      _registerFeedingCallback();
     });
   }
 
-  // 根据当前 Firebase 登录用户加载其宠物档案
+  @override
+  void dispose() {
+    // 退出页面时取消监听，防止内存泄漏
+    // 同时清除喂食回调，避免喂食完成后试图访问已卸载的 context
+    context.read<PetHealthProvider>().removeListener(_onPetHealthChanged);
+    context.read<PetHealthProvider>().onFeedingCompleted = null;
+    super.dispose();
+  }
+
+  // 注册喂食完成回调
+  // PetHealthProvider._completeFeedingSession() 完成后调用，转发到通知中心
+  void _registerFeedingCallback() {
+    if (!mounted) return;
+    final petProvider = context.read<PetHealthProvider>();
+    final isZh = context.read<LocaleProvider>().isZh;
+
+    petProvider.onFeedingCompleted = (session) {
+      if (!mounted) return;
+      final notifProvider = context.read<NotificationProvider>();
+      final petName = petProvider.pet.name;
+      final ttcLabel = session.timeToCalm != null
+          ? (session.timeToCalm! < 60
+              ? '${session.timeToCalm}s'
+              : '${session.timeToCalm! ~/ 60}m ${session.timeToCalm! % 60}s')
+          : '--';
+
+      notifProvider.addNotification(
+        type: NotificationType.feeding,
+        title: isZh ? '喂食记录完成' : 'Feeding Session Recorded',
+        body: isZh
+            ? '$petName 已恢复平静，共用时 $ttcLabel。健康趋势已更新。'
+            : '$petName calmed down in $ttcLabel. Health trend updated.',
+        actionRoute: 'dashboard',
+      );
+    };
+  }
+
+  // 宠物健康数据变化时的回调（主要监听预警状态）
+  //
+  // 设计原则：
+  //   PetHealthProvider 不直接持有 NotificationProvider（避免循环依赖）
+  //   而是由 MainNavScreen 作中间层，监听 PetHealthProvider 预警，转发到 NotificationProvider
+  //
+  // 防重复逻辑：
+  //   _lastAlertType 记录上一次写入的预警类型
+  //   只有预警类型发生变化时才写入新通知，避免 BLE 每秒触发频繁写入
+  void _onPetHealthChanged() {
+    if (!mounted) return;
+    final petProvider = context.read<PetHealthProvider>();
+    final notifProvider = context.read<NotificationProvider>();
+    final isZh = context.read<LocaleProvider>().isZh;
+
+    if (petProvider.hasAlert && petProvider.alertType != _lastAlertType) {
+      // 预警类型发生变化：写入通知中心
+      _lastAlertType = petProvider.alertType;
+
+      final petName = petProvider.pet.name;
+      String title;
+      String body;
+
+      if (petProvider.alertType == 'shiver') {
+        title = isZh ? '紧急预警：持续发抖' : '⚠️ Shiver Alert';
+        body = isZh
+            ? '$petName 已持续发抖超过 30 秒，请检查是否疼痛、寒冷或恐惧。'
+            : '$petName has been shivering for over 30s. Check for pain, cold, or fear.';
+      } else {
+        title = isZh ? '活动量预警' : '⚠️ Activity Alert';
+        body = isZh
+            ? '$petName 今日活动量低于均値 30%，建议和充分和兄外玩而或和兽医和刱接受检查。'
+            : "${petName}'s activity is 30% below normal. Consider a vet check.";
+      }
+
+      // 异步写入通知中心（不需等待）
+      notifProvider.addNotification(
+        type: NotificationType.alert,
+        title: title,
+        body: body,
+        actionRoute: 'dashboard',
+      );
+    } else if (!petProvider.hasAlert && _lastAlertType.isNotEmpty) {
+      // 预警清除：重置记录，允许下次同类型预警再次写入通知
+      _lastAlertType = '';
+    }
+  }
+
+  // 根据当前 Firebase 登录用户加载其宠物档案 + 通知数据
   // 业务逻辑：Firebase User.uid 作为数据 key，不同账号互相隔离
+  //
+  // 加载顺序：
+  //   1. PetHealthProvider.loadPetForUser() — 加载宠物档案 + Firestore 历史数据
+  //   2. NotificationProvider.loadForUser() — 加载历史通知（并发进行）
+  //
+  // 两者并发执行减少总等待时间
   Future<void> _loadUserPetData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && mounted) {
-      // 将 Firebase uid 传给 PetHealthProvider，从 SharedPreferences 读取该用户的宠物数据
-      await context.read<PetHealthProvider>().loadPetForUser(user.uid);
+      // 并发加载：宠物数据 + 通知历史，减少总等待时间
+      await Future.wait([
+        context.read<PetHealthProvider>().loadPetForUser(user.uid),
+        context.read<NotificationProvider>().loadForUser(user.uid),
+      ]);
     }
   }
 

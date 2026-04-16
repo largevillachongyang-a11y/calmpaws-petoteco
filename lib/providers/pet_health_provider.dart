@@ -38,12 +38,22 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/mock_ble_service.dart';
+import '../services/firestore_service.dart';
 
 class PetHealthProvider extends ChangeNotifier {
   // ── 当前已登录用户 ID（用于 SharedPreferences key 隔离）──────────────────
   // 未登录时为 null，loadPetForUser() 会在登录后设置
   String? _currentUserId;
   String? get currentUserId => _currentUserId;
+
+  // ── Firestore 服务层实例 ──────────────────────────────────────────────────
+  // 所有云端读写操作都通过此服务层，不直接调用 FirebaseFirestore SDK
+  final _firestoreService = FirestoreService();
+
+  // ── 数据加载状态 ──────────────────────────────────────────────────────────
+  // UI 可根据此状态显示加载指示器或空状态提示
+  bool _isLoadingHistory = false;
+  bool get isLoadingHistory => _isLoadingHistory;
 
   // ── 宠物档案 ──────────────────────────────────────────────────────────────
   // 默认为 Demo 数据（Biscuit），作为首次登录用户未设置宠物时的占位。
@@ -71,11 +81,10 @@ class PetHealthProvider extends ChangeNotifier {
   // 调用时机：MainNavScreen 的 initState 中，Firebase 登录成功后立即调用。
   //
   // 业务逻辑：
-  //   1. 保存 userId 供后续 updatePet 使用
-  //   2. 读取 SharedPreferences 中该用户的宠物数据
-  //   3. 如果有保存的数据 → 替换内存中的 _pet
-  //   4. 如果没有（首次登录）→ 保持 Demo 数据，同时把 Demo 保存一份（方便调试）
-  //   5. notifyListeners() 触发 Dashboard 和宠物页面刷新
+  //   1. 保存 userId 供后续 updatePet / Firestore 写入使用
+  //   2. 读取 SharedPreferences 中该用户的宠物档案
+  //   3. 同时从 Firestore 加载历史喂食记录、日志、压力数据（云端数据）
+  //   4. 本地 + 云端数据均加载完毕后触发 UI 刷新
   Future<void> loadPetForUser(String userId) async {
     _currentUserId = userId;
     try {
@@ -96,20 +105,22 @@ class PetHealthProvider extends ChangeNotifier {
                 prefs.getString('pet_created_$userId') ?? '') ??
               DateTime.now(),
         );
-        notifyListeners(); // 触发 UI 刷新，显示该用户的宠物名
+        notifyListeners(); // 先刷新宠物档案（快速响应）
       }
       // 如果没有已保存数据（首次登录），保持默认 Demo 数据 Biscuit
-      // 用户进入宠物页面编辑并保存后，updatePet 会写入 SharedPreferences
     } catch (e) {
       // [TODO: 异常处理] SharedPreferences 读取失败（极少见，通常是系统级问题）
-      // 当前静默失败，保持 Demo 数据，不影响 App 使用
       debugPrint('loadPetForUser error: $e');
     }
+
+    // 无论宠物档案是否加载成功，都并行加载云端历史数据
+    // 这样喂食记录、日志、压力图表都能从 Firestore 恢复
+    await _loadCloudHistory(userId);
   }
 
   // ── 清除用户数据（退出登录时调用）───────────────────────────────────────────
-  // 重置宠物数据为 Demo 状态，清除 currentUserId。
-  // 防止退出后仍显示上一个用户的宠物信息。
+  // 重置宠物数据、喂食历史、日志为 Demo/空状态，清除 currentUserId。
+  // 防止退出后下一个用户登录时短暂看到上一个用户的数据。
   void clearUserData() {
     _currentUserId = null;
     _pet = PetProfile(
@@ -122,6 +133,11 @@ class PetHealthProvider extends ChangeNotifier {
       healthTags: const ['Separation Anxiety', 'Joint Stiffness'],
       createdAt: DateTime(2024, 1, 15),
     );
+    // 清空云端数据的内存缓存，下次登录后重新从 Firestore 加载
+    _sessionHistory.clear();
+    _journalEntries.clear();
+    // 重置压力图为 Demo 数据，下次登录后用真实数据覆盖
+    _stressChartData = generateDailyStressChart();
     notifyListeners();
   }
 
@@ -213,7 +229,18 @@ class PetHealthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Feeding Session & Time-to-Calm ────────────────────────────────────────
+  // ── 喂食会话（FeedingSession）────────────────────────────────────────────
+  // 已接入 Firestore：会话结束后自动保存云端，登录时自动加载历史。
+  //
+  // [API 需求] Firestore 路径：users/{uid}/feeding_sessions/{sessionId}
+  //   文档字段：feed_time, time_to_calm, stress_before, stress_after, created_at
+  //
+  // 喂食完成回调（供 MainNavScreen 监听以写入通知中心）
+  // 设计原则：PetHealthProvider 不直接持有 NotificationProvider（避免循环依赖）
+  //   而是通过回调将事件转发给外部（MainNavScreen），由外部写入通知
+  // 回调参数：已完成的 FeedingSession 对象
+  void Function(FeedingSession)? onFeedingCompleted;
+
   FeedingSession? _activeSession;
   final List<FeedingSession> _sessionHistory = [];
   Timer? _sessionTimer;
@@ -273,9 +300,39 @@ class PetHealthProvider extends ChangeNotifier {
       timeToCalm: _sessionElapsedSeconds,
       stressCountAfter: postStress,
     );
+
+    // 1. 先更新内存，UI 立即刷新
     _sessionHistory.insert(0, completed);
     _activeSession = null;
     notifyListeners();
+
+    // 2. 异步保存到 Firestore（不阻塞 UI）
+    // 业务意义：喂食记录持久化后，用户换手机登录仍能看到完整的 Time-to-Calm 趋势
+    if (_currentUserId != null) {
+      _firestoreService.saveFeedingSession(_currentUserId!, completed);
+      // 同时更新今天的压力数据点，让趋势图反映最新喂食效果
+      _saveTodayStressPoint();
+    }
+
+    // 3. 触发喂食完成回调（通知 MainNavScreen 写入通知中心）
+    // 回调由 MainNavScreen.initState 注册，PetHealthProvider 不感知 NotificationProvider
+    onFeedingCompleted?.call(completed);
+  }
+
+  // 将今天的实时压力数据保存为一个 DailyStressDataPoint 写入 Firestore
+  // 调用时机：喂食会话结束后，确保当天数据有最新的喂食后压力状态
+  void _saveTodayStressPoint() {
+    if (_currentUserId == null) return;
+    final today = DateTime.now();
+    final dayOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        [today.weekday - 1];
+    final point = DailyStressDataPoint(
+      dayIndex: 0, // 0 = 今天
+      stressScore: currentAnxietyScore.toDouble(),
+      isAfterTreatment: _sessionHistory.isNotEmpty,
+      label: dayOfWeek,
+    );
+    _firestoreService.saveDailyStressPoint(_currentUserId!, point, today);
   }
 
   void cancelFeedingSession() {
@@ -378,18 +435,29 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── 健康日志（主人手动记录）────────────────────────────────────────────────
   // 用户在 Dashboard 的「快速记录」卡片填写后调用 addJournalEntry。
-  // 日志数据存内存，App 重启丢失。
-  // [TODO: API 需求] 持久化到后端：POST /api/health-logs
-  //   body: { petId, date, stoolEmoji, moodEmoji, appetiteEmoji, energyEmoji, notes, negativeFlags }
-  // [TODO: API 需求] 初始化时从后端加载历史：GET /api/health-logs?petId={id}&days=30
+  // 已接入 Firestore：新增立即写入云端，登录时从云端加载历史。
+  //
+  // [API 需求] Firestore 路径：users/{uid}/journal_entries/{entryId}
+  //   文档字段：date, stool_emoji, mood_emoji, appetite_emoji, energy_emoji,
+  //             notes, negative_flags, created_at
   final List<JournalEntry> _journalEntries = [];
   List<JournalEntry> get journalEntries =>
       List.unmodifiable(_journalEntries);
 
-  void addJournalEntry(JournalEntry entry) {
+  // 用户提交健康日志时调用
+  // 业务逻辑：
+  //   1. 先更新内存（UI 立即响应，不等网络）
+  //   2. 异步写入 Firestore（失败静默处理，下次登录时数据可能丢失）
+  // [TODO: 异常处理] 写入失败时可加本地队列，离线时缓存，联网后重试
+  Future<void> addJournalEntry(JournalEntry entry) async {
     // 最新记录插入列表头部，UI 显示时自然按时间倒序
     _journalEntries.insert(0, entry);
-    notifyListeners();
+    notifyListeners(); // 先刷新 UI，让用户感知立即保存成功
+
+    // 异步持久化到 Firestore（不 await，不阻塞 UI）
+    if (_currentUserId != null) {
+      _firestoreService.saveJournalEntry(_currentUserId!, entry);
+    }
   }
 
   // ── 健康日历：生成最近 N 天的 DailyRecord 列表 ────────────────────────────
@@ -472,18 +540,24 @@ class PetHealthProvider extends ChangeNotifier {
   /// Computed calm trend for today: positive = improving
   double get todayCalmTrend => -18.5; // % change vs yesterday
 
-  // ── Initialization ────────────────────────────────────────────────────────
-  // ── 构造函数：初始化 Demo 数据并自动连接模拟 BLE 设备 ─────────────────────
-  // 生产版本中，应将 _seedHistoricalSessions() 替换为从后端加载真实数据，
-  // connectDevice() 替换为请求蓝牙权限后再连接。
+  // ── 构造函数 ──────────────────────────────────────────────────────────────
+  // 初始化时只启动 BLE 模拟数据流和生成 Demo 压力图。
+  // 历史数据（喂食/日志）不在构造函数加载，而是在 loadPetForUser() 中按用户加载，
+  // 避免未登录时请求 Firestore 触发权限错误。
+  //
+  // [TODO] 生产版本 connectDevice() 应改为：
+  //   1. 检查蓝牙权限（permission_handler）
+  //   2. 扫描指定 UUID 的 BLE 设备
+  //   3. 连接成功后开始数据流
   PetHealthProvider() {
-    _stressChartData = generateDailyStressChart(); // 生成 14 天模拟压力曲线
-    _seedHistoricalSessions();                      // 注入历史喂食和日志 Demo 数据
-    connectDevice();                                // 自动启动 BLE 模拟数据流
+    _stressChartData = generateDailyStressChart(); // 生成 14 天 Demo 压力曲线（登录后会被云端数据覆盖）
+    _seedHistoricalSessions();                      // 注入 Demo 历史数据（未登录时的占位，登录后清空）
+    connectDevice();                                // 启动 BLE 模拟数据流
   }
 
-  // 注入 Demo 历史数据（喂食记录 + 健康日志），让首次打开 App 时图表有数据展示
-  // [TODO] 生产版本中删除此方法，改为从后端接口加载真实历史数据
+  // 注入 Demo 历史数据（喂食记录 + 健康日志），让未登录 / 首次登录时图表有内容展示
+  // 登录成功后 loadPetForUser() 会调用 _loadCloudHistory()，用真实数据覆盖这些 Demo 数据
+  // [TODO] 正式上线后可考虑移除 Demo 数据，改为空状态 + 引导提示
   void _seedHistoricalSessions() {
     // 3 条历史喂食记录，用于 Time-to-Calm 图表和喂食历史页面展示
     final now = DateTime.now();
@@ -537,6 +611,57 @@ class PetHealthProvider extends ChangeNotifier {
         negativeFlags: ['anxiety', 'low_appetite'],
       ),
     ]);
+  }
+
+  // ── 从 Firestore 加载该用户的历史云端数据 ────────────────────────────────
+  // 调用时机：loadPetForUser() 确认用户登录后调用
+  //
+  // 加载策略（顺序执行，独立容错）：
+  //   1. 加载喂食历史（最近 30 条）
+  //   2. 加载健康日志（最近 60 条）
+  //   3. 加载压力趋势数据（最近 14 天）
+  //   4. 任何一步失败都不影响其他步骤，失败时保留 Demo 数据
+  //
+  // [TODO: 异常处理] 当前网络失败时静默降级到 Demo 数据。
+  //   可在此处设置 _isLoadingHistory = false 并通知 UI 显示离线提示。
+  Future<void> _loadCloudHistory(String uid) async {
+    _isLoadingHistory = true;
+    notifyListeners(); // 触发 UI 显示加载状态（如有加载指示器）
+
+    try {
+      // ── 并发加载三类数据，减少总等待时间 ──
+      final results = await Future.wait([
+        _firestoreService.loadFeedingSessions(uid, limit: 30),
+        _firestoreService.loadJournalEntries(uid, limit: 60),
+        _firestoreService.loadDailyStressPoints(uid, days: 14),
+      ]);
+
+      final sessions = results[0] as List<FeedingSession>;
+      final journals = results[1] as List<JournalEntry>;
+      final stressPoints = results[2] as List<DailyStressDataPoint>;
+
+      // 有云端数据时：用云端数据替换 Demo 数据
+      // 没有云端数据时（新用户）：保留 Demo 数据让界面不空白
+      if (sessions.isNotEmpty) {
+        _sessionHistory
+          ..clear()
+          ..addAll(sessions);
+      }
+      if (journals.isNotEmpty) {
+        _journalEntries
+          ..clear()
+          ..addAll(journals);
+      }
+      if (stressPoints.isNotEmpty) {
+        _stressChartData = stressPoints;
+      }
+    } catch (e) {
+      // [TODO: 异常处理] 加载失败时保留 Demo 数据，可在 UI 显示「数据加载失败，显示演示数据」
+      debugPrint('_loadCloudHistory error: $e');
+    } finally {
+      _isLoadingHistory = false;
+      notifyListeners(); // 数据加载完成，触发 UI 刷新
+    }
   }
 
   @override

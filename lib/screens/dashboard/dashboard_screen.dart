@@ -26,6 +26,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/dashboard/feeding_timer_card.dart';
 import '../../widgets/dashboard/time_to_calm_card.dart';
@@ -34,6 +35,7 @@ import '../../widgets/dashboard/status_cards_row.dart';
 import '../../widgets/dashboard/device_status_bar.dart';
 import '../../widgets/dashboard/behavior_state_card.dart';
 import '../../widgets/dashboard/journal_quick_entry.dart';
+import '../notifications/notification_center_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -114,6 +116,9 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, PetHealthProvider provider) {
     final s = context.watch<LocaleProvider>().strings;
+    // 监听通知 Provider 展示未读数角标
+    final notifProvider = context.watch<NotificationProvider>();
+    final unreadCount = notifProvider.unreadCount;
     final pet = provider.pet;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -152,25 +157,67 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
           ),
-          // Notification bell
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadowColor,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+          // 通知铃铛图标（带未读数角标）
+          // 点击进入通知中心页面
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationCenterScreen(),
                 ),
+              );
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBackground,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadowColor,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
+                ),
+                // 未读数角标（有未读通知时显示）
+                if (unreadCount > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.alertRed,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Text(
+                        // 超过 99 显示 99+
+                        unreadCount > 99 ? '99+' : unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
               ],
-            ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: AppColors.textSecondary,
-              size: 22,
             ),
           ),
         ],

@@ -2,15 +2,20 @@
 // models.dart — 应用核心数据模型定义
 // =============================================================================
 // 包含的模型：
-//   • BlePacket       — BLE 硬件设备实时推送的一个数据包（每 5 秒一次）
-//   • PetBehaviorState — 宠物当前行为状态枚举（平静/踱步/应激等）
-//   • PetProfile       — 宠物基本档案（名字/品种/年龄/健康标签）
-//   • FeedingSession    — 一次喂食会话记录（包含喂食前后压力对比）
-//   • BehaviorSnapshot  — 喂食后每 5 分钟的行为快照
-//   • JournalEntry      — 主人手动记录的健康日志
-//   • DailyStressDataPoint — 压力趋势图的单个数据点
-//   • DailyRecord       — 健康日历的单日完整记录（传感层 + 主人层）
-//   • SensorDaySummary  — 一天的传感器汇总数据
+//   • BlePacket            — BLE 硬件设备实时推送的一个数据包（每 5 秒一次）
+//   • PetBehaviorState     — 宠物当前行为状态枚举（平静/踱步/应激等）
+//   • PetProfile           — 宠物基本档案（名字/品种/年龄/健康标签）
+//   • FeedingSession       — 一次喂食会话记录（包含喂食前后压力对比）
+//   • BehaviorSnapshot     — 喂食后每 5 分钟的行为快照
+//   • JournalEntry         — 主人手动记录的健康日志
+//   • DailyStressDataPoint — 压力趋势图的单个数据点（Firestore 持久化）
+//   • DailyRecord          — 健康日历的单日完整记录（传感层 + 主人层）
+//   • SensorDaySummary     — 一天的传感器汇总数据
+//
+// Firestore 数据结构（集合路径）：
+//   users/{uid}/feeding_sessions/{sessionId}   — 喂食记录
+//   users/{uid}/journal_entries/{entryId}      — 健康日志
+//   users/{uid}/daily_stress/{dateStr}         — 每日压力数据点（dateStr = 'yyyy-MM-dd'）
 //
 // [API 需求] 接入后端时，以下模型需要提供对应的 fromJson/toJson 方法：
 //   • PetProfile, FeedingSession, JournalEntry 需要与后端 API 交互

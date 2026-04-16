@@ -35,6 +35,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'firebase_options.dart';
 import 'providers/pet_health_provider.dart';
 import 'providers/locale_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
@@ -94,6 +95,9 @@ class PetotecoApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PetHealthProvider()),
         // LocaleProvider：语言切换（中文/英文），控制整个 App 的文案语言
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        // NotificationProvider：应用内通知中心（预警/喂食记录/日志提醒）
+        // 登录后通过 loadForUser() 加载该用户的历史通知，退出后 clearUserData() 清除
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       // Consumer<LocaleProvider> 确保语言切换后 MaterialApp 级别的文字也更新
       child: Consumer<LocaleProvider>(
