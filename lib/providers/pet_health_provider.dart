@@ -599,13 +599,19 @@ class PetHealthProvider extends ChangeNotifier {
     }
 
     // ── 传统活动量预警（保留，仅白天时段）────────────────────────────────
+    // 优先级最低：只有当前没有更高优先级预警时才设置 activity 横幅
+    // 高优先级顺序：shiver > stress_frequent > lethargy > activity
+    final highPriorityAlerts = ['shiver', 'stress_frequent', 'lethargy'];
     if (packet.activityScore < 10 && isDaytime) {
       if (!_hasAlert || _alertType == 'activity') {
-        _hasAlert = true;
-        _alertType = 'activity';
-        // UI层(main_nav_screen)会根据语言重新生成文案，此处仅作fallback
-        _alertMessage = '⚠️ ${_pet.name} 今日活动量偏低';
-        notifyListeners();
+        // 不覆盖更高优先级的预警横幅
+        if (!highPriorityAlerts.contains(_alertType)) {
+          _hasAlert = true;
+          _alertType = 'activity';
+          // UI层(main_nav_screen)会根据语言重新生成文案，此处仅作fallback
+          _alertMessage = '⚠️ ${_pet.name} 今日活动量偏低';
+          notifyListeners();
+        }
       }
     }
   }
@@ -752,11 +758,33 @@ class PetHealthProvider extends ChangeNotifier {
   int get currentAnxietyScore => _latestPacket?.anxietyScore ?? 0;
   int get currentActivityScore => _latestPacket?.activityScore ?? 0;
 
-  /// Computed sleep quality from last night (mock: 72-88)
-  int get lastNightSleepQuality => 78;
+  /// 昨夜睡眠质量：根据夜间（22:00-06:00）的行为数据推算
+  /// 逻辑：睡眠秒数越多、应激秒数越少 → 质量越高
+  /// 目前为近似算法，正式版应改为夜间专项分析
+  int get lastNightSleepQuality {
+    // 今日睡眠时长得分（满分70）：累计到6小时以上得满分
+    const maxSleepSecs = 6 * 3600;
+    final sleepScore = (_todaySleepSeconds / maxSleepSecs * 70).clamp(0, 70).round();
+    // 应激扣分（每分钟应激扣2分，最多扣30）
+    final stressPenalty = (_todayStressSeconds / 60 * 2).clamp(0, 30).round();
+    // 基础分30（确保即使无数据也有合理显示）
+    final raw = 30 + sleepScore - stressPenalty;
+    return raw.clamp(20, 100);
+  }
 
-  /// Computed calm trend for today: positive = improving
-  double get todayCalmTrend => -18.5; // % change vs yesterday
+  /// 今日焦虑变化趋势（与昨日均值比较）
+  /// 正值=恶化，负值=改善
+  double get todayCalmTrend {
+    // 今日实时焦虑分
+    final todayScore = currentAnxietyScore.toDouble();
+    // 历史均值（取最近7天 stressChartData 的均值作为参考基准）
+    if (_stressChartData.isEmpty) return 0.0;
+    final recentDays = _stressChartData.take(7).map((p) => p.stressScore);
+    final historyAvg = recentDays.reduce((a, b) => a + b) / recentDays.length;
+    if (historyAvg == 0) return 0.0;
+    // 返回变化百分比（负值代表今日比历史均值更好）
+    return ((todayScore - historyAvg) / historyAvg * 100).clamp(-99.0, 99.0);
+  }
 
   // ── 构造函数 ──────────────────────────────────────────────────────────────
   // 初始化时只启动 BLE 模拟数据流和生成 Demo 压力图。
@@ -823,6 +851,7 @@ class PetHealthProvider extends ChangeNotifier {
       sleepSeconds:     _todaySleepSeconds,
       lethargySeconds:  _todayLethargySeconds,
       feedingCount:     todaySessionCount,
+      stressEventCount: _stressEventTimestamps.length, // 今日应激事件次数（与通知中心对齐）
       avgTimeToCalmSecs: todaySessionCount > 0
           ? avgTtc ~/ todaySessionCount
           : null,
@@ -963,6 +992,7 @@ class DailyHealthSummaryData {
   final int sleepSeconds;      // 状态E：睡眠时长（秒）
   final int lethargySeconds;   // 状态F：昏睡时长（秒）
   final int feedingCount;      // 当日喂食次数
+  final int stressEventCount;  // 当日应激次数（与通知中心对齐）
   final int? avgTimeToCalmSecs; // 平均平静用时（秒），null = 今日未喂食
   final double avgAnxietyScore; // 当日平均焦虑分
 
@@ -976,13 +1006,15 @@ class DailyHealthSummaryData {
     required this.sleepSeconds,
     required this.lethargySeconds,
     required this.feedingCount,
+    required this.stressEventCount,
     this.avgTimeToCalmSecs,
     required this.avgAnxietyScore,
   });
 
   // 生成简洁的中文总结文字（用于通知正文）
   String toSummaryText(bool isZh) {
-    final stressMin   = stressSeconds  ~/ 60;
+    // 应激显示次数（与通知中心"过去1小时N次"对齐，让用户看得懂）
+    final stressCount = stressEventCount;
     final pacingMin   = pacingSeconds  ~/ 60;
     final playMin     = playSeconds    ~/ 60;
     final sleepHours  = sleepSeconds   ~/ 3600;
@@ -992,14 +1024,14 @@ class DailyHealthSummaryData {
       final ttcStr = avgTimeToCalmSecs != null
           ? '，平静用时 ${avgTimeToCalmSecs! ~/ 60} 分钟'
           : '';
-      return '焦虑分 $score｜踱步 $pacingMin 分｜应激 $stressMin 分｜'
+      return '焦虑分 $score｜踱步 $pacingMin 分｜应激 $stressCount 次｜'
              '玩耍 $playMin 分｜睡眠 $sleepHours 小时'
              '${feedingCount > 0 ? "｜今日喂食 $feedingCount 次$ttcStr" : "｜今日未喂食"}';
     } else {
       final ttcStr = avgTimeToCalmSecs != null
           ? ', calmed in ${avgTimeToCalmSecs! ~/ 60}m'
           : '';
-      return 'Anxiety $score | Pacing ${pacingMin}m | Stress ${stressMin}m | '
+      return 'Anxiety $score | Pacing ${pacingMin}m | Stress $stressCount times | '
              'Play ${playMin}m | Sleep ${sleepHours}h'
              '${feedingCount > 0 ? " | Fed $feedingCount time(s)$ttcStr" : " | No feeding today"}';
     }
