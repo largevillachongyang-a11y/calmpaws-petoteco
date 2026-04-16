@@ -211,13 +211,14 @@ class NotificationProvider extends ChangeNotifier {
   }) async {
     final now = DateTime.now();
 
-    // 防重复：相同类型通知 60 秒内不重复触发
-    // 避免 BLE 数据每秒触发一次导致通知列表爆满
-    final recentSameType = _notifications.where((n) =>
-      n.type == type &&
-      now.difference(n.createdAt).inSeconds < 60
+    // 防重复：相同标题通知 120 秒内不重复触发
+    // 对于 alert 类型，不同 title（shiver/stress/lethargy）算不同通知，允许通过
+    // 对于 feeding/system 类型，按 title 去重避免重复记录
+    final recentSameTitle = _notifications.where((n) =>
+      n.title == title &&
+      now.difference(n.createdAt).inSeconds < 120
     );
-    if (recentSameType.isNotEmpty) return;
+    if (recentSameTitle.isNotEmpty) return;
 
     final notif = AppNotification(
       id: 'notif_${now.millisecondsSinceEpoch}_${type.name}',

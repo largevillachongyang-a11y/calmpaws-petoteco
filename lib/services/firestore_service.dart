@@ -72,7 +72,7 @@ class FirestoreService {
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugFirestore('savePetProfile error: \$e');
+      debugFirestore('savePetProfile error: $e');
     }
   }
 
@@ -85,7 +85,7 @@ class FirestoreService {
       if (!doc.exists || doc.data() == null) return null;
       final d = doc.data()!;
       return PetProfile(
-        id:         (d['pet_id']   as String?) ?? 'pet_\$uid',
+        id:         (d['pet_id']   as String?) ?? 'pet_$uid',
         name:       (d['name']     as String?) ?? '',
         species:    (d['species']  as String?) ?? 'dog',
         breed:      (d['breed']    as String?) ?? '',
@@ -95,7 +95,7 @@ class FirestoreService {
         createdAt:  (d['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
     } catch (e) {
-      debugFirestore('loadPetProfile error: \$e');
+      debugFirestore('loadPetProfile error: $e');
       return null;
     }
   }

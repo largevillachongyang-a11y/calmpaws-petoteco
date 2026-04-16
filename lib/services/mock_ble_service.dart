@@ -146,6 +146,18 @@ class MockBleService {
     paceD = (paceD + _noisyInt(5)).clamp(0, 60);
     playD = (playD + _noisyInt(3)).clamp(0, 60);
 
+    // Bug3修复：高焦虑时生成发抖数据（shivD/shivC）
+    // anxietyLevel >= 0.8 时有概率出现发抖包，让发抖预警可自然触发
+    if (anxietyLevel >= 0.8) {
+      // 0.8时：~60%概率发抖；1.0时：~100%
+      final shiverProb = (anxietyLevel - 0.8) / 0.2; // 0.0 ~ 1.0
+      if (_random.nextDouble() < shiverProb * 0.7 + 0.3) {
+        shivC = _rng(1, 3);
+        // shivD = 本5秒内发抖秒数，高焦虑时基本持续整个采样周期
+        shivD = (5 * (0.5 + shiverProb * 0.5)).round().clamp(2, 5);
+      }
+    }
+
     return BlePacket(
       timestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       strC: strC,

@@ -413,25 +413,31 @@ class PetHealthProvider extends ChangeNotifier {
   bool get hasAlert => _hasAlert;
   String get alertMessage => _alertMessage;
   String get alertType => _alertType;
+  // Bug1修复：暴露给 MainNavScreen 用于本地化横幅文案
+  int get continuousShiverSeconds => _continuousShiverSeconds;
 
   // ── P1：发抖持续时长追踪 ───────────────────────────────────────────────────
   // 文档定义：状态D = 近1g + 高频小幅颤抖，单次持续 >3分钟 → 触发紧急预警
   int _continuousShiverSeconds = 0;    // 当前连续发抖秒数（BlePacket 每5秒一包，累计计算）
   bool _shiverAlertFired = false;      // 本次连续发抖是否已触发通知（避免重复）
-  static const int kShiverThreshold = 180; // 3分钟 = 180秒
+  // ── P1 测试阈值（开发期降低便于快速验证）────────────────────────────────
+  // 发抖：改为 30 秒（原 180 秒），anxietyLevel=1.0 约 2-3 分钟自然触发
+  static const int kShiverThreshold = 30;   // 正式上线改回 180
+  // 应激频繁：改为 3 次（原 10 次），焦虑滑块拉满约 1 分钟触发
+  static const int kStressFreqThreshold = 3; // 正式上线改回 10
+  // 昏睡：改为 60 秒（原 10800 秒），便于测试
+  static const int kLethargyThreshold = 60;  // 正式上线改回 10800
 
   // ── P1：应激动作频次追踪（状态C）──────────────────────────────────────────
   // 文档定义：状态C = 高频短促爆发（1.5-2.0g），1小时内 >10次 → 触发通知
   final List<DateTime> _stressEventTimestamps = []; // 近1小时内的应激事件时间戳列表
   bool _stressFreqAlertFired = false;              // 本小时是否已触发（避免重复，每小时重置）
-  static const int kStressFreqThreshold = 10;     // 1小时内超过此次数触发
 
   // ── P1：昏睡检测（状态F）──────────────────────────────────────────────────
   // 文档定义：状态F = 扁平1g线 + Z轴静止数小时，白天 >3小时 → 触发药物/异常昏睡通知
   int _continuousLethargySecs = 0;       // 当前连续静止（类F状态）秒数
   bool _lethargyAlertFired = false;      // 今日是否已触发昏睡通知（每天只触发一次）
   DateTime? _lethargyAlertDate;          // 记录触发日期，次日清零
-  static const int kLethargyThreshold = 10800; // 3小时 = 10800秒
 
   // ── P1：每日健康总结定时器 ─────────────────────────────────────────────────
   // 每天 20:00 检查一次，若未推送则生成当日健康总结通知
@@ -531,6 +537,11 @@ class PetHealthProvider extends ChangeNotifier {
     final recentStressCount = _stressEventTimestamps.length;
     if (recentStressCount > kStressFreqThreshold && !_stressFreqAlertFired) {
       _stressFreqAlertFired = true;
+      // Bug4修复：同时设置顶部横幅
+      _hasAlert = true;
+      _alertType = 'stress_frequent';
+      _alertMessage = '⚠️ ${_pet.name} stress actions >10x in past hour';
+      notifyListeners();
       onAlertNotification?.call(
         'stress_frequent',
         '⚠️ ${_pet.name} 今日应激反应频繁',
@@ -574,6 +585,11 @@ class PetHealthProvider extends ChangeNotifier {
       _lethargyAlertFired = true;
       _lethargyAlertDate = now;
       final hours = _continuousLethargySecs ~/ 3600;
+      // Bug4修复：同时设置顶部横幅
+      _hasAlert = true;
+      _alertType = 'lethargy';
+      _alertMessage = '⚠️ ${_pet.name} unusually still all day — possible lethargy';
+      notifyListeners();
       onAlertNotification?.call(
         'lethargy',
         '⚠️ ${_pet.name} 白天异常静止（疑似昏睡）',
@@ -587,7 +603,8 @@ class PetHealthProvider extends ChangeNotifier {
       if (!_hasAlert || _alertType == 'activity') {
         _hasAlert = true;
         _alertType = 'activity';
-        _alertMessage = "⚠️ ${_pet.name}'s activity is below normal today.";
+        // UI层(main_nav_screen)会根据语言重新生成文案，此处仅作fallback
+        _alertMessage = '⚠️ ${_pet.name} 今日活动量偏低';
         notifyListeners();
       }
     }
@@ -764,11 +781,15 @@ class PetHealthProvider extends ChangeNotifier {
     _dailySummaryTimer?.cancel();
     _dailySummaryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      // 在每天 20:00–20:05 之间触发（5分钟窗口，避免精确时间错过）
-      if (now.hour == 20 && now.minute < 5) {
-        if (_lastDailySummaryDate == null || _lastDailySummaryDate != today) {
-          _lastDailySummaryDate = today;
+      // 测试模式：每5分钟触发一次（正式上线改为 now.hour == 20 && now.minute < 5）
+      final shouldTrigger = now.minute % 5 == 0; // 测试用：每5分钟触发
+      // final shouldTrigger = now.hour == 20 && now.minute < 5; // 正式生产用
+
+      if (shouldTrigger) {
+        // 用当前分钟时间点作为去重key，同一个5分钟窗口只触发一次
+        final triggerKey = DateTime(now.year, now.month, now.day, now.hour, (now.minute ~/ 5) * 5);
+        if (_lastDailySummaryDate == null || _lastDailySummaryDate != triggerKey) {
+          _lastDailySummaryDate = triggerKey;
           _triggerDailySummary();
         }
       }

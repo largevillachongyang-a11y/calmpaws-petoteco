@@ -200,6 +200,34 @@ class _MainNavScreenState extends State<MainNavScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PetHealthProvider>();
+    final isZh = context.watch<LocaleProvider>().isZh;
+    final petName = provider.pet.name;
+
+    // Bug1 修复：根据当前语言动态生成预警横幅文案，而非使用 Provider 内存储的固定字符串
+    String localizedAlertMessage = provider.alertMessage;
+    if (provider.hasAlert) {
+      switch (provider.alertType) {
+        case 'shiver':
+          final mins = provider.continuousShiverSeconds ~/ 60;
+          localizedAlertMessage = isZh
+              ? '🆘 $petName 已持续发抖 $mins 分钟，请立即检查！'
+              : '🆘 $petName has been shivering for ${mins}m. Check now!';
+        case 'stress_frequent':
+          localizedAlertMessage = isZh
+              ? '⚠️ $petName 应激反应频繁，过去1小时超过10次'
+              : '⚠️ $petName stress actions >10x in past hour';
+        case 'lethargy':
+          localizedAlertMessage = isZh
+              ? '⚠️ $petName 白天异常静止，疑似昏睡（状态F）'
+              : '⚠️ $petName unusually still all day — possible lethargy';
+        case 'activity':
+          localizedAlertMessage = isZh
+              ? '⚠️ $petName 今日活动量偏低'
+              : "⚠️ $petName's activity is below normal today.";
+        default:
+          localizedAlertMessage = provider.alertMessage;
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -220,7 +248,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
                 left: 0,
                 right: 0,
                 child: AlertBanner(
-                  message: provider.alertMessage,
+                  message: localizedAlertMessage,
                   alertType: provider.alertType,
                   onDismiss: provider.dismissAlert,
                 ),
