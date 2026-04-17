@@ -67,6 +67,24 @@ class BlePacket {
     );
   }
 
+  /// 从两个累计包中计算差值包（代表本5秒内的行为增量）
+  /// current = 最新累计包，previous = 上一包
+  /// 用于 App 层把累计值转为每包行为量，避免用历史总量误判状态
+  factory BlePacket.deltaFrom(BlePacket current, BlePacket previous) {
+    return BlePacket(
+      timestamp: current.timestamp,
+      strC:  (current.strC  - previous.strC ).clamp(0, 999),
+      strD:  (current.strD  - previous.strD ).clamp(0, 999),
+      shivC: (current.shivC - previous.shivC).clamp(0, 999),
+      shivD: (current.shivD - previous.shivD).clamp(0, 999),
+      paceD: (current.paceD - previous.paceD).clamp(0, 999),
+      playD: (current.playD - previous.playD).clamp(0, 999),
+      rollC: (current.rollC - previous.rollC).clamp(0, 999),
+      battery: current.battery,
+      rssi: current.rssi,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'timestamp': timestamp,
     'str_c': strC,
@@ -80,34 +98,41 @@ class BlePacket {
     'rssi': rssi,
   };
 
-  /// 根据 BLE 数据包计算行为状态——优先级：颤抖 > 应激 > 踱步 > 玩耗 > 平静
-  /// 注：此为实时状态判断，不考虑历史趋势
+  /// 根据本包（差值包）计算行为状态——优先级：颤抖 > 应激 > 踱步 > 玩耍 > 平静
+  /// ⚠️ 必须传入差值包（BlePacket.deltaFrom），而非原始累计包
+  /// 阈值说明（基于每5秒采样间隔）：
+  ///   shivD > 2s  → 本5秒内有超过2秒在发抖
+  ///   strC >= 1   → 本5秒内至少1次应激
+  ///   paceD > 3s  → 本5秒内超过3秒在踱步
+  ///   playD > 3s  → 本5秒内超过3秒在玩耍
   PetBehaviorState get behaviorState {
-    if (shivD > 30) return PetBehaviorState.shivering;
-    if (strC >= 3 || strD > 20) return PetBehaviorState.stressed;
-    if (paceD > 20) return PetBehaviorState.pacing;
-    if (playD > 20) return PetBehaviorState.playing;
+    if (shivD > 2) return PetBehaviorState.shivering;
+    if (strC >= 1 || strD > 3) return PetBehaviorState.stressed;
+    if (paceD > 3) return PetBehaviorState.pacing;
+    if (playD > 3) return PetBehaviorState.playing;
     return PetBehaviorState.calm;
   }
 
-  /// 当前数据包的综合焦虑分 0-100
-  /// 分值算法：应激次数×8 + 踱步时长×1.5 + 颤抖时长×2 + 应激将5秒
+  /// 本包（差值包）的综合焦虑分 0-100
+  /// 分值算法基于本5秒增量：应激次数×20 + 踱步时长×3 + 颤抖时长×6 + 应激时长×2
+  /// ⚠️ 必须传入差值包，原始累计包会产生极高的错误分值
   /// [TODO] 实际项目中应由数据科学家验证权重参数，目前为经验值
   int get anxietyScore {
     int score = 0;
-    score += (strC * 8).clamp(0, 40);
-    score += (paceD * 1.5).round().clamp(0, 30);
-    score += (shivD * 2).clamp(0, 20);
-    score += strD.clamp(0, 10);
+    score += (strC * 20).clamp(0, 40);   // 每次应激事件 +20分，上限40
+    score += (paceD * 3).clamp(0, 30);   // 踱步每秒 +3分，上限30
+    score += (shivD * 6).clamp(0, 24);   // 发抖每秒 +6分，上限24
+    score += (strD * 2).clamp(0, 10);    // 应激持续时长 +2分/秒，上限10
     return score.clamp(0, 100);
   }
 
-  /// 活动尽兴分 0-100（玩耗时长 + 打滚次数为主要贡献）
+  /// 活动尽兴分 0-100（玩耍时长 + 打滚次数为主要贡献）
+  /// ⚠️ 必须传入差值包
   int get activityScore {
     int score = 0;
-    score += (playD * 2).clamp(0, 60);
-    score += (rollC * 10).clamp(0, 30);
-    score += (strC * 3).clamp(0, 10);
+    score += (playD * 10).clamp(0, 60);  // 玩耍每秒 +10分，上限60
+    score += (rollC * 10).clamp(0, 30);  // 打滚每次 +10分，上限30
+    score += (strC * 3).clamp(0, 10);    // 轻微应激也算活跃
     return score.clamp(0, 100);
   }
 }

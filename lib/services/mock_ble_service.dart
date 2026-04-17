@@ -24,6 +24,10 @@ import '../models/models.dart';
 
 /// Mock BLE 数据生成器，模拟真实硬件数据包
 /// 模拟一只有分离焦虑症的狗的真实一天行为周期
+///
+/// ⚠️ 重要：真实硬件传出的是【累计值】（自开机后只增不减）
+/// 本 Mock 同样维护累计计数器，与真实硬件行为完全一致。
+/// App 层通过 差值（delta = 当前包 - 上一包）来判断本5秒内的行为。
 class MockBleService {
   static final MockBleService _instance = MockBleService._internal();
   factory MockBleService() => _instance;
@@ -45,6 +49,16 @@ class MockBleService {
   int _rssi = -62;
   bool _deviceConnected = false;
 
+  // ── 累计计数器（模拟真实硬件，自启动后单调递增）──────────────────────────
+  // 真实硬件：Arduino 中 shivering_count / stress_count 等从不清零
+  int _cumStrC  = 0;  // 累计应激次数
+  int _cumStrD  = 0;  // 累计应激持续秒
+  int _cumShivC = 0;  // 累计发抖次数
+  int _cumShivD = 0;  // 累计发抖持续秒
+  int _cumPaceD = 0;  // 累计踱步持续秒
+  int _cumPlayD = 0;  // 累计玩耍持续秒
+  int _cumRollC = 0;  // 累计打滚次数
+
   bool get deviceConnected => _deviceConnected;
 
   /// Start streaming mock packets every 5 seconds
@@ -62,22 +76,33 @@ class MockBleService {
     _deviceConnected = false;
   }
 
+  /// 重置累计计数器（模拟设备重启/重连场景）
+  void resetCumulativeCounters() {
+    _cumStrC = _cumStrD = _cumShivC = _cumShivD = 0;
+    _cumPaceD = _cumPlayD = _cumRollC = 0;
+  }
+
   void dispose() {
     stop();
     _controller.close();
   }
 
-  /// Manually trigger a shiver alert for testing
+  /// 手动触发发抖预警测试（直接向累计值加大量发抖数据）
   BlePacket triggerShiverAlert() {
+    // 本次5秒：4次发抖，持续45秒（超出5秒，模拟连续发抖）
+    _cumShivC += 4;
+    _cumShivD += 45;
+    _cumStrC  += 1;
+    _cumStrD  += 5;
     final packet = BlePacket(
       timestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      strC: 1,
-      strD: 5,
-      shivC: 4,
-      shivD: 45,
-      paceD: 0,
-      playD: 0,
-      rollC: 0,
+      strC: _cumStrC,
+      strD: _cumStrD,
+      shivC: _cumShivC,
+      shivD: _cumShivD,
+      paceD: _cumPaceD,
+      playD: _cumPlayD,
+      rollC: _cumRollC,
       battery: _battery,
       rssi: _rssi,
     );
@@ -85,88 +110,98 @@ class MockBleService {
     return packet;
   }
 
-  /// Generate a realistic packet based on time-of-day + anxiety level
+  /// 每5秒生成一包累计值数据包
+  /// 先计算"本5秒内增量"，加到累计器上，再返回累计值包
   BlePacket _generatePacket() {
     final hour = DateTime.now().hour;
     final phase = _getDayPhase(hour);
 
-    int strC = 0, strD = 0, shivC = 0, shivD = 0;
-    int paceD = 0, playD = 0, rollC = 0;
+    // 本5秒内的增量（delta）
+    int dStrC = 0, dStrD = 0, dShivC = 0, dShivD = 0;
+    int dPaceD = 0, dPlayD = 0, dRollC = 0;
 
     switch (phase) {
       case _DayPhase.morningActive: // 6-9am: active & playful
-        playD = _rng(15, 35);
-        rollC = _rng(0, 2);
-        strC = (anxietyLevel * 2).round();
-        strD = (anxietyLevel * 5).round();
-        paceD = (anxietyLevel * 8).round();
+        dPlayD = _rng(15, 35);
+        dRollC = _rng(0, 2);
+        dStrC  = (anxietyLevel * 2).round();
+        dStrD  = (anxietyLevel * 5).round();
+        dPaceD = (anxietyLevel * 8).round();
 
       case _DayPhase.preFeeding: // 9-10am: waiting, anxious
-        paceD = _rng(20, 40) + (anxietyLevel * 20).round();
-        strC = _rng(2, 4) + (anxietyLevel * 3).round();
-        strD = _rng(10, 25) + (anxietyLevel * 15).round();
-        rollC = _rng(0, 1);
+        dPaceD = _rng(20, 40) + (anxietyLevel * 20).round();
+        dStrC  = _rng(2, 4) + (anxietyLevel * 3).round();
+        dStrD  = _rng(10, 25) + (anxietyLevel * 15).round();
+        dRollC = _rng(0, 1);
 
       case _DayPhase.postFeedingCalming: // 10-12: calming down post-ZenBelly
         final calmProgress = _getCalmProgress();
-        paceD = (20 * (1 - calmProgress)).round();
-        strC = ((3 + anxietyLevel * 2) * (1 - calmProgress)).round();
-        strD = ((15 * (1 - calmProgress)) + _rng(0, 5)).round();
-        playD = (calmProgress * 10).round();
+        dPaceD = (20 * (1 - calmProgress)).round();
+        dStrC  = ((3 + anxietyLevel * 2) * (1 - calmProgress)).round();
+        dStrD  = ((15 * (1 - calmProgress)) + _rng(0, 5)).round();
+        dPlayD = (calmProgress * 10).round();
 
       case _DayPhase.nap: // 12-14: napping
-        paceD = _rng(0, 3);
-        strC = 0;
-        strD = _rng(0, 3);
-        playD = 0;
-        rollC = _random.nextBool() ? 1 : 0; // occasional roll = healthy sleep
+        dPaceD = _rng(0, 3);
+        dStrC  = 0;
+        dStrD  = _rng(0, 3);
+        dPlayD = 0;
+        dRollC = _random.nextBool() ? 1 : 0;
 
       case _DayPhase.afternoonPlay: // 15-17: active afternoon
-        playD = _rng(20, 45);
-        rollC = _rng(1, 3);
-        strC = (anxietyLevel * 1.5).round();
-        paceD = (anxietyLevel * 5).round();
+        dPlayD = _rng(20, 45);
+        dRollC = _rng(1, 3);
+        dStrC  = (anxietyLevel * 1.5).round();
+        dPaceD = (anxietyLevel * 5).round();
 
       case _DayPhase.eveningRelax: // 18-21: relaxing
-        paceD = (anxietyLevel * 10).round();
-        strC = (anxietyLevel * 2).round();
-        strD = (anxietyLevel * 8).round();
-        playD = _rng(5, 15);
+        dPaceD = (anxietyLevel * 10).round();
+        dStrC  = (anxietyLevel * 2).round();
+        dStrD  = (anxietyLevel * 8).round();
+        dPlayD = _rng(5, 15);
 
       case _DayPhase.nightSleep: // 22-5: sleeping
-        paceD = 0;
-        strC = (anxietyLevel > 0.7 ? _rng(0, 1) : 0);
-        strD = (anxietyLevel > 0.7 ? _rng(0, 5) : 0);
-        rollC = _random.nextDouble() < 0.15 ? 1 : 0;
+        dPaceD = 0;
+        dStrC  = (anxietyLevel > 0.7 ? _rng(0, 1) : 0);
+        dStrD  = (anxietyLevel > 0.7 ? _rng(0, 5) : 0);
+        dRollC = _random.nextDouble() < 0.15 ? 1 : 0;
     }
 
-    // Add noise
-    strC = (strC + _noisyInt(1)).clamp(0, 15);
-    strD = (strD + _noisyInt(3)).clamp(0, 60);
-    paceD = (paceD + _noisyInt(5)).clamp(0, 60);
-    playD = (playD + _noisyInt(3)).clamp(0, 60);
+    // Add noise to deltas（噪声只加在增量上）
+    dStrC  = (dStrC  + _noisyInt(1)).clamp(0, 15);
+    dStrD  = (dStrD  + _noisyInt(3)).clamp(0, 60);
+    dPaceD = (dPaceD + _noisyInt(5)).clamp(0, 60);
+    dPlayD = (dPlayD + _noisyInt(3)).clamp(0, 60);
 
-    // Bug3修复：高焦虑时生成发抖数据（shivD/shivC）
-    // anxietyLevel >= 0.8 时有概率出现发抖包，让发抖预警可自然触发
+    // 高焦虑时生成发抖增量
     if (anxietyLevel >= 0.8) {
-      // 0.8时：~60%概率发抖；1.0时：~100%
       final shiverProb = (anxietyLevel - 0.8) / 0.2; // 0.0 ~ 1.0
       if (_random.nextDouble() < shiverProb * 0.7 + 0.3) {
-        shivC = _rng(1, 3);
-        // shivD = 本5秒内发抖秒数，高焦虑时基本持续整个采样周期
-        shivD = (5 * (0.5 + shiverProb * 0.5)).round().clamp(2, 5);
+        dShivC = _rng(1, 3);
+        // 本5秒内发抖时长（最多5秒 = 采样间隔）
+        dShivD = (5 * (0.5 + shiverProb * 0.5)).round().clamp(2, 5);
       }
     }
 
+    // 将增量累加到全局累计计数器
+    _cumStrC  += dStrC;
+    _cumStrD  += dStrD;
+    _cumShivC += dShivC;
+    _cumShivD += dShivD;
+    _cumPaceD += dPaceD;
+    _cumPlayD += dPlayD;
+    _cumRollC += dRollC;
+
+    // 返回累计值数据包（与真实硬件格式一致）
     return BlePacket(
       timestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      strC: strC,
-      strD: strD,
-      shivC: shivC,
-      shivD: shivD,
-      paceD: paceD,
-      playD: playD,
-      rollC: rollC,
+      strC:  _cumStrC,
+      strD:  _cumStrD,
+      shivC: _cumShivC,
+      shivD: _cumShivD,
+      paceD: _cumPaceD,
+      playD: _cumPlayD,
+      rollC: _cumRollC,
       battery: _battery,
       rssi: _rssi,
     );

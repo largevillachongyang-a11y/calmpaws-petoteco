@@ -205,12 +205,17 @@ class PetHealthProvider extends ChangeNotifier {
   //   3. 需在 AndroidManifest.xml / Info.plist 添加蓝牙权限声明
   final _ble = MockBleService();
   StreamSubscription<BlePacket>? _bleSub;
-  BlePacket? _latestPacket;
+  BlePacket? _latestPacket;   // 原始累计包（最新）
+  BlePacket? _prevPacket;     // 原始累计包（上一包，用于差值计算）
+  BlePacket? _deltaPacket;    // 差值包（本5秒内的行为增量，供UI/算法使用）
   bool _deviceConnected = false;
   int _battery = 82;
   final List<BlePacket> _recentPackets = [];
 
-  BlePacket? get latestPacket => _latestPacket;
+  // UI 层统一使用 deltaPacket（每5秒内增量），不使用原始累计包
+  BlePacket? get latestPacket => _deltaPacket;
+  // 如需原始累计值（例如图表趋势），可使用此 getter
+  BlePacket? get rawCumulativePacket => _latestPacket;
   bool get deviceConnected => _deviceConnected;
   int get battery => _battery;
   List<BlePacket> get recentPackets => List.unmodifiable(_recentPackets);
@@ -238,17 +243,32 @@ class PetHealthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 每收到一个 BLE 数据包就调用一次（约每秒一次）
-  // 负责：更新电量、保存历史包、检查预警、更新喂食会话
-  void _onPacket(BlePacket packet) {
-    _latestPacket = packet;
-    _battery = packet.battery;
-    _recentPackets.add(packet);
+  // 每收到一个 BLE 数据包就调用一次（每5秒一次）
+  // 硬件传来的是【累计值】，需要计算差值后再做行为判断
+  // 负责：更新电量、计算差值包、保存历史包、检查预警、更新喂食会话
+  void _onPacket(BlePacket rawPacket) {
+    _battery = rawPacket.battery;
+
+    // ── 计算差值包（本5秒内的行为增量）──────────────────────────────────
+    // 如果是第一包，差值包就是原始包本身（开机后第一个5秒）
+    final delta = _latestPacket != null
+        ? BlePacket.deltaFrom(rawPacket, _latestPacket!)
+        : rawPacket;
+
+    // 更新累计包记录
+    _prevPacket = _latestPacket;
+    _latestPacket = rawPacket;
+    _deltaPacket = delta;
+
+    // 历史缓冲：存差值包（每包代表5秒内实际行为，便于回放分析）
+    _recentPackets.add(delta);
     if (_recentPackets.length > 120) {
       _recentPackets.removeAt(0); // keep last 10 minutes
     }
-    _checkAlerts(packet);
-    _updateFeedingSession(packet);
+
+    // 预警检测和喂食更新都用差值包
+    _checkAlerts(delta);
+    _updateFeedingSession(delta);
     notifyListeners();
   }
 
@@ -291,8 +311,8 @@ class PetHealthProvider extends ChangeNotifier {
   void startFeedingSession() {
     if (_activeSession != null) return; // 防止重复开始
 
-    // 记录喂食前的压力计数，用于事后对比改善效果
-    final preStress = _latestPacket?.strC ?? 0;
+    // 记录喂食前的压力计数（用最近一包的差值包，代表最新5秒内的应激次数）
+    final preStress = _deltaPacket?.strC ?? 0;
 
     _activeSession = FeedingSession(
       id: 'session_${DateTime.now().millisecondsSinceEpoch}',
@@ -326,7 +346,7 @@ class PetHealthProvider extends ChangeNotifier {
     if (_activeSession == null) return;
     _sessionTimer?.cancel();
 
-    final postStress = _latestPacket?.strC ?? 0;
+    final postStress = _deltaPacket?.strC ?? 0;
     final completed = _activeSession!.copyWith(
       timeToCalm: _sessionElapsedSeconds,
       stressCountAfter: postStress,
@@ -374,9 +394,10 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   bool _isCalmState() {
-    final p = _latestPacket;
+    // 使用差值包判断：本5秒内无应激、无踱步、无发抖
+    final p = _deltaPacket;
     if (p == null) return false;
-    return p.strC == 0 && p.paceD < 5 && p.shivC == 0;
+    return p.strC == 0 && p.paceD < 3 && p.shivC == 0;
   }
 
   void _updateFeedingSession(BlePacket packet) {
@@ -758,11 +779,14 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // ── Current behavior computed values ─────────────────────────────────────
+  // ⚠️ 全部使用差值包（_deltaPacket），而非原始累计包（_latestPacket）
+  // behaviorState / anxietyScore / activityScore 都定义在 BlePacket 上，
+  // 它们的计算阈值已针对"5秒内增量"调整，不能用累计值调用。
   PetBehaviorState get currentBehavior =>
-      _latestPacket?.behaviorState ?? PetBehaviorState.calm;
+      _deltaPacket?.behaviorState ?? PetBehaviorState.calm;
 
-  int get currentAnxietyScore => _latestPacket?.anxietyScore ?? 0;
-  int get currentActivityScore => _latestPacket?.activityScore ?? 0;
+  int get currentAnxietyScore => _deltaPacket?.anxietyScore ?? 0;
+  int get currentActivityScore => _deltaPacket?.activityScore ?? 0;
 
   /// 昨夜睡眠质量：根据夜间（22:00-06:00）的行为数据推算
   /// 逻辑：睡眠秒数越多、应激秒数越少 → 质量越高
