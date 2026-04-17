@@ -282,10 +282,49 @@ class PetScreen extends StatelessWidget {
   }
 
   void _showEditDialog(BuildContext context, PetProfile pet, PetHealthProvider provider, dynamic s) {
+    // 用父页面 context 的 ScaffoldMessenger，对话框关闭后依然有效
+    final scaffoldMsg = ScaffoldMessenger.of(context);
     showDialog(
       barrierColor: Colors.black54,
       context: context,
-      builder: (ctx) => _EditPetDialog(pet: pet, provider: provider, s: s),
+      builder: (ctx) => _EditPetDialog(
+        pet: pet,
+        provider: provider,
+        s: s,
+        onSaved: (String? cloudErr) {
+          // 在父页面上下文中显示 SnackBar（不受对话框 unmount 影响）
+          String msg;
+          Color bgColor;
+          int secs;
+          if (cloudErr == null) {
+            msg = '✅ 宠物档案已保存并同步到云端';
+            bgColor = const Color(0xFF4CAF50);
+            secs = 2;
+          } else if (cloudErr == 'permission-denied') {
+            msg = '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则';
+            bgColor = const Color(0xFFF59E0B);
+            secs = 6;
+          } else if (cloudErr == 'network-error' || cloudErr == 'timeout') {
+            msg = '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步';
+            bgColor = const Color(0xFFF59E0B);
+            secs = 4;
+          } else if (cloudErr == 'unauthenticated') {
+            msg = '⚠️ 登录状态异常，请重新登录后保存';
+            bgColor = const Color(0xFFEF5350);
+            secs = 4;
+          } else {
+            msg = '⚠️ 已保存到本机，云端同步失败\n原因：$cloudErr';
+            bgColor = const Color(0xFFF59E0B);
+            secs = 5;
+          }
+          scaffoldMsg.showSnackBar(SnackBar(
+            content: Text(msg, style: const TextStyle(fontSize: 13)),
+            backgroundColor: bgColor,
+            duration: Duration(seconds: secs),
+            behavior: SnackBarBehavior.floating,
+          ));
+        },
+      ),
     );
   }
 }
@@ -558,7 +597,15 @@ class _EditPetDialog extends StatefulWidget {
   final PetProfile pet;
   final PetHealthProvider provider;
   final dynamic s;
-  const _EditPetDialog({required this.pet, required this.provider, required this.s});
+  /// 保存完成回调：cloudErr == null 表示成功，非 null 为错误类型字符串
+  /// 在父页面 context 中调用，避免对话框 unmount 后 context 失效
+  final void Function(String? cloudErr)? onSaved;
+  const _EditPetDialog({
+    required this.pet,
+    required this.provider,
+    required this.s,
+    this.onSaved,
+  });
 
   @override
   State<_EditPetDialog> createState() => _EditPetDialogState();
@@ -718,7 +765,6 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
-                    // 解析年龄和体重，无效输入保留原值
                     final age = int.tryParse(_ageCtrl.text.trim()) ?? widget.pet.ageMonths;
                     final weight = double.tryParse(_weightCtrl.text.trim()) ?? widget.pet.weightKg;
                     final newPet = widget.pet.copyWith(
@@ -730,52 +776,16 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                       healthTags: _selectedTags,
                     );
 
-                    // ── 步骤1：立即写入内存 + 本地 SharedPreferences（同步，极快）──
-                    // 这样 UI 可以立刻关闭，不需要等待 Firestore
+                    // 步骤1：写入内存 + 本地缓存（立即生效，不依赖网络）
                     widget.provider.updatePetLocal(newPet);
 
-                    // ── 步骤2：立即关闭对话框（不等 Firestore）──────────────────
-                    if (!mounted) return;
-                    final scaffoldCtx = context;
-                    Navigator.of(scaffoldCtx).pop();
+                    // 步骤2：立即关闭对话框（此后 mounted = false，不可再用 context）
+                    if (mounted) Navigator.of(context).pop();
 
-                    // ── 步骤3：后台异步同步 Firestore，完成后再显示 SnackBar ────
+                    // 步骤3：后台同步 Firestore，通过回调把结果交给父页面处理
+                    // 注意：不再使用 mounted 检查，因为对话框已关闭
                     final cloudErr = await widget.provider.syncPetToCloud();
-                    if (!mounted) return;
-
-                    // 根据错误类型给出具体提示
-                    String msg;
-                    Color bgColor;
-                    int secs;
-                    if (cloudErr == null) {
-                      msg = '✅ 宠物档案已保存并同步到云端';
-                      bgColor = const Color(0xFF4CAF50);
-                      secs = 2;
-                    } else if (cloudErr == 'permission-denied') {
-                      msg = '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则';
-                      bgColor = const Color(0xFFF59E0B);
-                      secs = 6;
-                    } else if (cloudErr == 'network-error' || cloudErr == 'timeout') {
-                      msg = '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步';
-                      bgColor = const Color(0xFFF59E0B);
-                      secs = 4;
-                    } else if (cloudErr == 'unauthenticated') {
-                      msg = '⚠️ 登录状态异常，请重新登录后保存';
-                      bgColor = const Color(0xFFEF5350);
-                      secs = 4;
-                    } else {
-                      msg = '⚠️ 已保存到本机，云端同步失败\n原因：$cloudErr';
-                      bgColor = const Color(0xFFF59E0B);
-                      secs = 5;
-                    }
-                    ScaffoldMessenger.of(scaffoldCtx).showSnackBar(
-                      SnackBar(
-                        content: Text(msg, style: const TextStyle(fontSize: 13)),
-                        backgroundColor: bgColor,
-                        duration: Duration(seconds: secs),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    widget.onSaved?.call(cloudErr);
                   },
                   child: Text(locS.petSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                 ),
