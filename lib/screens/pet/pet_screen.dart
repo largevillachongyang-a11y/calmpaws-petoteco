@@ -729,14 +729,20 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                       weightKg: weight,
                       healthTags: _selectedTags,
                     );
-                    // 先保存数据（await），再关闭对话框
-                    // 注意：await 后不能用 build 参数的 context，改用 State.mounted + State.context
-                    final cloudOk = await widget.provider.updatePet(newPet);
+
+                    // ── 步骤1：立即写入内存 + 本地 SharedPreferences（同步，极快）──
+                    // 这样 UI 可以立刻关闭，不需要等待 Firestore
+                    widget.provider.updatePetLocal(newPet);
+
+                    // ── 步骤2：立即关闭对话框（不等 Firestore）──────────────────
                     if (!mounted) return;
-                    // 关闭编辑对话框
-                    Navigator.of(context).pop();
-                    // 通过 SnackBar 告知用户云端同步状态
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    final scaffoldCtx = context;
+                    Navigator.of(scaffoldCtx).pop();
+
+                    // ── 步骤3：后台异步同步 Firestore，完成后再显示 SnackBar ────
+                    final cloudOk = await widget.provider.syncPetToCloud();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(scaffoldCtx).showSnackBar(
                       SnackBar(
                         content: Text(
                           cloudOk

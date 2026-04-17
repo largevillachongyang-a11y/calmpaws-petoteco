@@ -183,6 +183,35 @@ class PetHealthProvider extends ChangeNotifier {
     return cloudSaved;
   }
 
+  /// 步骤1：立即更新内存 + 本地缓存（同步操作，不涉及网络）
+  /// UI 层调用此方法后可立刻关闭对话框，用户体验流畅
+  void updatePetLocal(PetProfile updated) {
+    _pet = updated;
+    notifyListeners();
+    // 本地 SharedPreferences 写入（异步 fire-and-forget，不阻塞 UI）
+    if (_currentUserId != null) {
+      _savePetToLocal(_currentUserId!, updated).catchError((e) {
+        debugPrint('updatePetLocal: local save error: $e');
+      });
+    }
+  }
+
+  /// 步骤2：后台同步到 Firestore（可在对话框关闭后调用）
+  /// 返回 true = 云端写入成功；false = 失败（本地已保存）
+  Future<bool> syncPetToCloud() async {
+    if (_currentUserId == null) return false;
+    try {
+      final ok = await _firestoreService
+          .savePetProfile(_currentUserId!, _pet)
+          .timeout(const Duration(seconds: 8));
+      if (!ok) debugPrint('⚠️ syncPetToCloud: Firestore write failed');
+      return ok;
+    } catch (e) {
+      debugPrint('⚠️ syncPetToCloud error: $e');
+      return false;
+    }
+  }
+
   // 将宠物档案写入 SharedPreferences（内部辅助方法）
   Future<void> _savePetToLocal(String uid, PetProfile pet) async {
     final prefs = await SharedPreferences.getInstance();
