@@ -58,10 +58,10 @@ class FirestoreService {
   /// 调用时机：用户在宠物页面编辑并保存宠物信息后
   /// 路径：users/{uid}/pet_profile（顶层文档，避免子集合规则问题）
   /// 返回值：true = 写入成功，false = 写入失败（可让调用方显示提示）
-  Future<bool> savePetProfile(String uid, PetProfile pet) async {
+  /// 保存宠物档案到 Firestore
+  /// 返回 null = 成功；返回字符串 = 失败原因（用于 UI 展示）
+  Future<String?> savePetProfile(String uid, PetProfile pet) async {
     try {
-      // 使用顶层路径 users/{uid}/pet_profile，规则更简单：
-      //   match /users/{uid}/pet_profile { allow read, write: if request.auth.uid == uid; }
       await _db.collection('users').doc(uid)
           .collection('pet_profile').doc('main').set({
         'pet_id':   pet.id,
@@ -73,13 +73,22 @@ class FirestoreService {
         'health_tags': pet.healthTags,
         'created_at': Timestamp.fromDate(pet.createdAt),
         'updated_at': FieldValue.serverTimestamp(),
-        'owner_uid': uid, // 冗余字段，方便规则调试
+        'owner_uid': uid,
       }, SetOptions(merge: true));
       debugFirestore('savePetProfile OK: uid=$uid name=${pet.name}');
-      return true;
+      return null; // null = 成功
     } catch (e) {
-      debugFirestore('savePetProfile FAILED: $e');
-      return false;
+      final msg = e.toString();
+      debugFirestore('savePetProfile FAILED: $msg');
+      // 识别常见错误类型，返回用户友好信息
+      if (msg.contains('permission-denied') || msg.contains('PERMISSION_DENIED')) {
+        return 'permission-denied';
+      } else if (msg.contains('unavailable') || msg.contains('network')) {
+        return 'network-error';
+      } else if (msg.contains('unauthenticated') || msg.contains('UNAUTHENTICATED')) {
+        return 'unauthenticated';
+      }
+      return 'unknown: $msg';
     }
   }
 

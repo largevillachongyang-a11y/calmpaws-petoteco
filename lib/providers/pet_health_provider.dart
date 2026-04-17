@@ -168,16 +168,15 @@ class PetHealthProvider extends ChangeNotifier {
     bool cloudSaved = false;
     if (_currentUserId != null) {
       final uid = _currentUserId!;
-      // 1. 写入 SharedPreferences（本地快速读取）
       try {
         await _savePetToLocal(uid, updated);
       } catch (e) {
         debugPrint('updatePet local save error: $e');
       }
-      // 2. await 等待 Firestore 写入结果（不再 fire-and-forget）
-      cloudSaved = await _firestoreService.savePetProfile(uid, updated);
+      final err = await _firestoreService.savePetProfile(uid, updated);
+      cloudSaved = (err == null);
       if (!cloudSaved) {
-        debugPrint('⚠️ updatePet: Firestore write failed — data saved locally only');
+        debugPrint('⚠️ updatePet: Firestore write failed — $err');
       }
     }
     return cloudSaved;
@@ -197,18 +196,19 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   /// 步骤2：后台同步到 Firestore（可在对话框关闭后调用）
-  /// 返回 true = 云端写入成功；false = 失败（本地已保存）
-  Future<bool> syncPetToCloud() async {
-    if (_currentUserId == null) return false;
+  /// 返回 null = 成功；非 null 字符串 = 失败原因（permission-denied / network-error 等）
+  Future<String?> syncPetToCloud() async {
+    if (_currentUserId == null) return 'not-logged-in';
     try {
-      final ok = await _firestoreService
+      final err = await _firestoreService
           .savePetProfile(_currentUserId!, _pet)
           .timeout(const Duration(seconds: 8));
-      if (!ok) debugPrint('⚠️ syncPetToCloud: Firestore write failed');
-      return ok;
+      if (err != null) debugPrint('⚠️ syncPetToCloud failed: $err');
+      return err; // null = 成功
     } catch (e) {
-      debugPrint('⚠️ syncPetToCloud error: $e');
-      return false;
+      final msg = e.toString();
+      debugPrint('⚠️ syncPetToCloud error: $msg');
+      return msg.contains('TimeoutException') ? 'timeout' : 'unknown: $msg';
     }
   }
 

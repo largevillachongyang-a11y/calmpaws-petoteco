@@ -740,18 +740,39 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                     Navigator.of(scaffoldCtx).pop();
 
                     // ── 步骤3：后台异步同步 Firestore，完成后再显示 SnackBar ────
-                    final cloudOk = await widget.provider.syncPetToCloud();
+                    final cloudErr = await widget.provider.syncPetToCloud();
                     if (!mounted) return;
+
+                    // 根据错误类型给出具体提示
+                    String msg;
+                    Color bgColor;
+                    int secs;
+                    if (cloudErr == null) {
+                      msg = '✅ 宠物档案已保存并同步到云端';
+                      bgColor = const Color(0xFF4CAF50);
+                      secs = 2;
+                    } else if (cloudErr == 'permission-denied') {
+                      msg = '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则';
+                      bgColor = const Color(0xFFF59E0B);
+                      secs = 6;
+                    } else if (cloudErr == 'network-error' || cloudErr == 'timeout') {
+                      msg = '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步';
+                      bgColor = const Color(0xFFF59E0B);
+                      secs = 4;
+                    } else if (cloudErr == 'unauthenticated') {
+                      msg = '⚠️ 登录状态异常，请重新登录后保存';
+                      bgColor = const Color(0xFFEF5350);
+                      secs = 4;
+                    } else {
+                      msg = '⚠️ 已保存到本机，云端同步失败\n原因：$cloudErr';
+                      bgColor = const Color(0xFFF59E0B);
+                      secs = 5;
+                    }
                     ScaffoldMessenger.of(scaffoldCtx).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          cloudOk
-                            ? '✅ 宠物档案已保存并同步到云端'
-                            : '⚠️ 已保存到本机，云端同步失败\n请检查网络或 Firestore 规则',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        backgroundColor: cloudOk ? const Color(0xFF4CAF50) : const Color(0xFFF59E0B),
-                        duration: Duration(seconds: cloudOk ? 2 : 4),
+                        content: Text(msg, style: const TextStyle(fontSize: 13)),
+                        backgroundColor: bgColor,
+                        duration: Duration(seconds: secs),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
