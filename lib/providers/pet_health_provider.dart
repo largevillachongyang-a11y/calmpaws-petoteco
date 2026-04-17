@@ -235,19 +235,27 @@ class PetHealthProvider extends ChangeNotifier {
   final _ble = MockBleService();
   StreamSubscription<BlePacket>? _bleSub;
   BlePacket? _latestPacket;   // 原始累计包（最新）
-  BlePacket? _prevPacket;     // 原始累计包（上一包，用于差值计算）
-  BlePacket? _deltaPacket;    // 差值包（本5秒内的行为增量，供UI/算法使用）
+  BlePacket? _deltaPacket;    // 差值包（本5秒内行为增量），供 _checkAlerts 使用
   bool _deviceConnected = false;
   int _battery = 82;
-  final List<BlePacket> _recentPackets = [];
 
-  // UI 层统一使用 deltaPacket（每5秒内增量），不使用原始累计包
+  // ── A+B方案：滑动窗口 + 状态确认 ──────────────────────────────────────────
+  // A：最近4包差值的加权平均焦虑分，消除单包噪声导致的数值跳动
+  //    权重：最新包0.5，前一包0.3，再前0.15，最早0.05
+  static const List<double> kAnxietyWeights = [0.5, 0.3, 0.15, 0.05];
+  final List<BlePacket> _recentDeltas = []; // 最近4包差值，用于加权平均
+
+  // B：状态切换需要连续2包确认，防止单包噪声引发状态跳变
+  //    连续2包（10秒）相同状态才切换，避免 calm→stressed→calm 的闪烁
+  PetBehaviorState _confirmedState = PetBehaviorState.calm; // 当前已确认的稳定状态
+  PetBehaviorState _pendingState   = PetBehaviorState.calm; // 待确认的候选状态
+  int _pendingStateCount = 0;                               // 候选状态连续出现包数
+  static const int kStateConfirmPackets = 2;                // 需要连续几包才确认切换
+
+  // UI 层使用已平滑的数据，不直接用原始差值包
   BlePacket? get latestPacket => _deltaPacket;
-  // 如需原始累计值（例如图表趋势），可使用此 getter
-  BlePacket? get rawCumulativePacket => _latestPacket;
   bool get deviceConnected => _deviceConnected;
   int get battery => _battery;
-  List<BlePacket> get recentPackets => List.unmodifiable(_recentPackets);
 
   double get anxietyLevel => _ble.anxietyLevel;
   set anxietyLevel(double v) {
@@ -274,28 +282,34 @@ class PetHealthProvider extends ChangeNotifier {
 
   // 每收到一个 BLE 数据包就调用一次（每5秒一次）
   // 硬件传来的是【累计值】，需要计算差值后再做行为判断
-  // 负责：更新电量、计算差值包、保存历史包、检查预警、更新喂食会话
   void _onPacket(BlePacket rawPacket) {
     _battery = rawPacket.battery;
 
-    // ── 计算差值包（本5秒内的行为增量）──────────────────────────────────
-    // 如果是第一包，差值包就是原始包本身（开机后第一个5秒）
+    // 计算本5秒增量（差值包）
     final delta = _latestPacket != null
         ? BlePacket.deltaFrom(rawPacket, _latestPacket!)
         : rawPacket;
-
-    // 更新累计包记录
-    _prevPacket = _latestPacket;
     _latestPacket = rawPacket;
-    _deltaPacket = delta;
+    _deltaPacket  = delta;
 
-    // 历史缓冲：存差值包（每包代表5秒内实际行为，便于回放分析）
-    _recentPackets.add(delta);
-    if (_recentPackets.length > 120) {
-      _recentPackets.removeAt(0); // keep last 10 minutes
+    // ── A方案：维护最近4包差值，用于加权平均焦虑分 ───────────────────────
+    _recentDeltas.add(delta);
+    if (_recentDeltas.length > kAnxietyWeights.length) {
+      _recentDeltas.removeAt(0);
     }
 
-    // 预警检测和喂食更新都用差值包
+    // ── B方案：状态切换需连续2包确认 ────────────────────────────────────
+    final rawState = delta.behaviorState;
+    if (rawState == _pendingState) {
+      _pendingStateCount++;
+      if (_pendingStateCount >= kStateConfirmPackets && rawState != _confirmedState) {
+        _confirmedState = rawState;
+      }
+    } else {
+      _pendingState      = rawState;
+      _pendingStateCount = 1;
+    }
+
     _checkAlerts(delta);
     _updateFeedingSession(delta);
     notifyListeners();
@@ -453,52 +467,65 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // ── 全局预警系统 ────────────────────────────────────────────────────────────
-  // 当 BLE 数据超过阈值时，设置 _hasAlert=true，MainNavScreen 顶部显示 AlertBanner。
-  //
-  // P1 完整预警规则（对齐硬件需求文档）：
-  //   'shiver'        → 状态D：宠物连续发抖 >3分钟（180秒）触发紧急预警
-  //   'stress_frequent'→ 状态C：1小时内应激动作 >10次触发
-  //   'lethargy'      → 状态F：白天（10:00-18:00）连续静止 >3小时触发昏睡检测
-  //   'activity'      → A+B+C 总活动量低于7日均值30%（连续2天）
-  //
-  // 用户点击关闭按钮 → dismissAlert() 清除，直到下次 BLE 数据再次触发
+  // P1 完整预警规则：
+  //   'shiver'          → 状态D：连续发抖 >3分钟（测试30s）→ 紧急预警
+  //   'stress_frequent' → 状态C：1小时内 >10次应激，冷却15分钟后可再次触发
+  //   'pacing_long'     → 状态A：单次踱步 >30分钟（测试120s），说明焦虑持续未缓解
+  //   'lethargy'        → 状态F：白天连续静止 >3小时（测试60s），每天最多一次
+  //   'sleep_disturbed' → 夜间应激 >5次（测试2次），次日早晨推送睡眠报告
+  //   'activity'        → 活动量偏低兜底，低优先级
   bool _hasAlert = false;
   String _alertMessage = '';
-  String _alertType = ''; // 'shiver' | 'stress_frequent' | 'lethargy' | 'activity'
+  String _alertType = '';
 
   bool get hasAlert => _hasAlert;
   String get alertMessage => _alertMessage;
   String get alertType => _alertType;
-  // Bug1修复：暴露给 MainNavScreen 用于本地化横幅文案
   int get continuousShiverSeconds => _continuousShiverSeconds;
 
-  // ── P1：发抖持续时长追踪 ───────────────────────────────────────────────────
-  // 文档定义：状态D = 近1g + 高频小幅颤抖，单次持续 >3分钟 → 触发紧急预警
-  int _continuousShiverSeconds = 0;    // 当前连续发抖秒数（BlePacket 每5秒一包，累计计算）
-  bool _shiverAlertFired = false;      // 本次连续发抖是否已触发通知（避免重复）
-  // ── P1 测试阈值（开发期降低便于快速验证）────────────────────────────────
-  // 发抖：改为 30 秒（原 180 秒），anxietyLevel=1.0 约 2-3 分钟自然触发
-  static const int kShiverThreshold = 30;   // 正式上线改回 180
-  // 应激频繁：改为 3 次（原 10 次），焦虑滑块拉满约 1 分钟触发
-  static const int kStressFreqThreshold = 3; // 正式上线改回 10
-  // 昏睡：改为 60 秒（原 10800 秒），便于测试
-  static const int kLethargyThreshold = 60;  // 正式上线改回 10800
+  // ── 状态D（发抖）─────────────────────────────────────────────────────────
+  // [上线前改回 180]
+  static const int kShiverThreshold = 30;
+  int _continuousShiverSeconds = 0;
+  bool _shiverAlertFired = false;
 
-  // ── P1：应激动作频次追踪（状态C）──────────────────────────────────────────
-  // 文档定义：状态C = 高频短促爆发（1.5-2.0g），1小时内 >10次 → 触发通知
-  final List<DateTime> _stressEventTimestamps = []; // 近1小时内的应激事件时间戳列表
-  bool _stressFreqAlertFired = false;              // 本小时是否已触发（避免重复，每小时重置）
+  // ── 状态C（应激频繁）─────────────────────────────────────────────────────
+  // 原逻辑每整点重置标志，导致每小时最多触发1次；改为冷却窗口机制更合理
+  // [上线前改回 10 次，冷却60分钟]
+  static const int kStressFreqThreshold = 3;
+  static const int kStressFreqCooldownMinutes = 15;
+  final List<DateTime> _stressEventTimestamps = [];
+  DateTime? _stressFreqLastFiredAt;
 
-  // ── P1：昏睡检测（状态F）──────────────────────────────────────────────────
-  // 文档定义：状态F = 扁平1g线 + Z轴静止数小时，白天 >3小时 → 触发药物/异常昏睡通知
-  int _continuousLethargySecs = 0;       // 当前连续静止（类F状态）秒数
-  bool _lethargyAlertFired = false;      // 今日是否已触发昏睡通知（每天只触发一次）
-  DateTime? _lethargyAlertDate;          // 记录触发日期，次日清零
+  // ── 状态A（踱步过长）─────────────────────────────────────────────────────
+  // [上线前改回 1800 秒（30分钟）]
+  static const int kPacingLongThreshold = 120;
+  int _continuousPacingSeconds = 0;
+  DateTime? _pacingAlertDate;
+
+  // ── 状态F（昏睡）─────────────────────────────────────────────────────────
+  // [上线前改回 10800 秒（3小时）]
+  static const int kLethargyThreshold = 60;
+  int _continuousLethargySecs = 0;
+  bool _lethargyAlertFired = false;
+  DateTime? _lethargyAlertDate;
+
+  // ── 睡眠异常（夜间应激）──────────────────────────────────────────────────
+  // 夜间（22:00-06:00）应激次数超阈值时，次日早晨推送睡眠质量通知
+  // [上线前改回 5 次]
+  static const int kNightStressThreshold = 2;
+  int _nightStressCount = 0;
+  bool _sleepDisturbedFired = false;
+  DateTime? _nightStartDate;
+
+  // ── 今日应激事件独立日计数器（供每日总结使用）────────────────────────────
+  // _stressEventTimestamps 只保留最近1小时，无法代表全天；此计数器跨天清零
+  int _todayStressEventCount = 0;
 
   // ── P1：每日健康总结定时器 ─────────────────────────────────────────────────
-  // 每天 20:00 检查一次，若未推送则生成当日健康总结通知
+  // 每天 20:00 触发一次，用每分钟轮询代替精确定时防止漏推
   Timer? _dailySummaryTimer;
-  DateTime? _lastDailySummaryDate; // 记录上次推送日期，避免同一天重复推送
+  DateTime? _lastDailySummaryDate;
 
   // ── P1：今日各状态时长累计（供每日总结使用）──────────────────────────────
   // 每次 BLE 包时累加（每包=5秒的采样）
@@ -530,12 +557,12 @@ class PetHealthProvider extends ChangeNotifier {
   //   4. 超阈值时触发预警并通过回调通知中心
   void _checkAlerts(BlePacket packet) {
     final now = DateTime.now();
-    // 跨天重置今日统计
     _resetTodayStatsIfNewDay(now);
 
-    // ── 今日状态时长累计（每包约5秒）──────────────────────────────────────
     const int samplingInterval = 5;
     final state = packet.behaviorState;
+
+    // ── 今日状态时长累计 ──────────────────────────────────────────────────
     switch (state) {
       case PetBehaviorState.pacing:
         _todayPacingSeconds   += samplingInterval;
@@ -548,104 +575,110 @@ class PetHealthProvider extends ChangeNotifier {
       case PetBehaviorState.sleeping:
         _todaySleepSeconds    += samplingInterval;
       default:
-        // calm → 如果是白天且近乎静止（activityScore极低），计入昏睡候选
         if (packet.activityScore < 3) {
           _todayLethargySeconds += samplingInterval;
         }
     }
 
-    // ── P1-1：发抖预警（状态D，阈值3分钟 = 180秒）─────────────────────────
-    if (packet.shivD > 0) {
-      // BLE 包含发抖时长字段，直接累加
-      _continuousShiverSeconds += samplingInterval;
-    } else {
-      // 无发抖则重置连续计时（可接受短暂中断 ≤10秒）
-      _continuousShiverSeconds = 0;
-      _shiverAlertFired = false; // 连续中断后允许下次重新触发
+    // 今日应激事件独立计数（用于每日总结，不受1小时窗口影响）
+    if (packet.strC > 0) {
+      _todayStressEventCount += packet.strC;
     }
 
+    final isDaytime = now.hour >= 10 && now.hour < 18;
+    final isNight   = now.hour >= 22 || now.hour < 6;
+    final todayDate = DateTime(now.year, now.month, now.day);
+
+    // ── P1-1：状态D 发抖预警（连续 >3分钟）──────────────────────────────
+    // shivD > 0 代表本5秒内有发抖；发抖中断后重置，允许下次重新触发
+    if (packet.shivD > 0) {
+      _continuousShiverSeconds += samplingInterval;
+    } else {
+      _continuousShiverSeconds = 0;
+      _shiverAlertFired = false;
+    }
     if (_continuousShiverSeconds >= kShiverThreshold && !_shiverAlertFired) {
       _shiverAlertFired = true;
       _hasAlert = true;
       _alertType = 'shiver';
-      final minutesDuration = _continuousShiverSeconds ~/ 60;
-      _alertMessage = '🆘 ${_pet.name} 已连续发抖 $minutesDuration 分钟，请立即检查是否疼痛、受寒或极度恐惧。';
-      notifyListeners();
-      // 回调通知中心
+      final mins = (_continuousShiverSeconds / 60).ceil();
+      _alertMessage = '🆘 ${_pet.name} 已连续发抖 $mins 分钟，请立即检查是否疼痛、受寒或极度恐惧。';
       onAlertNotification?.call(
         'shiver_alert',
-        '🆘 紧急：${_pet.name} 持续发抖超过3分钟',
-        '已连续发抖 $minutesDuration 分钟。可能原因：疼痛、低体温或极度恐惧。建议立即检查或联系兽医。',
+        '🆘 紧急：${_pet.name} 持续发抖',
+        '已连续发抖 $mins 分钟。可能原因：疼痛、低体温或极度恐惧。建议立即检查或联系兽医。',
       );
     }
 
-    // ── P1-2：应激动作频繁（状态C，1小时内 >10次）────────────────────────
+    // ── P1-2：状态C 应激频繁（1小时内 >10次，冷却后可再次触发）────────────
+    // 原逻辑每整点重置标志，导致每小时最多触发1次且依赖整点时机；
+    // 改为冷却窗口机制：触发后间隔 kStressFreqCooldownMinutes 分钟才能再次触发
     if (packet.strC > 0) {
-      // 每个 BLE 包的 strC 字段记录本周期应激次数，加入时间戳队列
       for (int i = 0; i < packet.strC; i++) {
         _stressEventTimestamps.add(now);
       }
     }
-    // 清除超过1小时的旧记录
-    _stressEventTimestamps.removeWhere(
-        (t) => now.difference(t).inHours >= 1);
-
+    _stressEventTimestamps.removeWhere((t) => now.difference(t).inMinutes >= 60);
     final recentStressCount = _stressEventTimestamps.length;
-    if (recentStressCount > kStressFreqThreshold && !_stressFreqAlertFired) {
-      _stressFreqAlertFired = true;
-      // Bug4修复：同时设置顶部横幅
+    final cooldownExpired = _stressFreqLastFiredAt == null ||
+        now.difference(_stressFreqLastFiredAt!).inMinutes >= kStressFreqCooldownMinutes;
+    if (recentStressCount > kStressFreqThreshold && cooldownExpired) {
+      _stressFreqLastFiredAt = now;
       _hasAlert = true;
       _alertType = 'stress_frequent';
-      _alertMessage = '⚠️ ${_pet.name} stress actions >10x in past hour';
-      notifyListeners();
+      _alertMessage = '⚠️ ${_pet.name} 1小时内应激 $recentStressCount 次';
       onAlertNotification?.call(
         'stress_frequent',
-        '⚠️ ${_pet.name} 今日应激反应频繁',
+        '⚠️ ${_pet.name} 应激反应频繁',
         '过去1小时内检测到 $recentStressCount 次应激动作（状态C）。'
         '建议查看是否有焦虑源，考虑增加益生素用量或减少环境刺激。',
       );
     }
-    // 每整点重置，允许下一小时再次触发
-    if (now.minute == 0 && now.second < 10) {
-      _stressFreqAlertFired = false;
+
+    // ── P1-3：状态A 踱步过长（单次连续踱步 >30分钟）──────────────────────
+    // 持续踱步意味着焦虑未缓解；每天最多触发一次，防止反复踱步时刷屏
+    if (state == PetBehaviorState.pacing) {
+      _continuousPacingSeconds += samplingInterval;
+    } else {
+      _continuousPacingSeconds = 0;
+    }
+    final pacingFiredToday = _pacingAlertDate != null &&
+        DateTime(_pacingAlertDate!.year, _pacingAlertDate!.month, _pacingAlertDate!.day) == todayDate;
+    if (_continuousPacingSeconds >= kPacingLongThreshold && !pacingFiredToday) {
+      _pacingAlertDate = now; // 设置今日已触发，依靠 _pacingAlertDate 做每日去重
+      final mins = _continuousPacingSeconds ~/ 60;
+      _hasAlert = true;
+      _alertType = 'pacing_long';
+      _alertMessage = '⚠️ ${_pet.name} 已持续踱步 $mins 分钟，焦虑状态未缓解';
+      onAlertNotification?.call(
+        'pacing_long',
+        '⚠️ ${_pet.name} 持续焦虑踱步',
+        '已连续踱步 $mins 分钟，焦虑状态未得到缓解。建议喂食 ZenBelly 或增加互动安抚。',
+      );
     }
 
-    // ── P1-4：昏睡检测（状态F，白天连续静止 >3小时）─────────────────────
-    // 白天时段：10:00–18:00；状态判断：activityScore < 3 + 无发抖 + 无应激
-    final isDaytime = now.hour >= 10 && now.hour < 18;
+    // ── P1-4：状态F 昏睡检测（白天连续静止 >3小时）──────────────────────
+    // activityScore < 3 且无发抖/应激/踱步，排除单纯健康睡眠
     final isLethargyLike = packet.activityScore < 3 &&
         packet.shivD == 0 &&
         packet.strC == 0 &&
         packet.paceD == 0;
-
     if (isDaytime && isLethargyLike) {
       _continuousLethargySecs += samplingInterval;
     } else {
-      // 有活动则重置
       _continuousLethargySecs = 0;
     }
-
-    // 检查是否今天已触发（每天只触发一次）
-    final todayDate = DateTime(now.year, now.month, now.day);
     if (_lethargyAlertDate != null) {
-      final alertDay = DateTime(
-          _lethargyAlertDate!.year, _lethargyAlertDate!.month, _lethargyAlertDate!.day);
-      if (alertDay != todayDate) {
-        _lethargyAlertFired = false; // 新的一天，允许再次触发
-      }
+      final alertDay = DateTime(_lethargyAlertDate!.year, _lethargyAlertDate!.month, _lethargyAlertDate!.day);
+      if (alertDay != todayDate) _lethargyAlertFired = false;
     }
-
-    if (_continuousLethargySecs >= kLethargyThreshold &&
-        isDaytime &&
-        !_lethargyAlertFired) {
+    if (_continuousLethargySecs >= kLethargyThreshold && isDaytime && !_lethargyAlertFired) {
       _lethargyAlertFired = true;
       _lethargyAlertDate = now;
-      final hours = _continuousLethargySecs ~/ 3600;
-      // Bug4修复：同时设置顶部横幅
+      final hours = (_continuousLethargySecs / 3600).ceil();
       _hasAlert = true;
       _alertType = 'lethargy';
-      _alertMessage = '⚠️ ${_pet.name} unusually still all day — possible lethargy';
-      notifyListeners();
+      _alertMessage = '⚠️ ${_pet.name} 白天异常静止（疑似昏睡）';
       onAlertNotification?.call(
         'lethargy',
         '⚠️ ${_pet.name} 白天异常静止（疑似昏睡）',
@@ -654,41 +687,60 @@ class PetHealthProvider extends ChangeNotifier {
       );
     }
 
-    // ── 传统活动量预警（保留，仅白天时段）────────────────────────────────
-    // 优先级最低：只有当前没有更高优先级预警时才设置 activity 横幅
-    // 高优先级顺序：shiver > stress_frequent > lethargy > activity
-    final highPriorityAlerts = ['shiver', 'stress_frequent', 'lethargy'];
+    // ── P1-5：夜间睡眠异常（夜间应激 >5次）──────────────────────────────
+    // 入夜时累计当夜应激次数；天亮（06:00后第一包）重置，防跨天污染
+    if (isNight) {
+      _nightStartDate ??= todayDate;
+      if (packet.strC > 0) _nightStressCount += packet.strC;
+      if (_nightStressCount >= kNightStressThreshold && !_sleepDisturbedFired) {
+        _sleepDisturbedFired = true;
+        onAlertNotification?.call(
+          'sleep_disturbed',
+          '😴 ${_pet.name} 昨夜睡眠不安',
+          '昨夜检测到 $_nightStressCount 次应激事件，睡眠质量较差。'
+          '今天可适当增加日间安抚，晚餐前给予 ZenBelly。',
+        );
+      }
+    } else if (now.hour == 6 && _nightStartDate != null) {
+      // 天亮后重置当夜数据
+      _nightStressCount = 0;
+      _sleepDisturbedFired = false;
+      _nightStartDate = null;
+    }
+
+    // ── 兜底：活动量偏低（低优先级，不覆盖高优先级预警）────────────────
+    const highPriorityAlerts = ['shiver', 'stress_frequent', 'lethargy', 'pacing_long'];
     if (packet.activityScore < 10 && isDaytime) {
       if (!_hasAlert || _alertType == 'activity') {
-        // 不覆盖更高优先级的预警横幅
         if (!highPriorityAlerts.contains(_alertType)) {
           _hasAlert = true;
           _alertType = 'activity';
-          // UI层(main_nav_screen)会根据语言重新生成文案，此处仅作fallback
           _alertMessage = '⚠️ ${_pet.name} 今日活动量偏低';
-          notifyListeners();
         }
       }
     }
   }
 
-  // 跨天时重置今日统计数据
+  // 跨天时重置今日统计数据及各状态的单日锁标志
   void _resetTodayStatsIfNewDay(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     final statDay = DateTime(
         _todayStatsDate.year, _todayStatsDate.month, _todayStatsDate.day);
     if (today != statDay) {
-      _todayPacingSeconds   = 0;
-      _todayPlaySeconds     = 0;
-      _todayStressSeconds   = 0;
-      _todayShiverSeconds   = 0;
-      _todaySleepSeconds    = 0;
-      _todayLethargySeconds = 0;
-      _todayStatsDate       = now;
-      _stressFreqAlertFired = false;
-      _shiverAlertFired     = false;
-      _continuousShiverSeconds  = 0;
-      _continuousLethargySecs   = 0;
+      _todayPacingSeconds        = 0;
+      _todayPlaySeconds          = 0;
+      _todayStressSeconds        = 0;
+      _todayShiverSeconds        = 0;
+      _todaySleepSeconds         = 0;
+      _todayLethargySeconds      = 0;
+      _todayStressEventCount     = 0; // 应激日计数器一并清零
+      _todayStatsDate            = now;
+      _shiverAlertFired          = false;
+      _stressFreqLastFiredAt     = null;
+      _continuousShiverSeconds   = 0;
+      _continuousLethargySecs    = 0;
+      _continuousPacingSeconds   = 0;
+
     }
   }
 
@@ -807,14 +859,24 @@ class PetHealthProvider extends ChangeNotifier {
     return records;
   }
 
-  // ── Current behavior computed values ─────────────────────────────────────
-  // ⚠️ 全部使用差值包（_deltaPacket），而非原始累计包（_latestPacket）
-  // behaviorState / anxietyScore / activityScore 都定义在 BlePacket 上，
-  // 它们的计算阈值已针对"5秒内增量"调整，不能用累计值调用。
-  PetBehaviorState get currentBehavior =>
-      _deltaPacket?.behaviorState ?? PetBehaviorState.calm;
+  // ── 对外暴露平滑后的行为状态和焦虑分 ─────────────────────────────────────
+  // currentBehavior：B方案确认状态（连续2包才切换），不会每5秒乱跳
+  // currentAnxietyScore：A方案加权均值，数值平滑渐变不跳动
+  PetBehaviorState get currentBehavior => _confirmedState;
 
-  int get currentAnxietyScore => _deltaPacket?.anxietyScore ?? 0;
+  int get currentAnxietyScore {
+    if (_recentDeltas.isEmpty) return 0;
+    double weighted = 0;
+    double totalWeight = 0;
+    for (int i = 0; i < _recentDeltas.length; i++) {
+      final weightIdx = _recentDeltas.length - 1 - i; // 最新包对应权重列表第0项
+      final w = weightIdx < kAnxietyWeights.length ? kAnxietyWeights[weightIdx] : 0.05;
+      weighted += _recentDeltas[i].anxietyScore * w;
+      totalWeight += w;
+    }
+    return (weighted / totalWeight).round().clamp(0, 100);
+  }
+
   int get currentActivityScore => _deltaPacket?.activityScore ?? 0;
 
   /// 昨夜睡眠质量：根据夜间（22:00-06:00）的行为数据推算
@@ -862,19 +924,18 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // ── P1-3：每日健康总结定时器 ─────────────────────────────────────────────
-  // 每分钟检查一次当前时间，20:00–20:05 期间触发当日总结推送
-  // （用分钟轮询代替精确定时，避免 App 后台被杀时漏推）
+  // 每天 20:00 触发一次，用每分钟轮询代替精确定时防止漏推
+  // [开发调试] 若需快速测试，临时改 shouldTrigger 为 now.minute % 5 == 0
   void _startDailySummaryTimer() {
     _dailySummaryTimer?.cancel();
     _dailySummaryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       final now = DateTime.now();
-      // 测试模式：每5分钟触发一次（正式上线改为 now.hour == 20 && now.minute < 5）
-      final shouldTrigger = now.minute % 5 == 0; // 测试用：每5分钟触发
-      // final shouldTrigger = now.hour == 20 && now.minute < 5; // 正式生产用
+      // 生产规则：每天 20:00–20:04 之间触发一次
+      final shouldTrigger = now.hour == 20 && now.minute < 5;
 
       if (shouldTrigger) {
-        // 用当前分钟时间点作为去重key，同一个5分钟窗口只触发一次
-        final triggerKey = DateTime(now.year, now.month, now.day, now.hour, (now.minute ~/ 5) * 5);
+        // 以「年月日」为 key，同一天只推送一次
+        final triggerKey = DateTime(now.year, now.month, now.day);
         if (_lastDailySummaryDate == null || _lastDailySummaryDate != triggerKey) {
           _lastDailySummaryDate = triggerKey;
           _triggerDailySummary();
@@ -910,7 +971,7 @@ class PetHealthProvider extends ChangeNotifier {
       sleepSeconds:     _todaySleepSeconds,
       lethargySeconds:  _todayLethargySeconds,
       feedingCount:     todaySessionCount,
-      stressEventCount: _stressEventTimestamps.length, // 今日应激事件次数（与通知中心对齐）
+      stressEventCount: _todayStressEventCount, // 今日应激事件日增量（跨天清零，不受1小时窗口限制）
       avgTimeToCalmSecs: todaySessionCount > 0
           ? avgTtc ~/ todaySessionCount
           : null,

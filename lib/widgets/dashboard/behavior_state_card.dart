@@ -6,12 +6,18 @@ import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 
 // =============================================================================
-// BehaviorStateCard — "一眼结论"设计
+// BehaviorStateCard — "结论优先 + 详情展开"设计
 // =============================================================================
 // 三层信息架构：
-//   第一层（最重要）：自然语言结论 —— "今天 Biscuit 状态不错 😌"
-//   第二层：综合焦虑分 + 趋势箭头
-//   第三层：最多2个主要驱动因素（口语化）+ "查看详情"展开
+//   第一层（结论）：自然语言描述当前状态 + 已确认的稳定状态（B方案 2包确认）
+//   第二层（辅助）：加权平均焦虑分（A方案 4包滑动窗口）+ 趋势箭头
+//   第三层（展开）：本包5秒驱动因素 + 今日累计状态时长（供主人了解全天情况）
+//
+// 数据来源：
+//   currentBehavior     → B方案确认状态（连续2包才切换，不会每5秒乱跳）
+//   currentAnxietyScore → A方案加权均值（最近4包，最新包权重50%）
+//   latestPacket        → 差值包（最近5秒增量），用于驱动因素展示
+//   todayPacingSeconds 等 → 今日累计时长（每日 00:00 重置）
 // =============================================================================
 
 class BehaviorStateCard extends StatefulWidget {
@@ -27,7 +33,6 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
 
   @override
   Widget build(BuildContext context) {
-    final s = context.watch<LocaleProvider>().strings;
     final isZh = context.watch<LocaleProvider>().isZh;
     final provider = widget.provider;
     final behavior = provider.currentBehavior;
@@ -36,11 +41,7 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
     final petName = provider.pet.name;
 
     final (bgColor, accentColor, _, _) = _stateColors(behavior);
-
-    // ── 第一层：自然语言结论 ──────────────────────────────────────────────
     final conclusion = _buildConclusion(behavior, score, petName, isZh);
-
-    // ── 第三层：最多2个主要驱动因素（只在展开时显示） ─────────────────────
     final drivers = packet != null ? _topDrivers(packet, isZh) : <_Driver>[];
 
     return AnimatedContainer(
@@ -54,14 +55,12 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── 主行：结论文字 + 焦虑分 ──────────────────────────────────────
+          // ── 第一层：结论 + 焦虑分 ─────────────────────────────────────
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 状态 emoji（大）
               Text(behavior.emoji, style: const TextStyle(fontSize: 36)),
               const SizedBox(width: 14),
-              // 结论文字
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,20 +86,19 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
                 ),
               ),
               const SizedBox(width: 10),
-              // 焦虑分圆环（辅助，不是主角）
               _AnxietyRing(score: score, color: accentColor),
             ],
           ),
 
           const SizedBox(height: 12),
 
-          // ── 驱动因素预览行（始终显示，最多2个） ─────────────────────────
+          // ── 第二层：本5秒驱动因素 Pills ──────────────────────────────
           if (drivers.isNotEmpty) ...[
             _DriverPillRow(drivers: drivers.take(2).toList(), accentColor: accentColor),
             const SizedBox(height: 10),
           ],
 
-          // ── 展开/收起详情按钮 ─────────────────────────────────────────
+          // ── 展开/收起按钮 ─────────────────────────────────────────────
           GestureDetector(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Row(
@@ -108,7 +106,7 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
                 Text(
                   _expanded
                       ? (isZh ? '收起详情' : 'Hide details')
-                      : (isZh ? '查看所有传感器数据 ▸' : 'View sensor details ▸'),
+                      : (isZh ? '查看今日累计数据 ▸' : 'View today\'s data ▸'),
                   style: TextStyle(
                     fontSize: 12,
                     color: accentColor,
@@ -119,19 +117,28 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
             ),
           ),
 
-          // ── 展开详情：完整6维数据 ─────────────────────────────────────
-          if (_expanded && packet != null) ...[
+          // ── 第三层：展开详情（本包传感器 + 今日累计）────────────────
+          if (_expanded) ...[
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 10),
-            _DetailGrid(packet: packet, isZh: isZh, s: s),
+            // 今日累计时长（更有实际价值，展示给主人看的核心数据）
+            _TodayStatsGrid(provider: provider, isZh: isZh),
+            if (packet != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                isZh ? '本5秒传感器原始数据：' : 'Latest 5s sensor data:',
+                style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              _DetailGrid(packet: packet, isZh: isZh),
+            ],
           ],
         ],
       ),
     );
   }
 
-  // ── 颜色映射（与原版一致）────────────────────────────────────────────────
   (Color, Color, String, String) _stateColors(PetBehaviorState state) {
     switch (state) {
       case PetBehaviorState.calm:
@@ -149,10 +156,8 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
     }
   }
 
-  // ── 生成自然语言结论 ─────────────────────────────────────────────────────
   _Conclusion _buildConclusion(
       PetBehaviorState state, int score, String name, bool isZh) {
-    // 焦虑分等级描述
     final level = score < 20
         ? (isZh ? '很好' : 'great')
         : score < 40
@@ -164,112 +169,100 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
     if (isZh) {
       switch (state) {
         case PetBehaviorState.calm:
-          return _Conclusion(
-            headline: '$name 现在很平静 😌',
-            subtext: '焦虑分 $score / 100，状态$level',
-          );
+          return _Conclusion(headline: '$name 现在很平静 😌', subtext: '焦虑分 $score / 100，状态$level');
         case PetBehaviorState.playing:
-          return _Conclusion(
-            headline: '$name 正在健康玩耍 🎾',
-            subtext: '焦虑分 $score / 100，活力充沛',
-          );
+          return _Conclusion(headline: '$name 正在健康玩耍 🎾', subtext: '焦虑分 $score / 100，活力充沛');
         case PetBehaviorState.pacing:
-          return _Conclusion(
-            headline: '$name 有些焦虑，在来回踱步 😰',
-            subtext: '焦虑分 $score / 100，建议安抚',
-          );
+          return _Conclusion(headline: '$name 有些焦虑，在来回踱步 😰', subtext: '焦虑分 $score / 100，建议安抚');
         case PetBehaviorState.stressed:
-          return _Conclusion(
-            headline: '$name 出现应激反应 ⚠️',
-            subtext: '焦虑分 $score / 100，请留意触发源',
-          );
+          return _Conclusion(headline: '$name 出现应激反应 ⚠️', subtext: '焦虑分 $score / 100，请留意触发源');
         case PetBehaviorState.shivering:
-          return _Conclusion(
-            headline: '$name 正在发抖，需要检查 🆘',
-            subtext: '焦虑分 $score / 100，可能疼痛/寒冷/恐惧',
-          );
+          return _Conclusion(headline: '$name 正在发抖，需要检查 🆘', subtext: '焦虑分 $score / 100，可能疼痛/寒冷/恐惧');
         case PetBehaviorState.sleeping:
-          return _Conclusion(
-            headline: '$name 在休息睡觉 💤',
-            subtext: '焦虑分 $score / 100，静息中',
-          );
+          return _Conclusion(headline: '$name 在休息睡觉 💤', subtext: '焦虑分 $score / 100，静息中');
       }
     } else {
       switch (state) {
         case PetBehaviorState.calm:
-          return _Conclusion(
-            headline: '$name is calm & relaxed 😌',
-            subtext: 'Anxiety $score/100 · $level',
-          );
+          return _Conclusion(headline: '$name is calm & relaxed 😌', subtext: 'Anxiety $score/100 · $level');
         case PetBehaviorState.playing:
-          return _Conclusion(
-            headline: '$name is playing happily 🎾',
-            subtext: 'Anxiety $score/100 · active & healthy',
-          );
+          return _Conclusion(headline: '$name is playing happily 🎾', subtext: 'Anxiety $score/100 · active & healthy');
         case PetBehaviorState.pacing:
-          return _Conclusion(
-            headline: '$name seems anxious, pacing 😰',
-            subtext: 'Anxiety $score/100 · try calming',
-          );
+          return _Conclusion(headline: '$name seems anxious, pacing 😰', subtext: 'Anxiety $score/100 · try calming');
         case PetBehaviorState.stressed:
-          return _Conclusion(
-            headline: '$name is showing stress ⚠️',
-            subtext: 'Anxiety $score/100 · check triggers',
-          );
+          return _Conclusion(headline: '$name is showing stress ⚠️', subtext: 'Anxiety $score/100 · check triggers');
         case PetBehaviorState.shivering:
-          return _Conclusion(
-            headline: '$name is shivering — check now 🆘',
-            subtext: 'Anxiety $score/100 · pain/cold/fear?',
-          );
+          return _Conclusion(headline: '$name is shivering — check now 🆘', subtext: 'Anxiety $score/100 · pain/cold/fear?');
         case PetBehaviorState.sleeping:
-          return _Conclusion(
-            headline: '$name is resting 💤',
-            subtext: 'Anxiety $score/100 · sleeping',
-          );
+          return _Conclusion(headline: '$name is resting 💤', subtext: 'Anxiety $score/100 · sleeping');
       }
     }
   }
 
-  // ── 提取前2个主要驱动因素（口语化，非技术字段）──────────────────────────
   List<_Driver> _topDrivers(BlePacket p, bool isZh) {
     final drivers = <_Driver>[];
-
     if (p.shivD > 0) {
-      drivers.add(_Driver(
-        emoji: '🫨',
-        label: isZh ? '发抖 ${p.shivD}秒' : 'Shivering ${p.shivD}s',
-        isAlert: true,
-      ));
+      drivers.add(_Driver(emoji: '🫨', label: isZh ? '发抖 ${p.shivD}s' : 'Shivering ${p.shivD}s', isAlert: true));
     }
     if (p.strC > 0) {
-      drivers.add(_Driver(
-        emoji: '😣',
-        label: isZh ? '应激 ${p.strC}次' : 'Stress ×${p.strC}',
-        isAlert: p.strC >= 3,
-      ));
+      drivers.add(_Driver(emoji: '😣', label: isZh ? '应激 ${p.strC}次' : 'Stress ×${p.strC}', isAlert: p.strC >= 3));
     }
     if (p.paceD > 10) {
-      drivers.add(_Driver(
-        emoji: '🚶',
-        label: isZh ? '踱步 ${p.paceD}秒' : 'Pacing ${p.paceD}s',
-        isAlert: p.paceD > 30,
-      ));
+      drivers.add(_Driver(emoji: '🚶', label: isZh ? '踱步 ${p.paceD}s' : 'Pacing ${p.paceD}s', isAlert: p.paceD > 30));
     }
     if (p.playD > 10) {
-      drivers.add(_Driver(
-        emoji: '🎾',
-        label: isZh ? '玩耍 ${p.playD}秒' : 'Play ${p.playD}s',
-        isAlert: false,
-      ));
+      drivers.add(_Driver(emoji: '🎾', label: isZh ? '玩耍 ${p.playD}s' : 'Play ${p.playD}s', isAlert: false));
     }
     if (drivers.isEmpty) {
-      drivers.add(_Driver(
-        emoji: '✅',
-        label: isZh ? '无异常信号' : 'No stress signals',
-        isAlert: false,
-      ));
+      drivers.add(_Driver(emoji: '✅', label: isZh ? '无异常信号' : 'No stress signals', isAlert: false));
     }
     return drivers;
+  }
+}
+
+// ── 今日累计状态时长网格（展开后第一个区块）────────────────────────────────
+class _TodayStatsGrid extends StatelessWidget {
+  final PetHealthProvider provider;
+  final bool isZh;
+  const _TodayStatsGrid({required this.provider, required this.isZh});
+
+  String _fmtSecs(int secs) {
+    if (secs < 60) return '${secs}s';
+    final m = secs ~/ 60;
+    if (m < 60) return '${m}m';
+    return '${m ~/ 60}h${m % 60 > 0 ? "${m % 60}m" : ""}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _DetailItem('😰', isZh ? '踱步' : 'Pacing',    _fmtSecs(provider.todayPacingSeconds)),
+      _DetailItem('😣', isZh ? '应激' : 'Stress',    _fmtSecs(provider.todayStressSeconds)),
+      _DetailItem('🫨', isZh ? '发抖' : 'Shiver',    _fmtSecs(provider.todayShiverSeconds)),
+      _DetailItem('🎾', isZh ? '玩耍' : 'Play',      _fmtSecs(provider.todayPlaySeconds)),
+      _DetailItem('💤', isZh ? '睡眠' : 'Sleep',     _fmtSecs(provider.todaySleepSeconds)),
+      _DetailItem('🛋️', isZh ? '昏睡候选' : 'Still', _fmtSecs(provider.todayLethargySeconds)),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isZh ? '今日累计时长：' : 'Today\'s totals:',
+          style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 6,
+          crossAxisSpacing: 6,
+          childAspectRatio: 1.5,
+          children: items.map((item) => _DetailCell(item: item)).toList(),
+        ),
+      ],
+    );
   }
 }
 
@@ -364,12 +357,11 @@ class _DriverPillRow extends StatelessWidget {
   }
 }
 
-// ── 展开详情：完整6维传感器数据表格 ─────────────────────────────────────────
+// ── 展开详情：本包完整传感器数据 ─────────────────────────────────────────────
 class _DetailGrid extends StatelessWidget {
   final BlePacket packet;
   final bool isZh;
-  final dynamic s;
-  const _DetailGrid({required this.packet, required this.isZh, required this.s});
+  const _DetailGrid({required this.packet, required this.isZh});
 
   @override
   Widget build(BuildContext context) {

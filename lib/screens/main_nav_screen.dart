@@ -158,9 +158,10 @@ class _MainNavScreenState extends State<MainNavScreen> {
     final isZh = context.read<LocaleProvider>().isZh;
 
     if (petProvider.hasAlert && petProvider.alertType != _lastAlertType) {
-      // 预警类型发生变化：写入通知中心（仅处理活动量预警，发抖/应激/昏睡已由回调处理）
       _lastAlertType = petProvider.alertType;
 
+      // activity 和 pacing_long 由监听器写入通知中心
+      // shiver / stress_frequent / lethargy / sleep_disturbed 由回调直接写入（_registerFeedingCallback）
       if (petProvider.alertType == 'activity') {
         final petName = petProvider.pet.name;
         notifProvider.addNotification(
@@ -171,9 +172,10 @@ class _MainNavScreenState extends State<MainNavScreen> {
               : "${petName}'s activity is below normal today. Consider a vet check.",
           actionRoute: 'dashboard',
         );
+      } else if (petProvider.alertType == 'pacing_long') {
+        // pacing_long 也通过回调写入，此处仅做横幅刷新，不重复写通知
       }
     } else if (!petProvider.hasAlert && _lastAlertType.isNotEmpty) {
-      // 预警清除：重置记录，允许下次同类型预警再次写入通知
       _lastAlertType = '';
     }
   }
