@@ -102,14 +102,18 @@ class BlePacket {
   /// ⚠️ 必须传入差值包（BlePacket.deltaFrom），而非原始累计包
   /// 阈值说明（基于每5秒采样间隔）：
   ///   shivD > 2s  → 本5秒内有超过2秒在发抖
-  ///   strC >= 1   → 本5秒内至少1次应激
+  ///   strC >= 2   → 本5秒内至少2次应激（单次可能是噪声，2次才确认）
   ///   paceD > 3s  → 本5秒内超过3秒在踱步
   ///   playD > 3s  → 本5秒内超过3秒在玩耍
+  ///
+  /// 注意：sleepNormal / sleepAbnormal 由 App 层（PetHealthProvider）根据 roll_c
+  /// 计时窗口判断，此处不返回（BlePacket 层级信息不足以做睡眠判断）。
   PetBehaviorState get behaviorState {
     if (shivD > 2) return PetBehaviorState.shivering;
-    if (strC >= 1 || strD > 3) return PetBehaviorState.stressed;
+    if (strC >= 2 || strD > 3) return PetBehaviorState.stressed; // strC>=2 减少单次噪声误报
     if (paceD > 3) return PetBehaviorState.pacing;
     if (playD > 3) return PetBehaviorState.playing;
+    // 没有活跃行为信号 → 静止（由上层根据 roll_c 判断是正常睡眠还是异常昏睡）
     return PetBehaviorState.calm;
   }
 
@@ -137,15 +141,27 @@ class BlePacket {
   }
 }
 
-/// 宠物行为状态枚举——由 BlePacket.behaviorState 计算得出
-/// 也用于 UI 展示（emoji + 文字标签）
+/// 宠物行为状态枚举——由 BlePacket.behaviorState（粗判）+ PetHealthProvider（睡眠细判）得出
+///
+/// 状态层级与判断来源：
+///   D  shivering    → BlePacket: shivD > 2（最高优先级）
+///   C  stressed     → BlePacket: strC >= 2 || strD > 3
+///   A  pacing       → BlePacket: paceD > 3
+///   B  playing      → BlePacket: playD > 3
+///   E1 sleepNormal  → Provider: calm 基础 + 2h 内有 roll_c 增量（正常翻身/微动）
+///   E2 sleepAbnormal→ Provider: calm 基础 + 连续 kSleepAbnormalThreshold 秒无 roll_c/str_c
+///   F  calm         → BlePacket: 兜底状态（Provider 层若无睡眠条件成立时保持）
+///
+/// UI 展示用：
+///   也用于 UI 展示（emoji + 文字标签）
 enum PetBehaviorState {
   calm,
   pacing,
   stressed,
   playing,
   shivering,
-  sleeping;
+  sleepNormal,    // E1：正常睡眠（有翻身/微动信号）
+  sleepAbnormal;  // E2：异常昏睡（连续2小时零翻身+零应激）
 
   String get label {
     switch (this) {
@@ -154,7 +170,21 @@ enum PetBehaviorState {
       case stressed: return 'Stressed';
       case playing: return 'Playing';
       case shivering: return 'Shivering';
-      case sleeping: return 'Sleeping';
+      case sleepNormal: return 'Sleeping';
+      case sleepAbnormal: return 'Lethargic';
+    }
+  }
+
+  /// 中文标签（供中文 UI 使用）
+  String get labelZh {
+    switch (this) {
+      case calm: return '平静';
+      case pacing: return '踱步';
+      case stressed: return '应激';
+      case playing: return '玩耍';
+      case shivering: return '发抖';
+      case sleepNormal: return '正常睡眠';
+      case sleepAbnormal: return '异常昏睡';
     }
   }
 
@@ -165,7 +195,8 @@ enum PetBehaviorState {
       case stressed: return '😣';
       case playing: return '🎾';
       case shivering: return '🥶';
-      case sleeping: return '😴';
+      case sleepNormal: return '😴';
+      case sleepAbnormal: return '⚠️';
     }
   }
 }

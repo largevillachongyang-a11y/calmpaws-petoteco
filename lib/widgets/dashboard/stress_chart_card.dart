@@ -115,6 +115,26 @@ class StressChartCard extends StatelessWidget {
               _LegendDot(color: AppColors.chartBefore, label: s.chartLegendBefore),
               const SizedBox(width: 20),
               _LegendDot(color: AppColors.chartAfter, label: s.chartLegendAfter),
+              const SizedBox(width: 20),
+              // 上周均值参考线图例
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 2,
+                    color: AppColors.warningAmber.withValues(alpha: 0.8),
+                    margin: const EdgeInsets.only(right: 4),
+                  ),
+                  Text(
+                    '上周均值',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -131,6 +151,13 @@ class StressChartCard extends StatelessWidget {
         .where((d) => d.isAfterTreatment)
         .map((d) => FlSpot(d.dayIndex.toDouble(), d.stressScore))
         .toList();
+
+    // 计算上周（D1-D7）平均分，作为参考线
+    final beforeData = data.where((d) => !d.isAfterTreatment).toList();
+    final lastWeekAvg = beforeData.isNotEmpty
+        ? beforeData.map((d) => d.stressScore).fold(0.0, (a, b) => a + b) /
+            beforeData.length
+        : 0.0;
 
     return LineChartData(
       gridData: FlGridData(
@@ -194,6 +221,16 @@ class StressChartCard extends StatelessWidget {
         ),
       ),
       lineBarsData: [
+        // 上周均值参考线（虚线）
+        LineChartBarData(
+          spots: [FlSpot(0, lastWeekAvg), FlSpot(13, lastWeekAvg)],
+          isCurved: false,
+          color: AppColors.warningAmber.withValues(alpha: 0.7),
+          barWidth: 1.5,
+          dashArray: [6, 4],
+          dotData: const FlDotData(show: false),
+          belowBarData: BarAreaData(show: false),
+        ),
         // Before baseline
         LineChartBarData(
           spots: beforeSpots,

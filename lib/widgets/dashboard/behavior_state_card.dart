@@ -151,8 +151,12 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
         return (AppColors.sageMuted, AppColors.sageGreen, '', '');
       case PetBehaviorState.shivering:
         return (AppColors.alertRedMuted, AppColors.alertRed, '', '');
-      case PetBehaviorState.sleeping:
+      case PetBehaviorState.sleepNormal:
+        // E1：正常睡眠 — 蓝紫色调，安心感
         return (const Color(0xFFF0F4FF), const Color(0xFF6B7FD4), '', '');
+      case PetBehaviorState.sleepAbnormal:
+        // E2：异常昏睡 — 橙色警示，需要关注
+        return (const Color(0xFFFFF3E0), const Color(0xFFE67E22), '', '');
     }
   }
 
@@ -178,8 +182,10 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
           return _Conclusion(headline: '$name 出现应激反应 ⚠️', subtext: '焦虑分 $score / 100，请留意触发源');
         case PetBehaviorState.shivering:
           return _Conclusion(headline: '$name 正在发抖，需要检查 🆘', subtext: '焦虑分 $score / 100，可能疼痛/寒冷/恐惧');
-        case PetBehaviorState.sleeping:
-          return _Conclusion(headline: '$name 在休息睡觉 💤', subtext: '焦虑分 $score / 100，静息中');
+        case PetBehaviorState.sleepNormal:
+          return _Conclusion(headline: '$name 在安心休息 😴', subtext: '焦虑分 $score / 100，睡眠正常');
+        case PetBehaviorState.sleepAbnormal:
+          return _Conclusion(headline: '$name 长时间没有翻身 ⚠️', subtext: '焦虑分 $score / 100，建议查看状态');
       }
     } else {
       switch (state) {
@@ -193,8 +199,10 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
           return _Conclusion(headline: '$name is showing stress ⚠️', subtext: 'Anxiety $score/100 · check triggers');
         case PetBehaviorState.shivering:
           return _Conclusion(headline: '$name is shivering — check now 🆘', subtext: 'Anxiety $score/100 · pain/cold/fear?');
-        case PetBehaviorState.sleeping:
-          return _Conclusion(headline: '$name is resting 💤', subtext: 'Anxiety $score/100 · sleeping');
+        case PetBehaviorState.sleepNormal:
+          return _Conclusion(headline: '$name is resting peacefully 😴', subtext: 'Anxiety $score/100 · normal sleep');
+        case PetBehaviorState.sleepAbnormal:
+          return _Conclusion(headline: '$name hasn\'t moved for a while ⚠️', subtext: 'Anxiety $score/100 · check on pet');
       }
     }
   }
@@ -240,8 +248,8 @@ class _TodayStatsGrid extends StatelessWidget {
       _DetailItem('😣', isZh ? '应激' : 'Stress',    _fmtSecs(provider.todayStressSeconds)),
       _DetailItem('🫨', isZh ? '发抖' : 'Shiver',    _fmtSecs(provider.todayShiverSeconds)),
       _DetailItem('🎾', isZh ? '玩耍' : 'Play',      _fmtSecs(provider.todayPlaySeconds)),
-      _DetailItem('💤', isZh ? '睡眠' : 'Sleep',     _fmtSecs(provider.todaySleepSeconds)),
-      _DetailItem('🛋️', isZh ? '昏睡候选' : 'Still', _fmtSecs(provider.todayLethargySeconds)),
+      _DetailItem('😴', isZh ? '正常睡眠' : 'Sleep',  _fmtSecs(provider.todaySleepNormalSeconds)),
+      _DetailItem('⚠️', isZh ? '异常昏睡' : 'Lethargy', _fmtSecs(provider.todaySleepAbnormalSeconds)),
     ];
 
     return Column(

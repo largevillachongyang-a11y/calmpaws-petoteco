@@ -356,6 +356,39 @@ class FirestoreService {
   }
 
   // =============================================================================
+  // 离线数据补传
+  // =============================================================================
+
+  /// 将单条离线差值包写入 Firestore（SYNC流程调用）
+  /// 路径：users/{uid}/offline_packets/{dateStr}_{timestamp}
+  Future<void> saveDailyOfflinePacket({
+    required String userId,
+    required String dateStr,
+    required dynamic packet, // BlePacket
+  }) async {
+    try {
+      final col = _db
+          .collection('users')
+          .doc(userId)
+          .collection('offline_packets');
+      await col.doc('${dateStr}_${packet.timestamp}').set({
+        'date': dateStr,
+        'timestamp': packet.timestamp,
+        'str_c':  packet.strC,
+        'str_d':  packet.strD,
+        'shiv_c': packet.shivC,
+        'shiv_d': packet.shivD,
+        'pace_d': packet.paceD,
+        'play_d': packet.playD,
+        'roll_c': packet.rollC,
+        'synced_at': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugFirestore('saveDailyOfflinePacket error: $e');
+    }
+  }
+
+  // =============================================================================
   // 工具方法
   // =============================================================================
 

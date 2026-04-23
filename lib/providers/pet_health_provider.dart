@@ -491,9 +491,9 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── 状态C（应激频繁）─────────────────────────────────────────────────────
   // 原逻辑每整点重置标志，导致每小时最多触发1次；改为冷却窗口机制更合理
-  // [上线前改回 10 次，冷却60分钟]
+  // 测试值：3次/2分钟冷却；生产值：8次/60分钟冷却
   static const int kStressFreqThreshold = 3;
-  static const int kStressFreqCooldownMinutes = 15;
+  static const int kStressFreqCooldownMinutes = 2;
   final List<DateTime> _stressEventTimestamps = [];
   DateTime? _stressFreqLastFiredAt;
 
@@ -509,6 +509,33 @@ class PetHealthProvider extends ChangeNotifier {
   int _continuousLethargySecs = 0;
   bool _lethargyAlertFired = false;
   DateTime? _lethargyAlertDate;
+
+  // ── E1/E2 睡眠质量判断（App 层逻辑）────────────────────────────────────────
+  // 判断规则（基于 calm 基础 + roll_c 窗口）：
+  //   E1 sleepNormal  ：calm 状态下，kSleepWindowSeconds 内有 roll_c 增量 → 正常翻身
+  //   E2 sleepAbnormal：calm 状态下，连续超过 kSleepAbnormalThreshold 秒
+  //                      roll_c 和 str_c 均为0 → 异常昏睡，触发 sleep_abnormal 告警
+  //
+  // [上线前改回 7200 秒（2小时）]
+  static const int kSleepAbnormalThreshold = 600; // 测试值10分钟，生产7200秒
+  static const int kSleepWindowSeconds     = 7200; // 观察窗口2小时
+
+  // 连续无翻身/无应激的秒数（calm 状态下累计）
+  int _continuousSleepNoRollSeconds = 0;
+  // 最近一次 roll_c 增量的时间（用于判断 E1/E2）
+  DateTime? _lastRollDetectedAt;
+  // 已确认的睡眠状态（由 Provider 计算，覆盖 BlePacket 的 calm）
+  PetBehaviorState? _sleepState; // null = 不处于睡眠状态
+  bool _sleepAbnormalAlertFired = false;
+
+  /// 供 UI 读取：当前完整的已确认行为状态（含 E1/E2 睡眠细分）
+  PetBehaviorState get currentBehavior {
+    // 当 BlePacket 层判断为 calm（静止），由 Provider 层决定是 E1/E2 还是 calm
+    if (_confirmedState == PetBehaviorState.calm && _sleepState != null) {
+      return _sleepState!;
+    }
+    return _confirmedState;
+  }
 
   // ── 睡眠异常（夜间应激）──────────────────────────────────────────────────
   // 夜间（22:00-06:00）应激次数超阈值时，次日早晨推送睡眠质量通知
@@ -529,21 +556,25 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── P1：今日各状态时长累计（供每日总结使用）──────────────────────────────
   // 每次 BLE 包时累加（每包=5秒的采样）
-  int _todayPacingSeconds    = 0; // 状态A：踱步
-  int _todayPlaySeconds      = 0; // 状态B：健康玩耍
-  int _todayStressSeconds    = 0; // 状态C：应激动作
-  int _todayShiverSeconds    = 0; // 状态D：发抖
-  int _todaySleepSeconds     = 0; // 状态E：健康睡眠
-  int _todayLethargySeconds  = 0; // 状态F：昏睡/静止
-  DateTime _todayStatsDate   = DateTime.now(); // 当前统计日期，跨天时重置
+  int _todayPacingSeconds        = 0; // 状态A：踱步
+  int _todayPlaySeconds          = 0; // 状态B：健康玩耍
+  int _todayStressSeconds        = 0; // 状态C：应激动作
+  int _todayShiverSeconds        = 0; // 状态D：发抖
+  int _todaySleepNormalSeconds   = 0; // 状态E1：正常睡眠
+  int _todaySleepAbnormalSeconds = 0; // 状态E2：异常昏睡
+  int _todayLethargySeconds      = 0; // 状态F：昏睡/静止（旧字段保留兼容）
+  DateTime _todayStatsDate       = DateTime.now(); // 当前统计日期，跨天时重置
 
   // 供 UI 和每日总结读取
-  int get todayPacingSeconds   => _todayPacingSeconds;
-  int get todayPlaySeconds     => _todayPlaySeconds;
-  int get todayStressSeconds   => _todayStressSeconds;
-  int get todayShiverSeconds   => _todayShiverSeconds;
-  int get todaySleepSeconds    => _todaySleepSeconds;
-  int get todayLethargySeconds => _todayLethargySeconds;
+  int get todayPacingSeconds        => _todayPacingSeconds;
+  int get todayPlaySeconds          => _todayPlaySeconds;
+  int get todayStressSeconds        => _todayStressSeconds;
+  int get todayShiverSeconds        => _todayShiverSeconds;
+  int get todaySleepNormalSeconds   => _todaySleepNormalSeconds;
+  int get todaySleepAbnormalSeconds => _todaySleepAbnormalSeconds;
+  /// 兼容旧字段：返回正常睡眠时长（原 todaySleepSeconds）
+  int get todaySleepSeconds         => _todaySleepNormalSeconds;
+  int get todayLethargySeconds      => _todayLethargySeconds;
 
   void dismissAlert() {
     _hasAlert = false;
@@ -551,30 +582,72 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // 每收到一个 BLE 包时：
-  //   1. 累加今日各状态时长（每包约5秒）
-  //   2. 追踪连续发抖（D状态）/ 昏睡（F状态）
-  //   3. 统计应激（C状态）频次
-  //   4. 超阈值时触发预警并通过回调通知中心
+  //   1. 更新 E1/E2 睡眠状态（roll_c 计时器）
+  //   2. 累加今日各状态时长（每包约5秒）
+  //   3. 追踪连续发抖（D状态）/ 昏睡（F状态）
+  //   4. 统计应激（C状态）频次
+  //   5. 超阈值时触发预警并通过回调通知中心
   void _checkAlerts(BlePacket packet) {
     final now = DateTime.now();
     _resetTodayStatsIfNewDay(now);
 
     const int samplingInterval = 5;
-    final state = packet.behaviorState;
+    final rawState = packet.behaviorState; // BlePacket 层状态（无睡眠细分）
+
+    // ── E1/E2 睡眠状态判断（App 层逻辑）──────────────────────────────────
+    // 仅当 BlePacket 判断为 calm（静止）时运行睡眠计时器
+    // 有 roll_c 增量 → 重置计时器 + 标记为正常睡眠
+    // 连续无 roll_c/str_c → 超阈值后标记为异常昏睡并触发告警
+    if (rawState == PetBehaviorState.calm) {
+      if (packet.rollC > 0 || packet.strC > 0) {
+        // 检测到翻身或应激 → 有活动信号，重置异常计时器，标为正常睡眠
+        _continuousSleepNoRollSeconds = 0;
+        _lastRollDetectedAt = now;
+        _sleepState = PetBehaviorState.sleepNormal;
+        _sleepAbnormalAlertFired = false;
+      } else {
+        // 无活动信号 → 累加无翻身静止时长
+        _continuousSleepNoRollSeconds += samplingInterval;
+        // 判断是否超过异常阈值
+        if (_continuousSleepNoRollSeconds >= kSleepAbnormalThreshold) {
+          _sleepState = PetBehaviorState.sleepAbnormal;
+        } else if (_lastRollDetectedAt != null &&
+            now.difference(_lastRollDetectedAt!).inSeconds < kSleepWindowSeconds) {
+          // 2小时窗口内曾有翻身 → 正常睡眠
+          _sleepState = PetBehaviorState.sleepNormal;
+        } else {
+          // 从未有翻身记录或窗口期外 → 暂定为平静（时间不够长，不判断异常）
+          _sleepState = (_continuousSleepNoRollSeconds >= kSleepAbnormalThreshold)
+              ? PetBehaviorState.sleepAbnormal
+              : PetBehaviorState.sleepNormal;
+        }
+      }
+    } else {
+      // 非 calm 状态 → 清除睡眠状态，重置计时器
+      _sleepState = null;
+      _continuousSleepNoRollSeconds = 0;
+    }
+
+    // 最终展示用状态（含 E1/E2 细分）
+    final state = currentBehavior;
 
     // ── 今日状态时长累计 ──────────────────────────────────────────────────
     switch (state) {
       case PetBehaviorState.pacing:
-        _todayPacingSeconds   += samplingInterval;
+        _todayPacingSeconds        += samplingInterval;
       case PetBehaviorState.playing:
-        _todayPlaySeconds     += samplingInterval;
+        _todayPlaySeconds          += samplingInterval;
       case PetBehaviorState.stressed:
-        _todayStressSeconds   += samplingInterval;
+        _todayStressSeconds        += samplingInterval;
       case PetBehaviorState.shivering:
-        _todayShiverSeconds   += samplingInterval;
-      case PetBehaviorState.sleeping:
-        _todaySleepSeconds    += samplingInterval;
+        _todayShiverSeconds        += samplingInterval;
+      case PetBehaviorState.sleepNormal:
+        _todaySleepNormalSeconds   += samplingInterval;
+      case PetBehaviorState.sleepAbnormal:
+        _todaySleepAbnormalSeconds += samplingInterval;
+        _todayLethargySeconds      += samplingInterval; // 兼容旧字段
       default:
+        // calm 状态（非睡眠）
         if (packet.activityScore < 3) {
           _todayLethargySeconds += samplingInterval;
         }
@@ -657,8 +730,9 @@ class PetHealthProvider extends ChangeNotifier {
       );
     }
 
-    // ── P1-4：状态F 昏睡检测（白天连续静止 >3小时）──────────────────────
+    // ── P1-4：状态F 昏睡检测（白天连续静止 >3小时，旧逻辑保留兼容）──────────
     // activityScore < 3 且无发抖/应激/踱步，排除单纯健康睡眠
+    // 注：E2 异常睡眠（sleepAbnormal）是更精确的检测，此为兜底保留
     final isLethargyLike = packet.activityScore < 3 &&
         packet.shivD == 0 &&
         packet.strC == 0 &&
@@ -687,7 +761,24 @@ class PetHealthProvider extends ChangeNotifier {
       );
     }
 
-    // ── P1-5：夜间睡眠异常（夜间应激 >5次）──────────────────────────────
+    // ── P1-5：E2 异常睡眠告警（新逻辑：连续无翻身超阈值）────────────────
+    // 与 P1-4 区别：E2 基于 roll_c 窗口判断，不依赖时间段；任何时间段均生效
+    // P1-4 是按 activityScore 的兜底；E2 是更精确的睡眠质量判断
+    if (_sleepState == PetBehaviorState.sleepAbnormal && !_sleepAbnormalAlertFired) {
+      _sleepAbnormalAlertFired = true;
+      final mins = _continuousSleepNoRollSeconds ~/ 60;
+      _hasAlert = true;
+      _alertType = 'sleep_abnormal';
+      _alertMessage = '⚠️ ${_pet.name} 已连续 $mins 分钟没有翻身动作';
+      onAlertNotification?.call(
+        'sleep_abnormal',
+        '⚠️ ${_pet.name} 睡眠异常（长时间无翻身）',
+        '已连续 $mins 分钟未检测到翻身/微动（roll_c = 0）。'
+        '可能原因：药物昏睡、身体不适或深度异常。建议查看宠物状态。',
+      );
+    }
+
+    // ── P1-6：夜间睡眠异常（夜间应激 >5次）──────────────────────────────
     // 入夜时累计当夜应激次数；天亮（06:00后第一包）重置，防跨天污染
     if (isNight) {
       _nightStartDate ??= todayDate;
@@ -709,7 +800,7 @@ class PetHealthProvider extends ChangeNotifier {
     }
 
     // ── 兜底：活动量偏低（低优先级，不覆盖高优先级预警）────────────────
-    const highPriorityAlerts = ['shiver', 'stress_frequent', 'lethargy', 'pacing_long'];
+    const highPriorityAlerts = ['shiver', 'stress_frequent', 'lethargy', 'pacing_long', 'sleep_abnormal'];
     if (packet.activityScore < 10 && isDaytime) {
       if (!_hasAlert || _alertType == 'activity') {
         if (!highPriorityAlerts.contains(_alertType)) {
@@ -731,7 +822,8 @@ class PetHealthProvider extends ChangeNotifier {
       _todayPlaySeconds          = 0;
       _todayStressSeconds        = 0;
       _todayShiverSeconds        = 0;
-      _todaySleepSeconds         = 0;
+      _todaySleepNormalSeconds   = 0;
+      _todaySleepAbnormalSeconds = 0;
       _todayLethargySeconds      = 0;
       _todayStressEventCount     = 0; // 应激日计数器一并清零
       _todayStatsDate            = now;
@@ -740,7 +832,9 @@ class PetHealthProvider extends ChangeNotifier {
       _continuousShiverSeconds   = 0;
       _continuousLethargySecs    = 0;
       _continuousPacingSeconds   = 0;
-
+      // 重置睡眠状态
+      _continuousSleepNoRollSeconds = 0;
+      _sleepAbnormalAlertFired   = false;
     }
   }
 
@@ -860,9 +954,9 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // ── 对外暴露平滑后的行为状态和焦虑分 ─────────────────────────────────────
-  // currentBehavior：B方案确认状态（连续2包才切换），不会每5秒乱跳
+  // currentBehavior：B方案确认状态（含 E1/E2 睡眠细分），连续2包才切换，不会每5秒乱跳
   // currentAnxietyScore：A方案加权均值，数值平滑渐变不跳动
-  PetBehaviorState get currentBehavior => _confirmedState;
+  // 注：currentBehavior 已在上方预警部分定义（包含 E1/E2 逻辑）
 
   int get currentAnxietyScore {
     if (_recentDeltas.isEmpty) return 0;
@@ -885,7 +979,7 @@ class PetHealthProvider extends ChangeNotifier {
   int get lastNightSleepQuality {
     // 今日睡眠时长得分（满分70）：累计到6小时以上得满分
     const maxSleepSecs = 6 * 3600;
-    final sleepScore = (_todaySleepSeconds / maxSleepSecs * 70).clamp(0, 70).round();
+    final sleepScore = (_todaySleepNormalSeconds / maxSleepSecs * 70).clamp(0, 70).round();
     // 应激扣分（每分钟应激扣2分，最多扣30）
     final stressPenalty = (_todayStressSeconds / 60 * 2).clamp(0, 30).round();
     // 基础分30（确保即使无数据也有合理显示）
@@ -968,7 +1062,7 @@ class PetHealthProvider extends ChangeNotifier {
       playSeconds:      _todayPlaySeconds,
       stressSeconds:    _todayStressSeconds,
       shiverSeconds:    _todayShiverSeconds,
-      sleepSeconds:     _todaySleepSeconds,
+      sleepSeconds:     _todaySleepNormalSeconds,
       lethargySeconds:  _todayLethargySeconds,
       feedingCount:     todaySessionCount,
       stressEventCount: _todayStressEventCount, // 今日应激事件日增量（跨天清零，不受1小时窗口限制）
@@ -1097,6 +1191,104 @@ class PetHealthProvider extends ChangeNotifier {
     _ble.stop();
     super.dispose();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 离线数据同步（SYNC 握手协议）
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _isSyncing = false;
+  String _syncStatus = '';
+  int _syncRowsReceived = 0;
+  final List<BlePacket> _offlineBuffer = [];
+
+  bool get isSyncing => _isSyncing;
+  String get syncStatus => _syncStatus;
+  int get syncRowsReceived => _syncRowsReceived;
+
+  void requestSync() {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    _syncRowsReceived = 0;
+    _offlineBuffer.clear();
+    _syncStatus = '正在请求同步...';
+    notifyListeners();
+    // Mock模式：模拟SYNC_EMPTY（无离线文件）
+    // [TODO] 真实BLE时替换为：pCharacteristic.write(Uint8List.fromList('SYNC'.codeUnits))
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _handleBleMessage('SYNC_EMPTY');
+    });
+  }
+
+  void handleBleMessage(String raw) => _handleBleMessage(raw.trim());
+
+  void _handleBleMessage(String msg) {
+    if (msg == 'SYNC_EMPTY') {
+      _isSyncing = false;
+      _syncStatus = '无离线数据';
+      notifyListeners();
+      return;
+    }
+    if (msg == 'SYNC_DONE') {
+      _syncStatus = '同步完成，正在写入 $_syncRowsReceived 条记录...';
+      notifyListeners();
+      _flushOfflineDataToFirestore().then((_) {
+        // [TODO] 真实BLE时替换为：pCharacteristic.write(Uint8List.fromList('ACK'.codeUnits))
+        _isSyncing = false;
+        _syncStatus = '✅ 已同步 $_syncRowsReceived 条离线记录';
+        notifyListeners();
+      });
+      return;
+    }
+    if (_isSyncing && msg.contains(',')) {
+      final packet = _parseCsvRow(msg);
+      if (packet != null) {
+        _offlineBuffer.add(packet);
+        _syncRowsReceived++;
+        _syncStatus = '正在接收... 已收 $_syncRowsReceived 条';
+        notifyListeners();
+      }
+    }
+  }
+
+  BlePacket? _parseCsvRow(String line) {
+    try {
+      final parts = line.split(',');
+      if (parts.length < 8) return null;
+      return BlePacket(
+        timestamp: int.parse(parts[0].trim()),
+        strC:      int.parse(parts[1].trim()),
+        strD:      int.parse(parts[2].trim()),
+        shivC:     int.parse(parts[3].trim()),
+        shivD:     int.parse(parts[4].trim()),
+        paceD:     int.parse(parts[5].trim()),
+        playD:     int.parse(parts[6].trim()),
+        rollC:     int.parse(parts[7].trim()),
+        battery:   -1,
+        rssi:      0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _flushOfflineDataToFirestore() async {
+    if (_offlineBuffer.isEmpty || _currentUserId == null) return;
+    BlePacket? prev;
+    for (final raw in _offlineBuffer) {
+      final delta = prev != null ? BlePacket.deltaFrom(raw, prev) : raw;
+      prev = raw;
+      final ts = DateTime.fromMillisecondsSinceEpoch(raw.timestamp * 1000);
+      final dateStr =
+          '${ts.year}-${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')}';
+      try {
+        await _firestoreService.saveDailyOfflinePacket(
+          userId: _currentUserId!,
+          dateStr: dateStr,
+          packet: delta,
+        );
+      } catch (_) {}
+    }
+    _offlineBuffer.clear();
+  }
 }
 
 // ── P1-3：每日健康总结数据模型 ──────────────────────────────────────────────
@@ -1156,4 +1348,5 @@ class DailyHealthSummaryData {
              '${feedingCount > 0 ? " | Fed $feedingCount time(s)$ttcStr" : " | No feeding today"}';
     }
   }
+
 }
