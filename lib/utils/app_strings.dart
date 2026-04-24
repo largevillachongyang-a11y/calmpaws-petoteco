@@ -439,6 +439,24 @@ class AppStrings {
   String get profileEdgeImpulse => _t('AI Data Lab', 'AI 数据工具');
   String get profileOta         => _t('Firmware Update (OTA)', '固件升级 (OTA)');
 
+  // ── 账号删除 ───────────────────────────────────────────────────────────────
+  String get profileDeleteAccount      => _t('Delete Account', '删除账号');
+  String get deleteAccountTitle        => _t('Delete Account?', '确认删除账号？');
+  String get deleteAccountWarning      => _t(
+    'This will permanently delete your account and all associated data (pet profile, feeding records, journal entries). This action cannot be undone.',
+    '这将永久删除您的账号及所有数据（宠物档案、喂食记录、健康日记）。\n\n此操作不可撤销。',
+  );
+  String get deleteAccountConfirmHint  => _t(
+    'Type DELETE to confirm',
+    '请输入 DELETE 确认删除',
+  );
+  String get deleteAccountBtn          => _t('Permanently Delete', '永久删除');
+  String get deleteAccountSuccess      => _t('Account deleted. Goodbye!', '账号已删除，再见！');
+  String get deleteAccountErrorRecent  => _t(
+    'Please sign out and sign in again before deleting.',
+    '请先退出登录并重新登录后再删除账号。',
+  );
+
   // ── Pet Device Demo Slider ─────────────────────────────────────────────────
   String get petAnxietySliderHint =>
       _t('Demo only — real data comes from the collar sensor',

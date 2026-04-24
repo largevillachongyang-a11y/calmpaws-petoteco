@@ -252,6 +252,43 @@ class AuthService {
     }
   }
 
+  // ── 删除账号 ──────────────────────────────────────────────────────────────
+  // ⚠️ 不可逆操作：删除 Firebase Auth 账号。
+  // 注意事项：
+  //   1. Firebase 要求用户在「近期内登录过」才能执行敏感操作（deleteUser）。
+  //      如果用户很久没重新登录，会收到 requires-recent-login 错误。
+  //      此时需要让用户重新认证（reauthenticate），本方法会返回对应错误提示。
+  //   2. Firestore 数据（宠物档案、喂食记录、日记）需在调用方手动清除，
+  //      本方法只删除 Auth 账号。
+  //   3. Firebase Storage 中的照片同样需要调用方自行删除。
+  //   4. 删除成功后 authStateChanges 推送 null，_AuthGate 自动跳回登录页。
+  //
+  // App Store / Google Play 政策要求：
+  //   所有支持账号创建的应用必须提供账号删除入口（2022年6月起强制执行）。
+  Future<String?> deleteAccount({bool isZh = false}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return isZh ? '当前未登录' : 'Not logged in';
+    }
+    try {
+      await user.delete();
+      // 删除成功后同步退出 Google Sign-In 缓存（移动端）
+      if (!kIsWeb) {
+        try { await _googleSignIn.signOut(); } catch (_) {}
+      }
+      return null; // null 表示成功
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        return isZh
+            ? '为保护账号安全，请先退出再重新登录，然后再删除账号'
+            : 'For security, please sign out and sign in again before deleting your account';
+      }
+      return _mapError(e.code, isZh: isZh);
+    } catch (e) {
+      return isZh ? '删除失败，请稍后重试' : 'Failed to delete account, please try again';
+    }
+  }
+
   // ── 退出登录 ──────────────────────────────────────────────────────────────
   // 退出后 authStateChanges 推送 null，_AuthGate 自动跳转回 AuthScreen。
   // 移动端同时退出 Google Sign-In（清除 Google 账号选择缓存）。

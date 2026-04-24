@@ -455,6 +455,16 @@ class PetHealthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── 平静状态判定 ─────────────────────────────────────────────────────────
+  // 判定依据：本5秒差值包中无以下任意信号：
+  //   strC == 0  → 本5秒内零应激次数
+  //   paceD < 3  → 本5秒内踱步不超过3秒（短暂位移不算踱步）
+  //   shivC == 0 → 本5秒内零发抖次数
+  //
+  // 设计说明：
+  //   • startFeedingSession 中检查：满足平静条件 AND 喂食时间 > 120秒 才算 Time-to-Calm
+  //   • 2分钟最短时间防止喂食后宠物因换位置短暂安静就被误判为「平静」
+  //   • 使用差值包（非累计包），确保判断的是「当前这5秒」的状态
   bool _isCalmState() {
     // 使用差值包判断：本5秒内无应激、无踱步、无发抖
     final p = _deltaPacket;
@@ -462,6 +472,14 @@ class PetHealthProvider extends ChangeNotifier {
     return p.strC == 0 && p.paceD < 3 && p.shivC == 0;
   }
 
+  // ── 喂食后行为快照（BehaviorSnapshot）────────────────────────────────────
+  // 每5分钟记录一次行为快照，用于产品端展示「喂食后趋势曲线」
+  //   • 调用时机：每次收到 BLE 包（每5秒），检查是否达到5分钟间隔
+  //   • 快照字段：喂食后分钟数 + 当时状态 + 焦虑分值
+  //   • 存储位置：FeedingSession.timeline 列表，会话结束时随 session 一起写 Firestore
+  //
+  // 注意：此处用 packet.behaviorState（原始5秒判断），非 _confirmedState（2包确认）
+  //       因为快照是历史记录，不需要防抖，原始状态更直观
   void _updateFeedingSession(BlePacket packet) {
     if (_activeSession == null) return;
     // Record snapshot every 5 minutes
@@ -1031,7 +1049,7 @@ class PetHealthProvider extends ChangeNotifier {
   //   3. 连接成功后开始数据流
   PetHealthProvider() {
     _stressChartData = generateDailyStressChart(); // 生成 14 天 Demo 压力曲线（登录后会被云端数据覆盖）
-    _seedHistoricalSessions();                      // 注入 Demo 历史数据（未登录时的占位，登录后清空）
+    if (kDebugMode) _seedHistoricalSessions();      // ⚠️ 仅 Debug 模式注入 Demo 数据，生产包不执行
     connectDevice();                                // 启动 BLE 模拟数据流
     _startDailySummaryTimer();                      // 启动每日健康总结定时器
   }
