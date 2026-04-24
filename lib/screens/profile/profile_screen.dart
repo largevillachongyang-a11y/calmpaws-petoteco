@@ -33,6 +33,8 @@ import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../dev/edge_impulse_screen.dart';
+import '../dev/ota_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfileScreen — StatefulWidget（修复语言切换 & 菜单弹窗）
@@ -406,6 +408,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             iconColor: AppColors.sageGreen,
             label: s.profileDeviceGuide,
             onTap: () => _showDeviceGuide(context, s),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.system_update_alt_rounded,
+            iconColor: const Color(0xFF6B7FD4),
+            label: s.profileOta,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OtaScreen()),
+            ),
+          ),
+          const _Divider(),
+          _MenuItem(
+            icon: Icons.psychology_rounded,
+            iconColor: AppColors.warningAmber,
+            label: s.profileEdgeImpulse,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EdgeImpulseScreen()),
+            ),
           ),
           const _Divider(),
           _MenuItem(

@@ -435,6 +435,10 @@ class AppStrings {
     return '${months[d.month]} ${d.day}, ${d.year}';
   }
 
+  // ── E1/E2/E3 菜单入口 ─────────────────────────────────────────────────────
+  String get profileEdgeImpulse => _t('AI Data Lab', 'AI 数据工具');
+  String get profileOta         => _t('Firmware Update (OTA)', '固件升级 (OTA)');
+
   // ── Pet Device Demo Slider ─────────────────────────────────────────────────
   String get petAnxietySliderHint =>
       _t('Demo only — real data comes from the collar sensor',
