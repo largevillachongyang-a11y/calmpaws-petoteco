@@ -957,7 +957,7 @@ Text(s.timerStart)
 | 编号 | 任务 | 当前状态 | 待补充 |
 |---|---|---|---|
 | C1 | 喂食记录手动添加 | 历史查看已做，无手动添加入口 | 需要手动录入喂食时间的界面 |
-| C2 | 日报定时推送 | 逻辑已做，无真实本地推送通知 | 需集成 `flutter_local_notifications` 才能推送到通知栏 |
+| C2 | 日报定时推送 | ✅ 已集成本地推送（`flutter_local_notifications 17.2.4`），日报走安静渠道 | — |
 | C4 | 宠物档案完善 | 照片上传已做，无体重趋势图 | 可选：体重历史折线图 |
 
 ---
@@ -966,7 +966,7 @@ Text(s.timerStart)
 
 | 优先级 | 功能 | 说明 |
 |---|---|---|
-| 🔴 高 | **本地推送通知**（flutter_local_notifications） | 目前通知只在应用内显示，无法推送到手机通知栏。需集成后绑定 C2日报、报警触发 |
+| 🔴 高 | **本地推送通知**（flutter_local_notifications） | ✅ **已完成**（`LocalNotificationService` 4渠道分级推送，绑定报警/喂食/日报；登录后自动请求权限） |
 | 🔴 高 | **设备首次配对引导流程** | ✅ **已完成**（`OnboardingScreen` 5步引导，首次登录自动弹出） |
 | 🔴 高 | **F1 阈值切换为生产值** | 当前测试值（10min睡眠阈值等）需改回生产值再上线 |
 | 🔴 高 | **F2 Firebase域名授权** | 生产域名（App Store / Play Store）需加入 Firebase Console 已授权域名列表 |
@@ -974,7 +974,7 @@ Text(s.timerStart)
 | 🟡 中 | **账号删除功能** | ✅ **已完成**（`AuthService.deleteAccount()` + 弹窗UI + App Store/Google Play 合规） |
 | 🟡 中 | **订阅状态真实数据** | 我的页面订阅卡片目前为硬编码Demo，需接独立站API获取真实订阅状态 |
 | 🟡 中 | **_seedHistoricalSessions 在生产移除** | ✅ **已完成**（仅在 `kDebugMode` 下执行） |
-| 🟡 中 | **本地通知权限请求** | 需在启动时请求通知权限（iOS强制，Android 13+需要） |
+| 🟡 中 | **本地通知权限请求** | ✅ **已完成**（登录后延迟2秒调用 `requestPermission()`，Android 13+ / iOS 均已覆盖） |
 | 🟢 低 | **多宠物支持** | 目前只支持一只宠物，未来可扩展 |
 | 🟢 低 | **体重历史趋势图** | 在宠物档案页加体重历史折线图 |
 | 🟢 低 | **健康报告 PDF 导出** | 在「健康报告」弹窗增加 PDF 导出功能 |
@@ -988,9 +988,9 @@ Text(s.timerStart)
 - [ ] **F1** — 将所有测试阈值改为生产值（见第11节表格）
 - [ ] **F2** — Firebase Console 添加生产域名授权（App Store / Play Store / 独立站域名）
 - [ ] **B10** — BLE断线重连实现（使用 flutter_blue_plus，与硬件团队联调）
-- [ ] **本地推送通知** — 集成 flutter_local_notifications，绑定报警和日报推送
+- [x] **本地推送通知** — ✅ `LocalNotificationService` 已集成，4渠道分级推送（报警/喂食/日报/系统）
 - [x] **账号删除** — ✅ `AuthService.deleteAccount()` + 需输入 DELETE 确认 已完成
-- [ ] **通知权限请求** — 应用启动时请求系统通知权限
+- [x] **通知权限请求** — ✅ 登录后延迟2秒自动请求（Android 13+ / iOS 均已覆盖）
 - [ ] **移除 Mock BLE** — 将 `MockBleService` 替换为真实 `flutter_blue_plus` 实现
 - [x] **移除 Demo 数据** — ✅ `_seedHistoricalSessions()` 仅在 `kDebugMode` 下执行
 
@@ -1051,11 +1051,36 @@ static const int kStressFreqCooldownMinutes = 60; // 改: 2 → 60
 ```
 
 ### 集成本地推送通知
-```yaml
-# pubspec.yaml
-flutter_local_notifications: ^17.2.4
+
+**✅ 已完成** — `lib/services/local_notification_service.dart`
+
+**集成架构：**
 ```
-在 `notification_provider.dart` 中，当 `addNotification()` 被调用时，同时触发系统通知。参考文件顶部 TODO 注释中的实现指引。
+main() → LocalNotificationService.instance.init()   // 初始化 + 创建 Android 通知渠道
+MainNavScreen.initState() → Future.delayed(2s, requestPermission())  // 登录后延迟请求权限
+NotificationProvider.addNotification() → _fireLocalNotification()   // 每次新通知同步推送到系统
+```
+
+**4 个通知渠道（Android）：**
+| 渠道 ID | 名称 | 优先级 | 用途 |
+|---|---|---|---|
+| `calm_paws_alerts` | 宠物预警 | High（响铃+震动） | 颤抖/应激/踱步/嗜睡 |
+| `calm_paws_feeding` | 喂食记录 | Default | 喂食会话完成 |
+| `calm_paws_reports` | 每日健康报告 | Low（安静） | 每晚 20:00 日报 |
+| `calm_paws_system` | 系统通知 | Min | 其他系统消息 |
+
+**使用的包版本：**
+```yaml
+# pubspec.yaml（已添加）
+flutter_local_notifications: 17.2.4
+```
+
+**AndroidManifest.xml 已添加权限：**
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.VIBRATE"/>
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+```
 
 ---
 
@@ -1093,12 +1118,24 @@ else        → calm
 |---|---|
 | `lib/screens/onboarding/onboarding_screen.dart` | 设备首次配对引导（5步 BottomSheet，SharedPreferences 持久化） |
 | `lib/services/auth_service.dart` | `deleteAccount()` 方法（已有，本轮添加 UI 菜单项） |
+| `lib/services/local_notification_service.dart` | 本地推送通知服务（4渠道分级推送，Web no-op，Android 权限请求） |
 
 ---
 
 ## 16. 更新日志
 
-### 2025-04-24（当前版本）
+### 2025-04-25（最新版本）
+- ✅ **本地推送通知集成**（flutter_local_notifications 17.2.4）：
+  - 新建 `LocalNotificationService`（单例，4 个 Android 通知渠道）
+  - 渠道分级：`calm_paws_alerts`（高优+震动）/ `calm_paws_feeding`（普通）/ `calm_paws_reports`（安静）/ `calm_paws_system`（最低）
+  - `NotificationProvider.addNotification()` 新增 `_fireLocalNotification()` 路由逻辑，自动选择对应渠道
+  - 日报通知（`actionRoute='dashboard'`）走安静的报告渠道，不打扰用户
+  - `MainNavScreen` 登录后延迟 2 秒自动请求通知权限（避免与 Onboarding 弹窗冲突）
+  - `main()` 新增 `LocalNotificationService.instance.init()`（创建 Android 渠道）
+  - `AndroidManifest.xml` 新增 `POST_NOTIFICATIONS`、`VIBRATE`、`SCHEDULE_EXACT_ALARM` 权限
+  - Web 平台自动 no-op（`kIsWeb` 判断），不影响 Web Preview
+
+### 2025-04-24（上一版本）
 - ✅ **Task 1**：Demo 数据保护 — `_seedHistoricalSessions()` 仅在 `kDebugMode` 下执行
 - ✅ **Task 2**：账号删除功能 — `AuthService.deleteAccount()` + `_showDeleteAccount()` 弹窗（需输入 DELETE 确认）
 - ✅ **Task 3**：设备首次配对引导 — 新建 `OnboardingScreen`（5步引导）：
