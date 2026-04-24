@@ -968,7 +968,7 @@ Text(s.timerStart)
 |---|---|---|
 | 🔴 高 | **本地推送通知**（flutter_local_notifications） | ✅ **已完成**（`LocalNotificationService` 4渠道分级推送，绑定报警/喂食/日报；登录后自动请求权限） |
 | 🔴 高 | **设备首次配对引导流程** | ✅ **已完成**（`OnboardingScreen` 5步引导，首次登录自动弹出） |
-| 🔴 高 | **F1 阈值切换为生产值** | 当前测试值（10min睡眠阈值等）需改回生产值再上线 |
+| 🔴 高 | **F1 阈值切换为生产值** | ✅ **已完成**（`kDebugMode` 三元自动切换：debug=测试值 / release=生产值，打 release APK 时自动生效） |
 | 🔴 高 | **F2 Firebase域名授权** | 生产域名（App Store / Play Store）需加入 Firebase Console 已授权域名列表 |
 | 🟡 中 | **StressChartCard 接入真实14天数据** | 目前折线图为Demo数据，需从Firestore拉取真实历史 |
 | 🟡 中 | **账号删除功能** | ✅ **已完成**（`AuthService.deleteAccount()` + 弹窗UI + App Store/Google Play 合规） |
@@ -985,7 +985,7 @@ Text(s.timerStart)
 ## 13. 上线前检查清单
 
 ### 必须完成（阻塞上线）
-- [ ] **F1** — 将所有测试阈值改为生产值（见第11节表格）
+- [x] **F1** — ✅ 已完成（所有阈值通过 `kDebugMode` 三元自动切换：debug=测试值，release=生产值，发布 APK 时自动生效，无需手动改代码）
 - [ ] **F2** — Firebase Console 添加生产域名授权（App Store / Play Store / 独立站域名）
 - [ ] **B10** — BLE断线重连实现（使用 flutter_blue_plus，与硬件团队联调）
 - [x] **本地推送通知** — ✅ `LocalNotificationService` 已集成，4渠道分级推送（报警/喂食/日报/系统）
@@ -1125,6 +1125,9 @@ else        → calm
 ## 16. 更新日志
 
 ### 2025-04-25（最新版本）
+- 📋 **待办事项整理**：全面梳理已完成 / 未完成状态，更正 F1 标注：
+  - ✅ **F1 阈值生产值**：代码已通过 `kDebugMode` 三元自动切换，无需手动改代码，标为已完成
+  - 更新「非计划内功能」表格和「上线前检查清单」中 F1 的状态
 - ✅ **本地推送通知集成**（flutter_local_notifications 17.2.4）：
   - 新建 `LocalNotificationService`（单例，4 个 Android 通知渠道）
   - 渠道分级：`calm_paws_alerts`（高优+震动）/ `calm_paws_feeding`（普通）/ `calm_paws_reports`（安静）/ `calm_paws_system`（最低）
