@@ -212,6 +212,25 @@ class PetHealthProvider extends ChangeNotifier {
     }
   }
 
+  /// 上传宠物照片到 Firebase Storage，更新本地 PetProfile 并同步 Firestore
+  /// [imageBytes] 来自 image_picker 读取的文件字节
+  /// 返回 null = 成功，非 null = 错误信息
+  Future<String?> uploadPetPhoto(List<int> imageBytes) async {
+    if (_currentUserId == null) return 'not-logged-in';
+    try {
+      final url = await _firestoreService.uploadPetPhoto(_currentUserId!, imageBytes);
+      if (url == null) return 'upload-failed';
+      // 更新本地 PetProfile photoPath 为网络 URL
+      final updated = _pet.copyWith(photoPath: url);
+      updatePetLocal(updated);
+      // 同步到 Firestore
+      await syncPetToCloud();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   // 将宠物档案写入 SharedPreferences（内部辅助方法）
   Future<void> _savePetToLocal(String uid, PetProfile pet) async {
     final prefs = await SharedPreferences.getInstance();
@@ -1072,6 +1091,12 @@ class PetHealthProvider extends ChangeNotifier {
       avgAnxietyScore:  currentAnxietyScore.toDouble(),
     );
     onDailySummaryReady?.call(summary);
+  }
+
+  /// 仅供测试使用：手动立即触发一次每日健康总结
+  /// 生产环境通过 _startDailySummaryTimer 每天 20:00 自动触发
+  void triggerDailySummaryForTest() {
+    _triggerDailySummary();
   }
 
   // 注入 Demo 历史数据（喂食记录 + 健康日志），让未登录 / 首次登录时图表有内容展示

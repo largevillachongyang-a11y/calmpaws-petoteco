@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../models/models.dart';
@@ -44,16 +45,7 @@ class PetScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.sageLight,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.sageGreen, width: 3),
-            ),
-            child: const Center(child: Text('🐶', style: TextStyle(fontSize: 38))),
-          ),
+          _PetAvatar(pet: pet, provider: provider),
           const SizedBox(width: 18),
           Expanded(
             child: Column(
@@ -841,6 +833,105 @@ class _SpeciesChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── 宠物头像组件（支持照片上传）─────────────────────────────────────────────────
+class _PetAvatar extends StatefulWidget {
+  final PetProfile pet;
+  final PetHealthProvider provider;
+  const _PetAvatar({required this.pet, required this.provider});
+
+  @override
+  State<_PetAvatar> createState() => _PetAvatarState();
+}
+
+class _PetAvatarState extends State<_PetAvatar> {
+  bool _uploading = false;
+
+  Future<void> _pickAndUpload() async {
+    final picker = ImagePicker();
+    final XFile? file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+    setState(() => _uploading = true);
+    try {
+      final bytes = await file.readAsBytes();
+      final err = await widget.provider.uploadPetPhoto(bytes);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(err == null ? '✅ 照片已更新' : '❌ 上传失败：$err'),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrl = widget.pet.photoPath;
+    return GestureDetector(
+      onTap: _uploading ? null : _pickAndUpload,
+      child: Stack(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.sageLight,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.sageGreen, width: 3),
+            ),
+            child: ClipOval(
+              child: _uploading
+                  ? const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: AppColors.sageGreen,
+                        ),
+                      ),
+                    )
+                  : photoUrl != null && photoUrl.isNotEmpty
+                      ? Image.network(
+                          photoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Text('🐶', style: TextStyle(fontSize: 38)),
+                          ),
+                        )
+                      : const Center(
+                          child: Text('🐶', style: TextStyle(fontSize: 38)),
+                        ),
+            ),
+          ),
+          // 编辑角标
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppColors.sageGreen,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: const Icon(Icons.camera_alt_rounded,
+                  size: 13, color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }

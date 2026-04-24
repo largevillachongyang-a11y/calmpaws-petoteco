@@ -25,6 +25,7 @@
 //   StatefulWidget 配合 build() 中的 watch 确保语言切换后整页重建。
 // =============================================================================
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/pet_health_provider.dart';
@@ -434,6 +435,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: s.profileSignOut,
             onTap: () => _showSignOut(context, s),
           ),
+          // ── Debug: 手动触发每日总结（仅开发模式）─────────────────────────
+          if (kDebugMode) ...[
+            const _Divider(),
+            _MenuItem(
+              icon: Icons.bug_report_outlined,
+              iconColor: AppColors.warningAmber,
+              label: '🛠 触发每日总结（测试）',
+              onTap: () {
+                provider.triggerDailySummaryForTest();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ 每日总结已触发，检查通知中心'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

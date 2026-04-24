@@ -29,6 +29,8 @@
 // =============================================================================
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:typed_data';
 import '../models/models.dart';
 import '../services/mock_ble_service.dart' show DailyStressDataPoint;
 
@@ -71,6 +73,7 @@ class FirestoreService {
         'age_months': pet.ageMonths,
         'weight_kg':  pet.weightKg,
         'health_tags': pet.healthTags,
+        'photo_url':  pet.photoPath ?? '',
         'created_at': Timestamp.fromDate(pet.createdAt),
         'updated_at': FieldValue.serverTimestamp(),
         'owner_uid': uid,
@@ -133,16 +136,44 @@ class FirestoreService {
       breed:      (d['breed']    as String?) ?? '',
       ageMonths:  (d['age_months'] as num?)?.toInt() ?? 0,
       weightKg:   (d['weight_kg']  as num?)?.toDouble() ?? 0.0,
+      photoPath:  (d['photo_url']  as String?)?.isNotEmpty == true
+                      ? d['photo_url'] as String
+                      : null,
       healthTags: List<String>.from(d['health_tags'] ?? []),
       createdAt:  (d['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
   // =============================================================================
-  // 喂食记录（FeedingSession）
+  // 宠物照片上传（Firebase Storage）
   // =============================================================================
 
-  /// 保存一条喂食记录到 Firestore
+  /// 上传宠物照片到 Firebase Storage，返回下载 URL
+  /// 路径：pet_photos/{uid}/avatar.jpg
+  Future<String?> uploadPetPhoto(String uid, List<int> imageBytes) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('pet_photos')
+          .child(uid)
+          .child('avatar.jpg');
+      final uploadTask = ref.putData(
+        Uint8List.fromList(imageBytes),
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      debugFirestore('uploadPetPhoto OK: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      debugFirestore('uploadPetPhoto FAILED: $e');
+      return null;
+    }
+  }
+
+  // =============================================================================
+  // 喂食记录（FeedingSession）
+  // =============================================================================
   ///
   /// 调用时机：
   ///   • 用户点击「已喂食」按钮，会话结束（_completeFeedingSession）后调用

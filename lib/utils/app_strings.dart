@@ -93,6 +93,7 @@ class AppStrings {
   String get ttcStressBefore => _t('Stress Before', '喂食前应激');
   String get ttcStressAfter => _t('Stress After', '喂食后应激');
   String get ttcEvents => _t('events', '次');
+  String get ttcViewAll => _t('View All History', '查看全部历史');
 
   // ── Stress Chart ──────────────────────────────────────────────────────────
   String get chartTitle => _t('Stress Reduction', '应激减少趋势');
