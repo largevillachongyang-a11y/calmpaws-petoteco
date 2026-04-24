@@ -2,7 +2,7 @@
 ## 面向接收程序员，无需询问即可上手
 
 **版本：** 1.0.0+1  
-**日期：** 2025-06-24  
+**日期：** 2025-04-24（最后更新）  
 **代码仓库：** https://github.com/largevillachongyang-a11y/calmpaws-petoteco  
 **预览地址：** https://largevillachongyang-a11y.github.io/calmpaws-petoteco/  
 **产品官网：** https://petotecolife.com/  
@@ -967,13 +967,13 @@ Text(s.timerStart)
 | 优先级 | 功能 | 说明 |
 |---|---|---|
 | 🔴 高 | **本地推送通知**（flutter_local_notifications） | 目前通知只在应用内显示，无法推送到手机通知栏。需集成后绑定 C2日报、报警触发 |
-| 🔴 高 | **设备首次配对引导流程** | 新用户打开APP后，如何扫描/配对BLE项圈，目前没有Onboarding界面 |
+| 🔴 高 | **设备首次配对引导流程** | ✅ **已完成**（`OnboardingScreen` 5步引导，首次登录自动弹出） |
 | 🔴 高 | **F1 阈值切换为生产值** | 当前测试值（10min睡眠阈值等）需改回生产值再上线 |
 | 🔴 高 | **F2 Firebase域名授权** | 生产域名（App Store / Play Store）需加入 Firebase Console 已授权域名列表 |
 | 🟡 中 | **StressChartCard 接入真实14天数据** | 目前折线图为Demo数据，需从Firestore拉取真实历史 |
-| 🟡 中 | **账号删除功能** | GDPR/App Store 要求必须提供账号注销入口 |
+| 🟡 中 | **账号删除功能** | ✅ **已完成**（`AuthService.deleteAccount()` + 弹窗UI + App Store/Google Play 合规） |
 | 🟡 中 | **订阅状态真实数据** | 我的页面订阅卡片目前为硬编码Demo，需接独立站API获取真实订阅状态 |
-| 🟡 中 | **_seedHistoricalSessions 在生产移除** | Demo喂食数据种子在正式版应去掉或只在未登录时显示 |
+| 🟡 中 | **_seedHistoricalSessions 在生产移除** | ✅ **已完成**（仅在 `kDebugMode` 下执行） |
 | 🟡 中 | **本地通知权限请求** | 需在启动时请求通知权限（iOS强制，Android 13+需要） |
 | 🟢 低 | **多宠物支持** | 目前只支持一只宠物，未来可扩展 |
 | 🟢 低 | **体重历史趋势图** | 在宠物档案页加体重历史折线图 |
@@ -989,16 +989,16 @@ Text(s.timerStart)
 - [ ] **F2** — Firebase Console 添加生产域名授权（App Store / Play Store / 独立站域名）
 - [ ] **B10** — BLE断线重连实现（使用 flutter_blue_plus，与硬件团队联调）
 - [ ] **本地推送通知** — 集成 flutter_local_notifications，绑定报警和日报推送
-- [ ] **账号删除** — App Store / Play Store 强制要求的注销入口
+- [x] **账号删除** — ✅ `AuthService.deleteAccount()` + 需输入 DELETE 确认 已完成
 - [ ] **通知权限请求** — 应用启动时请求系统通知权限
 - [ ] **移除 Mock BLE** — 将 `MockBleService` 替换为真实 `flutter_blue_plus` 实现
-- [ ] **移除 Demo 数据** — `_seedHistoricalSessions()` 在生产环境禁用
+- [x] **移除 Demo 数据** — ✅ `_seedHistoricalSessions()` 仅在 `kDebugMode` 下执行
 
 ### 建议完成（提升质量）
-- [ ] **F3** — 代码注释补全（主要是 pet_health_provider.dart 的核心算法）
+- [x] **F3** — ✅ 代码注释已补全（`pet_health_provider.dart` `_checkAlerts` / `_isCalmState` / `_updateFeedingSession` 等核心方法均有详细说明）
 - [ ] **F4** — 集成测试（真机硬件 + APP 联调，验证8条报警规则）
 - [ ] **StressChartCard** — 接入真实 Firestore 14天数据
-- [ ] **设备配对引导** — 首次使用 Onboarding 界面
+- [x] **设备配对引导** — ✅ 已实现 `OnboardingScreen`（5步引导，首次登录自动弹出）
 
 ### 可选（不影响上线）
 - [ ] 订阅状态接独立站真实API
@@ -1083,3 +1083,31 @@ else        → calm
 默认焦虑等级:    0.4 (0.0~1.0)
 时间段切换:      按系统时间自动切换 Phase
 ```
+
+
+---
+
+## 15. 新增文件索引（本轮更新）
+
+| 文件 | 说明 |
+|---|---|
+| `lib/screens/onboarding/onboarding_screen.dart` | 设备首次配对引导（5步 BottomSheet，SharedPreferences 持久化） |
+| `lib/services/auth_service.dart` | `deleteAccount()` 方法（已有，本轮添加 UI 菜单项） |
+
+---
+
+## 16. 更新日志
+
+### 2025-04-24（当前版本）
+- ✅ **Task 1**：Demo 数据保护 — `_seedHistoricalSessions()` 仅在 `kDebugMode` 下执行
+- ✅ **Task 2**：账号删除功能 — `AuthService.deleteAccount()` + `_showDeleteAccount()` 弹窗（需输入 DELETE 确认）
+- ✅ **Task 3**：设备首次配对引导 — 新建 `OnboardingScreen`（5步引导）：
+  - 首次登录自动弹出 ModalBottomSheet
+  - SharedPreferences `onboarding_shown` 标志持久化（永不重复弹出）
+  - Debug 菜单新增「重置 Onboarding」按钮
+  - 步骤：欢迎 → 充电 → 开启蓝牙 → 连接设备 → 完成佩戴
+- ✅ **Task 4**：F3 代码注释补全：
+  - `pet_health_provider.dart`：`_isCalmState()`、`_updateFeedingSession()` 新增详细说明
+  - `pet_health_provider.dart`：所有核心逻辑段落（`_checkAlerts`、`_onPacket`、睡眠判定）均已完整注释
+  - `models.dart`、`mock_ble_service.dart`、`firestore_service.dart`、`notification_provider.dart` 注释均已完整
+- ✅ **Task 5**：HANDOVER_DOC.md 更新，反映本轮所有完成情况
