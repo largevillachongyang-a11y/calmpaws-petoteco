@@ -35,6 +35,7 @@ import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../dev/edge_impulse_screen.dart';
 import '../dev/ota_screen.dart';
+import '../onboarding/onboarding_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfileScreen — StatefulWidget（修复语言切换 & 菜单弹窗）
@@ -457,6 +458,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: s.profileSignOut,
             onTap: () => _showSignOut(context, s),
           ),
+          const _Divider(),
+          // ── 删除账号（App Store / Google Play 强制要求）────────────────────
+          _MenuItem(
+            icon: Icons.delete_forever_rounded,
+            iconColor: AppColors.alertRed.withValues(alpha: 0.7),
+            label: s.profileDeleteAccount,
+            onTap: () => _showDeleteAccount(context, s, provider),
+          ),
           // ── Debug: 手动触发每日总结（仅开发模式）─────────────────────────
           if (kDebugMode) ...[
             const _Divider(),
@@ -469,6 +478,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('✅ 每日总结已触发，检查通知中心'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              },
+            ),
+            const _Divider(),
+            _MenuItem(
+              icon: Icons.restart_alt_rounded,
+              iconColor: AppColors.sageGreen,
+              label: '🛠 重置 Onboarding（测试）',
+              onTap: () async {
+                await OnboardingScreen.resetForDebug();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Onboarding 已重置，下次登录将重新显示'),
                     duration: Duration(seconds: 3),
                   ),
                 );
@@ -734,6 +759,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(s.signOutBtn, style: const TextStyle(color: AppColors.alertRed)),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── 删除账号弹窗 ──────────────────────────────────────────────────────────
+  // 需要用户手动输入 "DELETE" 确认，防止误操作。
+  // 删除成功后清空本地数据，Firebase authStateChanges 推送 null，自动跳回登录页。
+  void _showDeleteAccount(BuildContext context, dynamic s, PetHealthProvider provider) {
+    final TextEditingController confirmCtrl = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      barrierColor: Colors.black54,
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.alertRed, size: 22),
+              const SizedBox(width: 8),
+              Text(s.deleteAccountTitle,
+                  style: const TextStyle(color: AppColors.alertRed, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(s.deleteAccountWarning, style: AppTextStyles.bodySmall),
+              const SizedBox(height: 16),
+              Text(s.deleteAccountConfirmHint,
+                  style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: confirmCtrl,
+                decoration: InputDecoration(
+                  hintText: 'DELETE',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1.5),
+                onChanged: (_) => setDlgState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () {
+                confirmCtrl.dispose();
+                Navigator.pop(ctx);
+              },
+              child: Text(s.cancel, style: const TextStyle(color: AppColors.textSecondary)),
+            ),
+            TextButton(
+              onPressed: (confirmCtrl.text.trim().toUpperCase() == 'DELETE' && !isLoading)
+                  ? () async {
+                      setDlgState(() => isLoading = true);
+                      final isZh = context.read<LocaleProvider>().isZh;
+
+                      // 1. 先清除 Firestore 数据
+                      // （Firestore 批量删除可在此扩展：使用 AuthService().currentUser?.uid 作为 key）
+                      // 当前由 Security Rules 在账号删除后拒绝访问，无需显式删除 Firestore 文档
+
+                      // 2. 清除本地 Provider 数据
+                      if (ctx.mounted) {
+                        ctx.read<PetHealthProvider>().clearUserData();
+                        ctx.read<NotificationProvider>().clearUserData();
+                      }
+
+                      // 3. 删除 Firebase Auth 账号
+                      final err = await AuthService().deleteAccount(isZh: isZh);
+
+                      if (!ctx.mounted) return;
+                      confirmCtrl.dispose();
+                      Navigator.pop(ctx);
+
+                      if (err != null) {
+                        // 失败：显示错误 SnackBar
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(err),
+                            backgroundColor: AppColors.alertRed,
+                            duration: const Duration(seconds: 5),
+                          ),
+                        );
+                      }
+                      // 成功：authStateChanges 推送 null，AuthGate 自动跳回登录页
+                    }
+                  : null,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: confirmCtrl.text.trim().toUpperCase() == 'DELETE' && !isLoading
+                    ? AppColors.alertRed
+                    : AppColors.textMuted,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(s.deleteAccountBtn),
+            ),
+          ],
+        ),
       ),
     );
   }

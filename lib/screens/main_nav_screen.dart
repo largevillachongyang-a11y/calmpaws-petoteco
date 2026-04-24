@@ -36,6 +36,7 @@ import 'pet/pet_screen.dart';
 import 'shop/shop_screen.dart';
 import 'profile/profile_screen.dart';
 import '../widgets/common/alert_banner.dart';
+import 'onboarding/onboarding_screen.dart';
 
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
@@ -69,6 +70,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
       context.read<PetHealthProvider>().addListener(_onPetHealthChanged);
       // 注册喂食完成回调
       _registerFeedingCallback();
+      // 首次登录时展示设备配对引导（检测 SharedPreferences 中的 onboarding_shown 标志）
+      // 若标志不存在则弹出，写入后不再重复显示
+      OnboardingScreen.showIfNeeded(context);
     });
   }
 
@@ -169,7 +173,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
           title: isZh ? '⚠️ 活动量偏低' : '⚠️ Activity Alert',
           body: isZh
               ? '$petName 今日活动量偏低，建议充分户外玩耍或联系兽医检查。'
-              : "${petName}'s activity is below normal today. Consider a vet check.",
+              : "$petName's activity is below normal today. Consider a vet check.",
           actionRoute: 'dashboard',
         );
       } else if (petProvider.alertType == 'pacing_long') {
