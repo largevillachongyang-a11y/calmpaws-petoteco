@@ -39,6 +39,9 @@ dependencies:
   firebase_storage: 12.3.2
   url_launcher: ^6.3.0
 
+  # Local Push Notifications (系统通知栏推送)
+  flutter_local_notifications: 17.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

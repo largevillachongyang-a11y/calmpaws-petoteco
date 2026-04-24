@@ -25,9 +25,9 @@
 //   收到推送后调用 NotificationProvider.addNotification() 即可在通知中心显示。
 // =============================================================================
 
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../services/local_notification_service.dart';
 
 // ── 通知类型枚举 ────────────────────────────────────────────────────────────
 // 用于通知列表的颜色、图标区分
@@ -237,7 +237,11 @@ class NotificationProvider extends ChangeNotifier {
     }
     notifyListeners();
 
-    // 2. 异步写入 Firestore（换手机后历史通知可恢复）
+    // 2. 发送系统级本地推送通知（推送到手机通知栏）
+    //    Web 平台会自动 no-op 跳过（LocalNotificationService 内部判断 kIsWeb）
+    _fireLocalNotification(type: type, title: title, body: body, actionRoute: actionRoute);
+
+    // 3. 异步写入 Firestore（换手机后历史通知可恢复）
     if (_currentUserId != null) {
       try {
         await _notifCollection(_currentUserId!).doc(notif.id).set(notif.toFirestore());
@@ -247,6 +251,39 @@ class NotificationProvider extends ChangeNotifier {
           return true;
         }());
       }
+    }
+  }
+
+  // ── 触发本地系统推送 ─────────────────────────────────────────────────────
+  // 根据通知类型选择对应的渠道发送系统通知。
+  // 不 await，避免阻塞调用方；内部错误由 LocalNotificationService 捕获。
+  // actionRoute='dashboard' 且 type=system 时识别为日报，走报告渠道（安静）。
+  void _fireLocalNotification({
+    required NotificationType type,
+    required String title,
+    required String body,
+    String? actionRoute,
+  }) {
+    final svc = LocalNotificationService.instance;
+    switch (type) {
+      case NotificationType.alert:
+        svc.showAlertNotification(title: title, body: body);
+        break;
+      case NotificationType.feeding:
+        svc.showFeedingNotification(title: title, body: body);
+        break;
+      case NotificationType.system:
+        // actionRoute='dashboard' 的系统通知为每日健康日报，使用安静的报告渠道
+        if (actionRoute == 'dashboard') {
+          svc.showReportNotification(title: title, body: body);
+        } else {
+          svc.showSystemNotification(title: title, body: body);
+        }
+        break;
+      case NotificationType.journal:
+        // 日志提醒走系统通知渠道（低优先级）
+        svc.showSystemNotification(title: title, body: body);
+        break;
     }
   }
 

@@ -39,6 +39,7 @@ import 'providers/notification_provider.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
+import 'services/local_notification_service.dart';
 
 // Firebase 是否初始化成功的全局标志。
 // 使用全局变量（而非 Provider）是因为它在 runApp 前就确定了，
@@ -61,6 +62,9 @@ void main() async {
     // Firebase 初始化失败时，App 进入纯 UI 模式（适合开发期无网络环境调试）
     _firebaseReady = false;
   }
+
+  // 初始化本地推送通知服务（创建 Android 通知渠道，Web 平台自动 no-op）
+  await LocalNotificationService.instance.init();
 
   // 锁定竖屏方向，防止横屏布局破坏 UI
   SystemChrome.setPreferredOrientations([

@@ -505,12 +505,16 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── 全局预警系统 ────────────────────────────────────────────────────────────
   // P1 完整预警规则：
-  //   'shiver'          → 状态D：连续发抖 >3分钟（测试30s）→ 紧急预警
-  //   'stress_frequent' → 状态C：1小时内 >10次应激，冷却15分钟后可再次触发
-  //   'pacing_long'     → 状态A：单次踱步 >30分钟（测试120s），说明焦虑持续未缓解
-  //   'lethargy'        → 状态F：白天连续静止 >3小时（测试60s），每天最多一次
-  //   'sleep_disturbed' → 夜间应激 >5次（测试2次），次日早晨推送睡眠报告
+  //   'shiver'          → 状态D：连续发抖 >3分钟 → 紧急预警
+  //   'stress_frequent' → 状态C：1小时内 >8次应激，冷却60分钟后可再次触发
+  //   'pacing_long'     → 状态A：单次踱步 >30分钟，说明焦虑持续未缓解
+  //   'lethargy'        → 状态F：白天连续静止 >3小时，每天最多一次
+  //   'sleep_disturbed' → 夜间应激 >5次，次日早晨推送睡眠报告
   //   'activity'        → 活动量偏低兜底，低优先级
+  //
+  // ⚠️ 所有阈值均通过 kDebugMode 二元切换：
+  //   kDebugMode == true  → 测试值（秒数压缩，便于调试验证报警）
+  //   kDebugMode == false → 生产值（真实临床标准）
   bool _hasAlert = false;
   String _alertMessage = '';
   String _alertType = '';
@@ -521,28 +525,31 @@ class PetHealthProvider extends ChangeNotifier {
   int get continuousShiverSeconds => _continuousShiverSeconds;
 
   // ── 状态D（发抖）─────────────────────────────────────────────────────────
-  // [上线前改回 180]
-  static const int kShiverThreshold = 30;
+  // 生产值：180 秒（3分钟连续发抖才触发，避免短暂颤抖误报）
+  // 测试值：30 秒（快速验证报警弹出）
+  static final int kShiverThreshold = kDebugMode ? 30 : 180;
   int _continuousShiverSeconds = 0;
   bool _shiverAlertFired = false;
 
   // ── 状态C（应激频繁）─────────────────────────────────────────────────────
-  // 原逻辑每整点重置标志，导致每小时最多触发1次；改为冷却窗口机制更合理
-  // 测试值：3次/2分钟冷却；生产值：8次/60分钟冷却
-  static const int kStressFreqThreshold = 3;
-  static const int kStressFreqCooldownMinutes = 2;
+  // 生产值：阈值8次 / 冷却60分钟（与临床焦虑指标对齐）
+  // 测试值：阈值3次 / 冷却2分钟（快速触发验证通知）
+  static final int kStressFreqThreshold      = kDebugMode ? 3  : 8;
+  static final int kStressFreqCooldownMinutes = kDebugMode ? 2  : 60;
   final List<DateTime> _stressEventTimestamps = [];
   DateTime? _stressFreqLastFiredAt;
 
   // ── 状态A（踱步过长）─────────────────────────────────────────────────────
-  // [上线前改回 1800 秒（30分钟）]
-  static const int kPacingLongThreshold = 120;
+  // 生产值：1800 秒（30分钟持续踱步 = 严重分离焦虑信号）
+  // 测试值：120 秒（2分钟即可验证报警）
+  static final int kPacingLongThreshold = kDebugMode ? 120 : 1800;
   int _continuousPacingSeconds = 0;
   DateTime? _pacingAlertDate;
 
   // ── 状态F（昏睡）─────────────────────────────────────────────────────────
-  // [上线前改回 10800 秒（3小时）]
-  static const int kLethargyThreshold = 60;
+  // 生产值：10800 秒（3小时白天静止 = 药物性昏睡参考指标）
+  // 测试值：60 秒（1分钟快速验证）
+  static final int kLethargyThreshold = kDebugMode ? 60 : 10800;
   int _continuousLethargySecs = 0;
   bool _lethargyAlertFired = false;
   DateTime? _lethargyAlertDate;
@@ -553,9 +560,10 @@ class PetHealthProvider extends ChangeNotifier {
   //   E2 sleepAbnormal：calm 状态下，连续超过 kSleepAbnormalThreshold 秒
   //                      roll_c 和 str_c 均为0 → 异常昏睡，触发 sleep_abnormal 告警
   //
-  // [上线前改回 7200 秒（2小时）]
-  static const int kSleepAbnormalThreshold = 600; // 测试值10分钟，生产7200秒
-  static const int kSleepWindowSeconds     = 7200; // 观察窗口2小时
+  // 生产值：7200 秒（2小时无翻身才算异常，符合犬类深度睡眠周期）
+  // 测试值：600 秒（10分钟快速验证 E2 状态和告警）
+  static final int kSleepAbnormalThreshold = kDebugMode ? 600  : 7200;
+  static const  int kSleepWindowSeconds    = 7200; // 观察窗口始终2小时（无需测试值）
 
   // 连续无翻身/无应激的秒数（calm 状态下累计）
   int _continuousSleepNoRollSeconds = 0;
@@ -576,8 +584,9 @@ class PetHealthProvider extends ChangeNotifier {
 
   // ── 睡眠异常（夜间应激）──────────────────────────────────────────────────
   // 夜间（22:00-06:00）应激次数超阈值时，次日早晨推送睡眠质量通知
-  // [上线前改回 5 次]
-  static const int kNightStressThreshold = 2;
+  // 生产值：5 次（1夜内超5次应激才判定为睡眠受扰）
+  // 测试值：2 次（便于快速验证通知）
+  static final int kNightStressThreshold = kDebugMode ? 2 : 5;
   int _nightStressCount = 0;
   bool _sleepDisturbedFired = false;
   DateTime? _nightStartDate;

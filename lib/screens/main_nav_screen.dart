@@ -37,6 +37,7 @@ import 'shop/shop_screen.dart';
 import 'profile/profile_screen.dart';
 import '../widgets/common/alert_banner.dart';
 import 'onboarding/onboarding_screen.dart';
+import '../services/local_notification_service.dart';
 
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
@@ -73,6 +74,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
       // 首次登录时展示设备配对引导（检测 SharedPreferences 中的 onboarding_shown 标志）
       // 若标志不存在则弹出，写入后不再重复显示
       OnboardingScreen.showIfNeeded(context);
+      // 延迟请求通知权限（Android 13+ / iOS 必须动态申请）
+      // 延迟 2 秒避免与 Onboarding 弹窗同时出现，降低用户打扰感
+      Future.delayed(const Duration(seconds: 2), _requestNotificationPermission);
     });
   }
 
@@ -86,6 +90,17 @@ class _MainNavScreenState extends State<MainNavScreen> {
     petProvider.onAlertNotification = null;
     petProvider.onDailySummaryReady = null;
     super.dispose();
+  }
+
+  // ── 请求系统通知权限 ──────────────────────────────────────────────────────
+  // 在登录后延迟 2 秒调用，Android 13+ 和 iOS 需要动态权限。
+  // 已授权则跳过；用户拒绝时静默降级（通知功能在 App 内仍正常显示）。
+  Future<void> _requestNotificationPermission() async {
+    if (!mounted) return;
+    final svc = LocalNotificationService.instance;
+    // 已初始化且已授权则跳过（防止重复弹窗）
+    if (svc.isGranted) return;
+    await svc.requestPermission();
   }
 
   // 注册所有 P1 回调（喂食完成 + 预警通知 + 每日总结）
