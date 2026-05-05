@@ -1,9 +1,20 @@
+// ✅ CRITICAL: Required imports for signing configuration
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+}
+
+// 读取签名配置
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties()
+if (keyPropertiesFile.exists()) {
+    keyProperties.load(FileInputStream(keyPropertiesFile))
 }
 
 android {
@@ -14,17 +25,26 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // ✅ 启用 core library desugaring（flutter_local_notifications 需要）
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keyProperties["keyAlias"] as String? ?: "release"
+            keyPassword = keyProperties["keyPassword"] as String? ?: ""
+            storeFile = keyProperties["storeFile"]?.let { file(it) }
+                ?: rootProject.file("release-key.jks")
+            storePassword = keyProperties["storePassword"] as String? ?: ""
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.petoteco.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -33,13 +53,18 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // ✅ desugaring 库（flutter_local_notifications 依赖）
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:1.2.2")
 }

@@ -36,6 +36,10 @@ import '../../services/auth_service.dart';
 import '../dev/edge_impulse_screen.dart';
 import '../dev/ota_screen.dart';
 import '../onboarding/onboarding_screen.dart';
+import '../../services/wifi_config_service.dart';
+import '../../services/server_api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../dev/debug_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfileScreen — StatefulWidget（修复语言切换 & 菜单弹窗）
@@ -439,6 +443,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const _Divider(),
           _MenuItem(
+            icon: Icons.wifi_rounded,
+            iconColor: const Color(0xFF4A90D9),
+            label: '服务器设置',
+            onTap: () => _showServerSettingsDialog(context),
+          ),
+          const _Divider(),
+          _MenuItem(
             icon: Icons.notifications_none_rounded,
             iconColor: AppColors.warmOrange,
             label: s.profileNotifications,
@@ -466,40 +477,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: s.profileDeleteAccount,
             onTap: () => _showDeleteAccount(context, s, provider),
           ),
-          // ── Debug: 手动触发每日总结（仅开发模式）─────────────────────────
-          if (kDebugMode) ...[
-            const _Divider(),
-            _MenuItem(
-              icon: Icons.bug_report_outlined,
-              iconColor: AppColors.warningAmber,
-              label: '🛠 触发每日总结（测试）',
-              onTap: () {
-                provider.triggerDailySummaryForTest();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ 每日总结已触发，检查通知中心'),
-                    duration: Duration(seconds: 3),
+          // ── APP 版本号（长按进入调试面板）────────────────────────────────
+          const _Divider(),
+          GestureDetector(
+            onLongPress: () => showDebugPanel(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Column(
+                children: [
+                  Text(
+                    'CalmPaws  v1.3.2 (build 12)  ·  2026-05-05',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                      letterSpacing: 0.3,
+                    ),
                   ),
-                );
-              },
-            ),
-            const _Divider(),
-            _MenuItem(
-              icon: Icons.restart_alt_rounded,
-              iconColor: AppColors.sageGreen,
-              label: '🛠 重置 Onboarding（测试）',
-              onTap: () async {
-                await OnboardingScreen.resetForDebug();
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Onboarding 已重置，下次登录将重新显示'),
-                    duration: Duration(seconds: 3),
+                  const SizedBox(height: 2),
+                  Text(
+                    '长按此处进入调试面板',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[300]),
                   ),
-                );
-              },
+                ],
+              ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -508,6 +512,174 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ─────────────────────────────────────────────────────────────────────────
   // 弹窗方法（全部使用 StatefulWidget 的 mounted context，确保安全）
   // ─────────────────────────────────────────────────────────────────────────
+
+  // ── 服务器设置弹窗 ──────────────────────────────────────────────────────────
+  void _showServerSettingsDialog(BuildContext context) {
+    final wifiService = WifiConfigService();
+    final controller = TextEditingController(text: wifiService.serverUrl);
+    bool isTesting = false;
+    String statusMsg = '';
+    bool statusOk = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.wifi_rounded, color: Color(0xFF4A90D9)),
+              SizedBox(width: 10),
+              Text('服务器设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('输入服务器地址（含端口）：',
+                  style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: 'http://192.168.1.100:5000',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  prefixIcon: const Icon(Icons.link_rounded, size: 20),
+                ),
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+              ),
+              const SizedBox(height: 10),
+              // 当前地址
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '当前：${wifiService.serverUrl}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 浏览器限制提示
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFE082)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFF57F17)),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '浏览器安全限制：测试连接可能失败。\n直接填入 IP 点「保存」即可，APP 会自动连接。',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF795548), height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 测试结果
+              if (statusMsg.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(
+                      statusOk ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                      size: 16,
+                      color: statusOk ? Colors.green : Colors.orange,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(statusMsg,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: statusOk ? Colors.green : Colors.orange)),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            // 测试连接（仅供参考，不影响保存）
+            TextButton(
+              onPressed: isTesting
+                  ? null
+                  : () async {
+                      setS(() { isTesting = true; statusMsg = '测试中...'; statusOk = false; });
+                      final ok = await wifiService.testConnection(controller.text.trim());
+                      setS(() {
+                        isTesting = false;
+                        statusOk = ok;
+                        statusMsg = ok
+                            ? '✅ 连接成功！'
+                            : '⚠️ 无法连通（可忽略，直接保存）';
+                      });
+                    },
+              child: isTesting
+                  ? const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('测试', style: TextStyle(color: Color(0xFF4A90D9))),
+            ),
+            // 保存（不依赖测试结果，直接写入）
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A90D9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                final url = controller.text.trim();
+                if (url.isEmpty) return;
+                // 直接保存，不依赖 healthCheck
+                await wifiService.forceSave(
+                  serverUrl: url,
+                  deviceId: wifiService.deviceId,
+                );
+                final api = ServerApiService();
+                await api.configure(baseUrl: url, deviceId: wifiService.deviceId);
+                if (!ctx.mounted) return;
+                // 重连设备，让 provider 用新地址拉数据
+                final provider = context.read<PetHealthProvider>();
+                provider.disconnectDevice();
+                provider.connectDevice();
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('✅ 已保存并重连：$url'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              },
+              child: const Text('保存', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showManageSubscription(BuildContext context, dynamic s) {
     final petName = context.read<PetHealthProvider>().pet.name;

@@ -16,6 +16,20 @@ class DeviceStatusBar extends StatelessWidget {
     final lowBattery = battery < 20;
     final isSyncing = provider.isSyncing;
     final syncStatus = provider.syncStatus;
+    // 服务器连接状态（connected/connecting/error/disconnected）
+    final srvStatus = provider.serverConnectionStatus;
+    final hasError = connected && srvStatus == 'error';
+    // 动态设备名：连接中显示 IP，有错误显示 error，正常显示 CalmPaws 项圈
+    final deviceDisplayName = () {
+      if (!connected) return s.deviceOffline;
+      if (hasError) return '⚠️ 服务器连接失败';
+      final url = provider.serverBaseUrl;
+      final host = Uri.tryParse(url)?.host ?? url;
+      return 'CalmPaws 项圈 · $host';
+    }();
+    // 状态点颜色：error 时用红色
+    final dotColor = (!connected || hasError) ? AppColors.alertRed : AppColors.sageGreen;
+    final barColor = (!connected || hasError) ? AppColors.alertRedMuted : AppColors.sageMuted;
 
     return Column(
       children: [
@@ -23,7 +37,7 @@ class DeviceStatusBar extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: connected ? AppColors.sageMuted : AppColors.alertRedMuted,
+            color: barColor,
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Row(
@@ -34,9 +48,9 @@ class DeviceStatusBar extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: connected ? AppColors.sageGreen : AppColors.alertRed,
+                  color: dotColor,
                   shape: BoxShape.circle,
-                  boxShadow: connected
+                  boxShadow: (connected && !hasError)
                       ? [BoxShadow(color: AppColors.sageGreen.withValues(alpha: 0.5), blurRadius: 4)]
                       : null,
                 ),
@@ -45,9 +59,9 @@ class DeviceStatusBar extends StatelessWidget {
               // 设备状态文字
               Expanded(
                 child: Text(
-                  connected ? s.deviceLive : s.deviceOffline,
+                  deviceDisplayName,
                   style: AppTextStyles.labelMedium.copyWith(
-                    color: connected ? AppColors.sageGreen : AppColors.alertRed,
+                    color: dotColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -56,7 +70,7 @@ class DeviceStatusBar extends StatelessWidget {
                 ),
               ),
               // 已连接：显示电量、蓝牙、SYNC按钮
-              if (connected) ...[
+              if (connected && !hasError) ...[  // 仅正常连接时显示电量/蓝牙/SYNC
                 Icon(
                   lowBattery
                       ? Icons.battery_alert_rounded
@@ -133,7 +147,26 @@ class DeviceStatusBar extends StatelessWidget {
                     ),
                   ),
                 ),
-              ] else
+              ] else if (hasError)
+                // 服务器错误：显示重试按钮
+                GestureDetector(
+                  onTap: provider.connectDevice,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.alertRed,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '重试',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                )
+              else
                 // 未连接：显示连接按钮
                 GestureDetector(
                   onTap: provider.connectDevice,

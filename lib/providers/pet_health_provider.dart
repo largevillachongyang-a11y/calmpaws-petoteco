@@ -50,6 +50,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/mock_ble_service.dart';
+import '../services/server_api_service.dart';
 import '../services/firestore_service.dart';
 
 class PetHealthProvider extends ChangeNotifier {
@@ -158,6 +159,107 @@ class PetHealthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── 演示模式：加载丰富的演示数据（无需登录）────────────────────────────────
+  void loadDemoData() {
+    _currentUserId = 'demo_user';
+    // 演示宠物档案
+    _pet = PetProfile(
+      id: 'demo_pet_001',
+      name: 'Mochi',
+      species: 'cat',
+      breed: 'British Shorthair',
+      ageMonths: 24,
+      weightKg: 4.2,
+      healthTags: const ['Anxiety Prone', 'Indoor Only'],
+      createdAt: DateTime(2024, 3, 10),
+    );
+    // 演示行为状态：当前平静
+    _confirmedState = PetBehaviorState.calm;
+    _pendingState = PetBehaviorState.calm;
+    _sleepState = null;
+
+    // 演示喂食历史（最近5条）
+    final now = DateTime.now();
+    _sessionHistory.clear();
+    _sessionHistory.addAll([
+      FeedingSession(
+        id: 'demo_fs_1',
+        feedTime: now.subtract(const Duration(hours: 2)),
+        timeToCalm: 8,
+        stressCountBefore: 2,
+        stressCountAfter: 0,
+      ),
+      FeedingSession(
+        id: 'demo_fs_2',
+        feedTime: now.subtract(const Duration(hours: 8)),
+        timeToCalm: 12,
+        stressCountBefore: 3,
+        stressCountAfter: 1,
+      ),
+      FeedingSession(
+        id: 'demo_fs_3',
+        feedTime: now.subtract(const Duration(days: 1, hours: 2)),
+        timeToCalm: 7,
+        stressCountBefore: 1,
+        stressCountAfter: 0,
+      ),
+      FeedingSession(
+        id: 'demo_fs_4',
+        feedTime: now.subtract(const Duration(days: 1, hours: 9)),
+        timeToCalm: 15,
+        stressCountBefore: 4,
+        stressCountAfter: 1,
+      ),
+      FeedingSession(
+        id: 'demo_fs_5',
+        feedTime: now.subtract(const Duration(days: 2, hours: 3)),
+        timeToCalm: 9,
+        stressCountBefore: 2,
+        stressCountAfter: 0,
+      ),
+    ]);
+
+    // 演示日志
+    _journalEntries.clear();
+    _journalEntries.addAll([
+      JournalEntry(
+        id: 'demo_j_1',
+        date: now.subtract(const Duration(hours: 3)),
+        stoolEmoji: '💩',
+        moodEmoji: '😊',
+        appetiteEmoji: '🍖',
+        energyEmoji: '⚡',
+        notes: 'Mochi 今天玩了很久玩具，状态很好，吃饭也很积极',
+        negativeFlags: const [],
+      ),
+      JournalEntry(
+        id: 'demo_j_2',
+        date: now.subtract(const Duration(days: 1)),
+        stoolEmoji: '💩',
+        moodEmoji: '😰',
+        appetiteEmoji: '😐',
+        energyEmoji: '😴',
+        notes: '昨天雷雨天，有短暂发抖，安抚后恢复正常',
+        negativeFlags: const ['shivering'],
+      ),
+      JournalEntry(
+        id: 'demo_j_3',
+        date: now.subtract(const Duration(days: 2)),
+        stoolEmoji: '💩',
+        moodEmoji: '😊',
+        appetiteEmoji: '🍖',
+        energyEmoji: '⚡',
+        notes: '去宠物医院检查，医生说很健康，体重正常',
+        negativeFlags: const [],
+      ),
+    ]);
+
+    // 演示压力图（14天，模拟真实波动）
+    _stressChartData = generateDailyStressChart();
+
+    notifyListeners();
+  }
+
   // ── 更新并持久化宠物档案 ─────────────────────────────────────────────────
   // P0-1：同时写入 SharedPreferences（本地快速读取）和 Firestore（云端备份）
   // 返回 true = 云端写入成功；false = 云端写入失败（本地仍保存）
@@ -244,19 +346,20 @@ class PetHealthProvider extends ChangeNotifier {
     await prefs.setString('pet_created_$uid', pet.createdAt.toIso8601String());
   }
 
-  // ── BLE 设备连接与实时数据流 ───────────────────────────────────────────────
-  // 当前使用 MockBleService 模拟蓝牙数据，每秒推送一次 BlePacket。
-  // [TODO] 正式接入真实硬件时，替换 MockBleService 为实际 BLE SDK（如 flutter_blue_plus）。
-  // 替换要点：
-  //   1. connectDevice() 中改为扫描并连接指定 UUID 的 BLE 外设
-  //   2. _onPacket() 中解析真实设备的字节数据为 BlePacket 对象
-  //   3. 需在 AndroidManifest.xml / Info.plist 添加蓝牙权限声明
-  final _ble = MockBleService();
+  // ── 数据源：真实服务器API（优先）+ MockBleService（fallback/调试）────────
+  // _useRealServer = true  → 通过 HTTP 轮询服务器 /api/status/<device_id>
+  // _useRealServer = false → 使用 MockBleService 模拟数据（调试/无硬件时）
+  bool _useRealServer = true;
+  bool get useRealServer => _useRealServer;
+
+  final _serverApi = ServerApiService();
+  final _ble = MockBleService();   // 保留作为 fallback
   StreamSubscription<BlePacket>? _bleSub;
   BlePacket? _latestPacket;   // 原始累计包（最新）
   BlePacket? _deltaPacket;    // 差值包（本5秒内行为增量），供 _checkAlerts 使用
   bool _deviceConnected = false;
   int _battery = 82;
+  int _rssi    = -70;  // Wi-Fi RSSI（服务器收到的信号强度）
 
   // ── A+B方案：滑动窗口 + 状态确认 ──────────────────────────────────────────
   // A：最近4包差值的加权平均焦虑分，消除单包噪声导致的数值跳动
@@ -275,6 +378,7 @@ class PetHealthProvider extends ChangeNotifier {
   BlePacket? get latestPacket => _deltaPacket;
   bool get deviceConnected => _deviceConnected;
   int get battery => _battery;
+  int get rssi    => _rssi;
 
   double get anxietyLevel => _ble.anxietyLevel;
   set anxietyLevel(double v) {
@@ -282,17 +386,71 @@ class PetHealthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void connectDevice() {
-    // 启动 BLE 数据流，订阅 stream → 每个数据包触发 _onPacket
-    // 构造函数中自动调用，模拟设备上线
-    _ble.start();
-    _deviceConnected = true;
-    _bleSub = _ble.stream.listen(_onPacket);
+  /// 服务器地址（用于设置页面展示和修改）
+  String get serverBaseUrl  => _serverApi.baseUrl;
+  String get serverDeviceId => _serverApi.deviceId;
+  String get serverConnectionStatus => _serverApi.connectionStatus;
+
+  /// 配置服务器地址（从设置页面调用）
+  Future<void> configureServer(String baseUrl, String deviceId) async {
+    await _serverApi.configure(baseUrl: baseUrl, deviceId: deviceId);
+    if (_useRealServer && _deviceConnected) {
+      // 重启连接以应用新配置
+      disconnectDevice();
+      await Future.delayed(const Duration(milliseconds: 500));
+      connectDevice();
+    }
+  }
+
+  /// 切换数据源（true=真实服务器, false=Mock模拟）
+  void setDataSource({required bool useRealServer}) {
+    if (_useRealServer == useRealServer) return;
+    _useRealServer = useRealServer;
+    if (_deviceConnected) {
+      disconnectDevice();
+      connectDevice();
+    }
     notifyListeners();
   }
 
+  void connectDevice() {
+    _bleSub?.cancel();
+    if (_useRealServer) {
+      // 真实服务器模式：HTTP轮询 /api/status/<device_id>
+      // 注册睡眠状态回调（B方案：从服务器恢复睡眠计时）
+      _serverApi.onSleepStateReceived = _onSleepStateFromServer;
+      _serverApi.start();
+      _bleSub = _serverApi.stream.listen(_onPacket);
+    } else {
+      // Mock模式：本地模拟数据（调试用）
+      _ble.start();
+      _bleSub = _ble.stream.listen(_onPacket);
+    }
+    _deviceConnected = true;
+    notifyListeners();
+  }
+
+  /// B方案：收到服务器睡眠计时数据，恢复Provider内部状态
+  /// 每次收到新包都会调用（不只是重连时），保持与服务器同步
+  void _onSleepStateFromServer(int sleepNoRollSec, double? lastRollTime, String sleepState, int continuousCalmSec) {
+    _continuousCalmSeconds        = continuousCalmSec;
+    _continuousSleepNoRollSeconds = sleepNoRollSec;
+    if (lastRollTime != null) {
+      _lastRollDetectedAt = DateTime.fromMillisecondsSinceEpoch(
+        (lastRollTime * 1000).toInt(),
+      );
+    }
+    if (sleepState == 'sleepNormal') {
+      _sleepState = PetBehaviorState.sleepNormal;
+    } else if (sleepState == 'sleepAbnormal') {
+      _sleepState = PetBehaviorState.sleepAbnormal;
+    } else {
+      _sleepState = null;
+    }
+  }
+
   void disconnectDevice() {
-    // 停止 BLE 数据流，取消订阅，UI 显示设备离线状态
+    _serverApi.stop();
     _ble.stop();
     _bleSub?.cancel();
     _deviceConnected = false;
@@ -303,11 +461,17 @@ class PetHealthProvider extends ChangeNotifier {
   // 硬件传来的是【累计值】，需要计算差值后再做行为判断
   void _onPacket(BlePacket rawPacket) {
     _battery = rawPacket.battery;
+    _rssi    = rawPacket.rssi;
 
     // 计算本5秒增量（差值包）
-    final delta = _latestPacket != null
-        ? BlePacket.deltaFrom(rawPacket, _latestPacket!)
-        : rawPacket;
+    // 第一包（_latestPacket==null）是累计值，无法计算差值，直接丢弃并记录基准
+    if (_latestPacket == null) {
+      _latestPacket = rawPacket; // 仅记录基准，不做状态判断
+      _battery = rawPacket.battery;
+      notifyListeners();
+      return;
+    }
+    final delta = BlePacket.deltaFrom(rawPacket, _latestPacket!);
     _latestPacket = rawPacket;
     _deltaPacket  = delta;
 
@@ -532,10 +696,10 @@ class PetHealthProvider extends ChangeNotifier {
   bool _shiverAlertFired = false;
 
   // ── 状态C（应激频繁）─────────────────────────────────────────────────────
-  // 生产值：阈值8次 / 冷却60分钟（与临床焦虑指标对齐）
-  // 测试值：阈值3次 / 冷却2分钟（快速触发验证通知）
-  static final int kStressFreqThreshold      = kDebugMode ? 3  : 8;
-  static final int kStressFreqCooldownMinutes = kDebugMode ? 2  : 60;
+  // 生产值：阈值10次 / 冷却60分钟（与技术文档v2.0对齐）
+  // 测试值：阈值3次 / 冷却15分钟（快速触发验证通知）
+  static final int kStressFreqThreshold      = kDebugMode ? 3  : 10;  // 测试值:3 | 生产值:10
+  static final int kStressFreqCooldownMinutes = kDebugMode ? 15 : 60;  // 测试值:15 | 生产值:60
   final List<DateTime> _stressEventTimestamps = [];
   DateTime? _stressFreqLastFiredAt;
 
@@ -554,23 +718,36 @@ class PetHealthProvider extends ChangeNotifier {
   bool _lethargyAlertFired = false;
   DateTime? _lethargyAlertDate;
 
-  // ── E1/E2 睡眠质量判断（App 层逻辑）────────────────────────────────────────
-  // 判断规则（基于 calm 基础 + roll_c 窗口）：
-  //   E1 sleepNormal  ：calm 状态下，kSleepWindowSeconds 内有 roll_c 增量 → 正常翻身
-  //   E2 sleepAbnormal：calm 状态下，连续超过 kSleepAbnormalThreshold 秒
-  //                      roll_c 和 str_c 均为0 → 异常昏睡，触发 sleep_abnormal 告警
-  //
-  // 生产值：7200 秒（2小时无翻身才算异常，符合犬类深度睡眠周期）
-  // 测试值：600 秒（10分钟快速验证 E2 状态和告警）
-  static final int kSleepAbnormalThreshold = kDebugMode ? 600  : 7200;
-  static const  int kSleepWindowSeconds    = 7200; // 观察窗口始终2小时（无需测试值）
+  // ── 活动量偏低（今日累计玩耍时间 < 阈值）──────────────────────────────────
+  // 生产值：30 分钟（1800秒）；调试值：2 分钟（120秒，便于快速测试）
+  static final int kMinPlaySeconds = kDebugMode ? 120 : 1800;
+  bool _activityLowAlertFired = false; // 每天只触发一次
 
-  // 连续无翻身/无应激的秒数（calm 状态下累计）
+  // ── E1/E2 睡眠质量判断（App 层逻辑）────────────────────────────────────────
+  // 新判断规则（2026-05-05 修订）：
+  //   第一步：calm 持续 ≥ kSleepEntryThreshold（30分钟）→ 进入睡眠状态
+  //           calm 持续 < kSleepEntryThreshold          → 显示 calm（平静休息）
+  //   第二步（已入睡后）：
+  //     E1 sleepNormal  ：睡眠中检测到翻身（roll_c 增量）→ 正常睡眠
+  //     E2 sleepAbnormal：睡眠中连续 kSleepAbnormalThreshold 秒无翻身 → 异常昏睡
+  //
+  // 翻身在 calm（未入睡）阶段不触发睡眠判断，只在入睡后才有意义
+  //
+  // 生产值：kSleepEntryThreshold = 1800秒（30分钟）
+  //         kSleepAbnormalThreshold = 7200秒（2小时无翻身）
+  // 测试值：kSleepEntryThreshold = 120秒（2分钟快速验证入睡）
+  //         kSleepAbnormalThreshold = 600秒（10分钟快速验证异常）
+  static final int kSleepEntryThreshold    = kDebugMode ? 120  : 1800; // calm多久算入睡
+  static final int kSleepAbnormalThreshold = kDebugMode ? 600  : 7200; // 入睡后多久无翻身算异常
+
+  // calm 状态连续秒数（用于判断是否达到入睡阈值）
+  int _continuousCalmSeconds        = 0;
+  // 入睡后连续无翻身秒数（用于判断 E2）
   int _continuousSleepNoRollSeconds = 0;
-  // 最近一次 roll_c 增量的时间（用于判断 E1/E2）
+  // 最近一次 roll_c 增量的时间
   DateTime? _lastRollDetectedAt;
   // 已确认的睡眠状态（由 Provider 计算，覆盖 BlePacket 的 calm）
-  PetBehaviorState? _sleepState; // null = 不处于睡眠状态
+  PetBehaviorState? _sleepState; // null = 不处于睡眠状态（显示 calm）
   bool _sleepAbnormalAlertFired = false;
 
   /// 供 UI 读取：当前完整的已确认行为状态（含 E1/E2 睡眠细分）
@@ -608,8 +785,9 @@ class PetHealthProvider extends ChangeNotifier {
   int _todayShiverSeconds        = 0; // 状态D：发抖
   int _todaySleepNormalSeconds   = 0; // 状态E1：正常睡眠
   int _todaySleepAbnormalSeconds = 0; // 状态E2：异常昏睡
-  int _todayLethargySeconds      = 0; // 状态F：昏睡/静止（旧字段保留兼容）
-  DateTime _todayStatsDate       = DateTime.now(); // 当前统计日期，跨天时重置
+  int _todayCalmSeconds          = 0; // 状态F：平静（未入睡的calm）
+  int _todayLethargySeconds      = 0; // 旧字段保留兼容
+  DateTime _todayStatsDate       = DateTime.now();
 
   // 供 UI 和每日总结读取
   int get todayPacingSeconds        => _todayPacingSeconds;
@@ -618,7 +796,8 @@ class PetHealthProvider extends ChangeNotifier {
   int get todayShiverSeconds        => _todayShiverSeconds;
   int get todaySleepNormalSeconds   => _todaySleepNormalSeconds;
   int get todaySleepAbnormalSeconds => _todaySleepAbnormalSeconds;
-  /// 兼容旧字段：返回正常睡眠时长（原 todaySleepSeconds）
+  int get todayCalmSeconds          => _todayCalmSeconds;
+  /// 兼容旧字段
   int get todaySleepSeconds         => _todaySleepNormalSeconds;
   int get todayLethargySeconds      => _todayLethargySeconds;
 
@@ -640,37 +819,39 @@ class PetHealthProvider extends ChangeNotifier {
     const int samplingInterval = 5;
     final rawState = packet.behaviorState; // BlePacket 层状态（无睡眠细分）
 
-    // ── E1/E2 睡眠状态判断（App 层逻辑）──────────────────────────────────
-    // 仅当 BlePacket 判断为 calm（静止）时运行睡眠计时器
-    // 有 roll_c 增量 → 重置计时器 + 标记为正常睡眠
-    // 连续无 roll_c/str_c → 超阈值后标记为异常昏睡并触发告警
+    // ── E1/E2 睡眠状态判断（App 层逻辑，2026-05-05 修订）──────────────
+    // 第一步：calm 持续 ≥ 30分钟 才进入睡眠状态
+    // 第二步：已入睡后，翻身 → sleepNormal，无翻身≥2小时 → sleepAbnormal
     if (rawState == PetBehaviorState.calm) {
-      if (packet.rollC > 0 || packet.strC > 0) {
-        // 检测到翻身或应激 → 有活动信号，重置异常计时器，标为正常睡眠
+      _continuousCalmSeconds += samplingInterval;
+
+      if (_continuousCalmSeconds < kSleepEntryThreshold) {
+        // calm 时间不足30分钟 → 仍是平静状态，不判断睡眠
+        _sleepState = null;
         _continuousSleepNoRollSeconds = 0;
-        _lastRollDetectedAt = now;
-        _sleepState = PetBehaviorState.sleepNormal;
-        _sleepAbnormalAlertFired = false;
       } else {
-        // 无活动信号 → 累加无翻身静止时长
-        _continuousSleepNoRollSeconds += samplingInterval;
-        // 判断是否超过异常阈值
-        if (_continuousSleepNoRollSeconds >= kSleepAbnormalThreshold) {
-          _sleepState = PetBehaviorState.sleepAbnormal;
-        } else if (_lastRollDetectedAt != null &&
-            now.difference(_lastRollDetectedAt!).inSeconds < kSleepWindowSeconds) {
-          // 2小时窗口内曾有翻身 → 正常睡眠
+        // calm 已持续 ≥ 30分钟 → 进入睡眠判断
+        if (packet.rollC > 0) {
+          // 检测到翻身 → 正常睡眠，重置昏睡计时
+          _continuousSleepNoRollSeconds = 0;
+          _lastRollDetectedAt = now;
           _sleepState = PetBehaviorState.sleepNormal;
+          _sleepAbnormalAlertFired = false;
         } else {
-          // 从未有翻身记录或窗口期外 → 暂定为平静（时间不够长，不判断异常）
-          _sleepState = (_continuousSleepNoRollSeconds >= kSleepAbnormalThreshold)
-              ? PetBehaviorState.sleepAbnormal
-              : PetBehaviorState.sleepNormal;
+          // 无翻身 → 累加昏睡计时
+          _continuousSleepNoRollSeconds += samplingInterval;
+          if (_continuousSleepNoRollSeconds >= kSleepAbnormalThreshold) {
+            _sleepState = PetBehaviorState.sleepAbnormal;
+          } else {
+            // 入睡但尚未超异常阈值 → 正常睡眠（可能还没翻身）
+            _sleepState = PetBehaviorState.sleepNormal;
+          }
         }
       }
     } else {
-      // 非 calm 状态 → 清除睡眠状态，重置计时器
+      // 非 calm 状态 → 清除睡眠状态，重置所有计时器
       _sleepState = null;
+      _continuousCalmSeconds        = 0;
       _continuousSleepNoRollSeconds = 0;
     }
 
@@ -692,11 +873,10 @@ class PetHealthProvider extends ChangeNotifier {
       case PetBehaviorState.sleepAbnormal:
         _todaySleepAbnormalSeconds += samplingInterval;
         _todayLethargySeconds      += samplingInterval; // 兼容旧字段
+      case PetBehaviorState.calm:
+        _todayCalmSeconds          += samplingInterval;
       default:
-        // calm 状态（非睡眠）
-        if (packet.activityScore < 3) {
-          _todayLethargySeconds += samplingInterval;
-        }
+        break;
     }
 
     // 今日应激事件独立计数（用于每日总结，不受1小时窗口影响）
@@ -846,14 +1026,19 @@ class PetHealthProvider extends ChangeNotifier {
     }
 
     // ── 兜底：活动量偏低（低优先级，不覆盖高优先级预警）────────────────
+    // 触发条件：下午 17:00~18:00 窗口内，今日累计玩耍时间 < kMinPlaySeconds
+    // 每天只触发一次，防止反复弹出
     const highPriorityAlerts = ['shiver', 'stress_frequent', 'lethargy', 'pacing_long', 'sleep_abnormal'];
-    if (packet.activityScore < 10 && isDaytime) {
-      if (!_hasAlert || _alertType == 'activity') {
-        if (!highPriorityAlerts.contains(_alertType)) {
-          _hasAlert = true;
-          _alertType = 'activity';
-          _alertMessage = '⚠️ ${_pet.name} 今日活动量偏低';
-        }
+    final isActivityCheckWindow = now.hour == 17; // 17:00~17:59 检查
+    if (isActivityCheckWindow && !_activityLowAlertFired &&
+        _todayPlaySeconds < kMinPlaySeconds) {
+      if (!highPriorityAlerts.contains(_alertType)) {
+        final minNeeded = kMinPlaySeconds ~/ 60;
+        final minActual = _todayPlaySeconds ~/ 60;
+        _hasAlert = true;
+        _alertType = 'activity';
+        _activityLowAlertFired = true;
+        _alertMessage = '⚠️ ${_pet.name} 今日玩耍时间仅 ${minActual} 分钟，建议至少 ${minNeeded} 分钟';
       }
     }
   }
@@ -870,6 +1055,7 @@ class PetHealthProvider extends ChangeNotifier {
       _todayShiverSeconds        = 0;
       _todaySleepNormalSeconds   = 0;
       _todaySleepAbnormalSeconds = 0;
+      _todayCalmSeconds          = 0;
       _todayLethargySeconds      = 0;
       _todayStressEventCount     = 0; // 应激日计数器一并清零
       _todayStatsDate            = now;
@@ -878,6 +1064,7 @@ class PetHealthProvider extends ChangeNotifier {
       _continuousShiverSeconds   = 0;
       _continuousLethargySecs    = 0;
       _continuousPacingSeconds   = 0;
+      _activityLowAlertFired     = false; // 新的一天重置活动量检查
       // 重置睡眠状态
       _continuousSleepNoRollSeconds = 0;
       _sleepAbnormalAlertFired   = false;
@@ -1059,8 +1246,14 @@ class PetHealthProvider extends ChangeNotifier {
   PetHealthProvider() {
     _stressChartData = generateDailyStressChart(); // 生成 14 天 Demo 压力曲线（登录后会被云端数据覆盖）
     if (kDebugMode) _seedHistoricalSessions();      // ⚠️ 仅 Debug 模式注入 Demo 数据，生产包不执行
-    connectDevice();                                // 启动 BLE 模拟数据流
+    _initAndConnect();                              // 加载已保存服务器地址后再连接
     _startDailySummaryTimer();                      // 启动每日健康总结定时器
+  }
+
+  /// 启动时先加载持久化的服务器地址，再连接设备
+  Future<void> _initAndConnect() async {
+    await _serverApi.loadSavedConfig();   // 读取上次保存的 IP
+    connectDevice();
   }
 
   // ── P1-3：每日健康总结定时器 ─────────────────────────────────────────────
@@ -1124,6 +1317,37 @@ class PetHealthProvider extends ChangeNotifier {
   /// 生产环境通过 _startDailySummaryTimer 每天 20:00 自动触发
   void triggerDailySummaryForTest() {
     _triggerDailySummary();
+  }
+
+  // ── 调试面板：状态/通知注入 ───────────────────────────────────────────────
+
+  /// 宠物名称（供调试面板显示）
+  String get petName => _pet.name;
+
+  /// currentBehaviorState 别名（供调试面板使用）
+  PetBehaviorState get currentBehaviorState => currentBehavior;
+
+  /// 直接注入行为状态（调试用，绕过正常的包处理逻辑）
+  void injectStateForTest(PetBehaviorState state) {
+    _confirmedState = state;
+    _pendingState   = state;
+    _pendingStateCount = 0;
+    // 睡眠状态特殊处理
+    if (state == PetBehaviorState.sleepNormal || state == PetBehaviorState.sleepAbnormal) {
+      _sleepState = state;
+    } else {
+      _sleepState = null;
+    }
+    notifyListeners();
+  }
+
+  /// 直接注入告警（调试用）
+  void injectAlertForTest({required String type, required String message}) {
+    _hasAlert     = true;
+    _alertType    = type;
+    _alertMessage = message;
+    onAlertNotification?.call(type, '调试告警', message);
+    notifyListeners();
   }
 
   // 注入 Demo 历史数据（喂食记录 + 健康日志），让未登录 / 首次登录时图表有内容展示

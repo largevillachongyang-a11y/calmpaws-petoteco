@@ -6,6 +6,8 @@ import '../../providers/locale_provider.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pet/health_calendar_card.dart';
+import '../setup/wifi_provision_screen.dart';
+import '../../services/wifi_config_service.dart';
 
 class PetScreen extends StatelessWidget {
   const PetScreen({super.key});
@@ -144,8 +146,24 @@ class PetScreen extends StatelessWidget {
     );
   }
 
+  /// RSSI → 信号强度文字
+  String _rssiLabel(int rssi, dynamic s) {
+    if (rssi >= -60) return s.petSignalGood;        // 强
+    if (rssi >= -75) return '一般';                 // 中
+    return '较弱';                                  // 弱
+  }
+
+  /// RSSI → 图标
+  IconData _rssiIcon(int rssi) {
+    if (rssi >= -60) return Icons.signal_wifi_4_bar_rounded;
+    if (rssi >= -75) return Icons.network_wifi_2_bar_rounded;
+    return Icons.network_wifi_1_bar_rounded;
+  }
+
   Widget _buildDeviceSection(BuildContext context, PetHealthProvider provider, dynamic s) {
     final connected = provider.deviceConnected;
+    final srvStatus  = provider.serverConnectionStatus; // connected/error/connecting/disconnected
+    final rssi       = provider.rssi;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(20),
@@ -161,7 +179,7 @@ class PetScreen extends StatelessWidget {
             children: [
               const Text('📡', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
-              Text(s.petDevice, style: AppTextStyles.headlineSmall),
+              Text('CalmPaws 项圈', style: AppTextStyles.headlineSmall),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -183,79 +201,69 @@ class PetScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _DeviceStat(label: s.petBattery, value: '${provider.battery}%', icon: Icons.battery_4_bar_rounded)),
+              Expanded(child: _DeviceStat(
+                label: s.petBattery,
+                value: connected ? '${provider.battery}%' : '--',
+                icon: connected && provider.battery > 20
+                    ? Icons.battery_4_bar_rounded
+                    : connected
+                        ? Icons.battery_alert_rounded
+                        : Icons.battery_unknown_rounded,
+                iconColor: connected && provider.battery <= 20
+                    ? AppColors.alertRed : null,
+              )),
               const SizedBox(width: 12),
-              Expanded(child: _DeviceStat(label: s.petSignal, value: s.petSignalGood, icon: Icons.bluetooth_rounded)),
+              // 信号：根据 RSSI 动态显示
+              Expanded(child: _DeviceStat(
+                label: s.petSignal,
+                value: connected ? _rssiLabel(rssi, s) : '--',
+                icon: connected ? _rssiIcon(rssi) : Icons.signal_wifi_off_rounded,
+                subtitle: connected ? '$rssi dBm' : null,
+              )),
               const SizedBox(width: 12),
-              Expanded(child: _DeviceStat(label: s.petSync, value: s.petSyncLive, icon: Icons.sync_rounded)),
+              // 同步状态：根据 serverConnectionStatus 动态显示
+              Expanded(child: _DeviceStat(
+                label: s.petSync,
+                value: switch (srvStatus) {
+                  'connected'    => s.petSyncLive,
+                  'connecting'   => '连接中',
+                  'error'        => 'Error',
+                  _              => '离线',
+                },
+                icon: switch (srvStatus) {
+                  'connected'    => Icons.sync_rounded,
+                  'connecting'   => Icons.sync_problem_rounded,
+                  'error'        => Icons.sync_disabled_rounded,
+                  _              => Icons.sync_disabled_rounded,
+                },
+                iconColor: srvStatus == 'error' ? AppColors.alertRed : null,
+              )),
             ],
           ),
           const SizedBox(height: 16),
-          // 焦虑模拟滑块（演示专用）
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(s.petAnxietySlider, style: AppTextStyles.labelMedium),
-                  ),
-                  // 演示徽章
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.warmOrangeLight,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      s.petDemoTag,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.warmOrange),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${(provider.anxietyLevel * 100).round()}%',
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.warmOrange,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(s.petAnxietySliderDesc, style: AppTextStyles.bodySmall),
-              const SizedBox(height: 2),
-              Text(
-                s.petAnxietySliderHint,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textMuted,
-                  fontStyle: FontStyle.italic,
-                  fontSize: 11,
-                ),
-              ),
-              SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: AppColors.warmOrange,
-                  inactiveTrackColor: AppColors.warmOrangeLight,
-                  thumbColor: AppColors.warmOrange,
-                  overlayColor: AppColors.warmOrange.withValues(alpha: 0.2),
-                ),
-                child: Slider(
-                  value: provider.anxietyLevel,
-                  onChanged: (v) => provider.anxietyLevel = v,
-                  min: 0,
-                  max: 1,
-                ),
-              ),
-            ],
-          ),
+          // 演示滑块已迁移到调试面板（我的页面长按版本号）
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: connected ? provider.disconnectDevice : provider.connectDevice,
+              onPressed: connected
+                  ? provider.disconnectDevice
+                  : () async {
+                      // 已有保存的IP → 直接重连，不进配网向导
+                      // 首次使用（IP为空）→ 进配网向导
+                      final savedUrl = WifiConfigService().serverUrl;
+                      if (savedUrl.isNotEmpty) {
+                        provider.connectDevice();
+                      } else {
+                        await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => const WifiProvisionScreen(),
+                          ),
+                        );
+                      }
+                    },
               icon: Icon(
-                connected ? Icons.bluetooth_disabled_rounded : Icons.bluetooth_rounded,
+                connected ? Icons.bluetooth_disabled_rounded : Icons.wifi_rounded,
                 size: 18,
               ),
               label: Text(connected ? s.petDisconnect : s.petConnectBtn),
@@ -328,19 +336,32 @@ class _DeviceStat extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  const _DeviceStat({required this.label, required this.value, required this.icon});
+  final String? subtitle;   // 副标题（如 "-65 dBm"）
+  final Color? iconColor;   // 覆盖图标颜色（如 error 时红色）
+  const _DeviceStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.subtitle,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final color = iconColor ?? AppColors.sageGreen;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(10)),
       child: Column(
         children: [
-          Icon(icon, color: AppColors.sageGreen, size: 20),
+          Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
-          Text(value, style: AppTextStyles.headlineSmall.copyWith(fontSize: 16, color: AppColors.sageGreen)),
+          Text(value, style: AppTextStyles.headlineSmall.copyWith(fontSize: 16, color: color)),
           Text(label, style: AppTextStyles.labelSmall, textAlign: TextAlign.center),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(subtitle!, style: AppTextStyles.labelSmall.copyWith(fontSize: 10, color: AppColors.textMuted)),
+          ],
         ],
       ),
     );

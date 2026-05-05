@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../providers/locale_provider.dart';
+import '../../providers/pet_health_provider.dart';
 import '../../screens/main_nav_screen.dart';
 import '../../theme/app_theme.dart';
 
@@ -470,6 +470,8 @@ class _AuthScreenState extends State<AuthScreen>
                     _buildDivider(s.authOr),
                     const SizedBox(height: 14),
                     _buildGoogleButton(s),
+                    const SizedBox(height: 12),
+                    _buildDemoButton(),
                   ],
 
                   const SizedBox(height: 20),
@@ -688,5 +690,44 @@ class _AuthScreenState extends State<AuthScreen>
         ],
       ),
     );
+  }
+
+  // ── 演示模式按钮 ──────────────────────────────────────────────────────────
+  Widget _buildDemoButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _loading ? null : _enterDemoMode,
+        icon: const Text('🐾', style: TextStyle(fontSize: 16)),
+        label: const Text(
+          '演示模式  无需登录',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.sageGreen,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: const BorderSide(color: AppColors.sageGreen, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          backgroundColor: AppColors.sageMuted,
+        ),
+      ),
+    );
+  }
+
+  // ── 进入演示模式 ──────────────────────────────────────────────────────────
+  Future<void> _enterDemoMode() async {
+    // 加载演示数据到 Provider
+    context.read<PetHealthProvider>().loadDemoData();
+    // 直接跳转主页，不走 Firebase 认证
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavScreen()),
+      );
+    }
   }
 }

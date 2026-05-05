@@ -244,11 +244,12 @@ class _TodayStatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      _DetailItem('😰', isZh ? '踱步' : 'Pacing',    _fmtSecs(provider.todayPacingSeconds)),
-      _DetailItem('😣', isZh ? '应激' : 'Stress',    _fmtSecs(provider.todayStressSeconds)),
-      _DetailItem('🫨', isZh ? '发抖' : 'Shiver',    _fmtSecs(provider.todayShiverSeconds)),
-      _DetailItem('🎾', isZh ? '玩耍' : 'Play',      _fmtSecs(provider.todayPlaySeconds)),
-      _DetailItem('😴', isZh ? '正常睡眠' : 'Sleep',  _fmtSecs(provider.todaySleepNormalSeconds)),
+      _DetailItem('😌', isZh ? '平静' : 'Calm',       _fmtSecs(provider.todayCalmSeconds)),
+      _DetailItem('😰', isZh ? '踱步' : 'Pacing',     _fmtSecs(provider.todayPacingSeconds)),
+      _DetailItem('😣', isZh ? '应激' : 'Stress',     _fmtSecs(provider.todayStressSeconds)),
+      _DetailItem('🫨', isZh ? '发抖' : 'Shiver',     _fmtSecs(provider.todayShiverSeconds)),
+      _DetailItem('🎾', isZh ? '玩耍' : 'Play',       _fmtSecs(provider.todayPlaySeconds)),
+      _DetailItem('😴', isZh ? '正常睡眠' : 'Sleep',   _fmtSecs(provider.todaySleepNormalSeconds)),
       _DetailItem('⚠️', isZh ? '异常昏睡' : 'Lethargy', _fmtSecs(provider.todaySleepAbnormalSeconds)),
     ];
 

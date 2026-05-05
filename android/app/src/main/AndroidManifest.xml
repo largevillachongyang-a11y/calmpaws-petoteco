@@ -6,7 +6,7 @@
     <!-- 精确定时权限（用于定时日报通知，Android 12+ 需声明）-->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
-        android:label="Petoteco"
+        android:label="Calm Paws"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -49,3 +49,4 @@
         </intent>
     </queries>
 </manifest>
+
