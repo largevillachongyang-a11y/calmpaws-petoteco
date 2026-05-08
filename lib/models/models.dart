@@ -29,24 +29,24 @@
 ///     "pace_d":10, "play_d":5, "roll_c":1, "battery":82, "rssi":-65 }
 class BlePacket {
   final int timestamp;
-  final int strC;    // stress count (应激次数)
-  final int strD;    // stress duration seconds (应激持续秒)
-  final int shivC;   // shiver count (发抖次数)
-  final int shivD;   // shiver duration seconds (发抖持续秒)
-  final int paceD;   // pacing duration seconds (踱步持续秒)
-  final int playD;   // play duration seconds (玩耍持续秒)
-  final int rollC;   // roll count (打滚次数)
+  final int strC;       // stress count (应激次数)
+  final double strD;    // stress duration seconds (应激持续秒，服务器返回float如4.5)
+  final int shivC;      // shiver count (发抖次数)
+  final double shivD;   // shiver duration seconds (发抖持续秒，服务器返回float)
+  final double paceD;   // pacing duration seconds (踱步持续秒，服务器返回float如3.5)
+  final double playD;   // play duration seconds (玩耍持续秒，服务器返回float)
+  final int rollC;      // roll count (打滚次数)
   final int battery; // battery percentage
   final int rssi;    // BLE signal strength
 
   const BlePacket({
     required this.timestamp,
     required this.strC,
-    required this.strD,
+    required this.strD,    // double
     required this.shivC,
-    required this.shivD,
-    required this.paceD,
-    required this.playD,
+    required this.shivD,   // double
+    required this.paceD,   // double
+    required this.playD,   // double
     required this.rollC,
     required this.battery,
     required this.rssi,
@@ -56,11 +56,11 @@ class BlePacket {
     return BlePacket(
       timestamp: (json['timestamp'] as num).toInt(),
       strC: (json['str_c'] as num).toInt(),
-      strD: (json['str_d'] as num).toInt(),
+      strD: (json['str_d'] as num).toDouble(),
       shivC: (json['shiv_c'] as num).toInt(),
-      shivD: (json['shiv_d'] as num).toInt(),
-      paceD: (json['pace_d'] as num).toInt(),
-      playD: (json['play_d'] as num).toInt(),
+      shivD: (json['shiv_d'] as num).toDouble(),
+      paceD: (json['pace_d'] as num).toDouble(),
+      playD: (json['play_d'] as num).toDouble(),
       rollC: (json['roll_c'] as num).toInt(),
       battery: (json['battery'] as num).toInt(),
       rssi: (json['rssi'] as num).toInt(),
@@ -74,11 +74,11 @@ class BlePacket {
     return BlePacket(
       timestamp: current.timestamp,
       strC:  (current.strC  - previous.strC ).clamp(0, 999),
-      strD:  (current.strD  - previous.strD ).clamp(0, 999),
+      strD:  (current.strD  - previous.strD ).clamp(0.0, 999.0),
       shivC: (current.shivC - previous.shivC).clamp(0, 999),
-      shivD: (current.shivD - previous.shivD).clamp(0, 999),
-      paceD: (current.paceD - previous.paceD).clamp(0, 999),
-      playD: (current.playD - previous.playD).clamp(0, 999),
+      shivD: (current.shivD - previous.shivD).clamp(0.0, 999.0),
+      paceD: (current.paceD - previous.paceD).clamp(0.0, 999.0),
+      playD: (current.playD - previous.playD).clamp(0.0, 999.0),
       rollC: (current.rollC - previous.rollC).clamp(0, 999),
       battery: current.battery,
       rssi: current.rssi,
@@ -129,10 +129,10 @@ class BlePacket {
     //   strD  × 1， 上限10：应激时长，同 strC 降低权重
     // ⚠️ 暂定值，待真实数据验证后调整
     int score = 0;
-    score += (strC * 10).clamp(0, 20);   // 应激次数 ×10，上限20
-    score += (paceD * 3).clamp(0, 30);   // 踱步时长 ×3，上限30
-    score += (shivD * 6).clamp(0, 40);   // 发抖时长 ×6，上限40（最可靠）
-    score += (strD * 1).clamp(0, 10);    // 应激时长 ×1，上限10
+    score += (strC * 10).clamp(0, 20);                  // 应激次数 ×10，上限20
+    score += (paceD * 3).clamp(0.0, 30.0).toInt();      // 踱步时长 ×3，上限30
+    score += (shivD * 6).clamp(0.0, 40.0).toInt();      // 发抖时长 ×6，上限40（最可靠）
+    score += (strD * 1).clamp(0.0, 10.0).toInt();       // 应激时长 ×1，上限10
     return score.clamp(0, 100);
   }
 
@@ -140,9 +140,9 @@ class BlePacket {
   /// ⚠️ 必须传入差值包
   int get activityScore {
     int score = 0;
-    score += (playD * 10).clamp(0, 60);  // 玩耍每秒 +10分，上限60
-    score += (rollC * 10).clamp(0, 30);  // 打滚每次 +10分，上限30
-    score += (strC * 3).clamp(0, 10);    // 轻微应激也算活跃
+    score += (playD * 10).clamp(0.0, 60.0).toInt();  // 玩耍每秒 +10分，上限60
+    score += (rollC * 10).clamp(0, 30);               // 打滚每次 +10分，上限30
+    score += (strC * 3).clamp(0, 10);                 // 轻微应激也算活跃
     return score.clamp(0, 100);
   }
 }

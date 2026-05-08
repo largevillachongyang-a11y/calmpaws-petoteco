@@ -226,13 +226,13 @@ class ServerApiService {
       return BlePacket(
         timestamp: _parseInt(data['timestamp']) ?? 
                    (DateTime.now().millisecondsSinceEpoch ~/ 1000),
-        strC:  _parseInt(data['str_c'])  ?? 0,
-        strD:  _parseInt(data['str_d'])  ?? 0,
-        shivC: _parseInt(data['shiv_c']) ?? 0,
-        shivD: _parseInt(data['shiv_d']) ?? 0,
-        paceD: _parseInt(data['pace_d']) ?? 0,
-        playD: _parseInt(data['play_d']) ?? 0,
-        rollC: _parseInt(data['roll_c']) ?? 0,
+        strC:  _parseInt(data['str_c'])   ?? 0,
+        strD:  _parseDouble(data['str_d']) ?? 0.0,   // 服务器返回float如4.5，不能截断
+        shivC: _parseInt(data['shiv_c'])   ?? 0,
+        shivD: _parseDouble(data['shiv_d']) ?? 0.0,  // 服务器返回float
+        paceD: _parseDouble(data['pace_d']) ?? 0.0,  // 关键：3.5s截成3会导致paceD>3判断失败
+        playD: _parseDouble(data['play_d']) ?? 0.0,  // 服务器返回float
+        rollC: _parseInt(data['roll_c'])   ?? 0,
         battery: _parseInt(data['battery']) ?? 100,
         rssi: _parseInt(data['rssi']) ?? -70,
       );
@@ -247,6 +247,17 @@ class ServerApiService {
     if (v is int) return v;
     if (v is double) return v.toInt();
     if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  /// 解析服务器返回的 float 字段（str_d / shiv_d / pace_d / play_d）
+  /// 服务器 algorithm.py 用 round(x, 1) 返回如 4.5、3.5 等小数
+  /// 不能用 _parseInt 否则 3.5 → 3，导致 paceD > 3 判断失败
+  double? _parseDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is double) return v;
+    if (v is int) return v.toDouble();
+    if (v is String) return double.tryParse(v);
     return null;
   }
 
