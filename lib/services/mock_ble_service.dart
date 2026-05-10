@@ -52,11 +52,11 @@ class MockBleService {
   // ── 累计计数器（模拟真实硬件，自启动后单调递增）──────────────────────────
   // 真实硬件：Arduino 中 shivering_count / stress_count 等从不清零
   int _cumStrC  = 0;  // 累计应激次数
-  int _cumStrD  = 0;  // 累计应激持续秒
+  double _cumStrD  = 0;  // 累计应激持续秒
   int _cumShivC = 0;  // 累计发抖次数
-  int _cumShivD = 0;  // 累计发抖持续秒
-  int _cumPaceD = 0;  // 累计踱步持续秒
-  int _cumPlayD = 0;  // 累计玩耍持续秒
+  double _cumShivD = 0;  // 累计发抖持续秒
+  double _cumPaceD = 0;  // 累计踱步持续秒
+  double _cumPlayD = 0;  // 累计玩耍持续秒
   int _cumRollC = 0;  // 累计打滚次数
 
   bool get deviceConnected => _deviceConnected;
@@ -78,8 +78,8 @@ class MockBleService {
 
   /// 重置累计计数器（模拟设备重启/重连场景）
   void resetCumulativeCounters() {
-    _cumStrC = _cumStrD = _cumShivC = _cumShivD = 0;
-    _cumPaceD = _cumPlayD = _cumRollC = 0;
+    _cumStrC = 0; _cumStrD = 0; _cumShivC = 0; _cumShivD = 0;
+    _cumPaceD = 0; _cumPlayD = 0; _cumRollC = 0;
   }
 
   void dispose() {

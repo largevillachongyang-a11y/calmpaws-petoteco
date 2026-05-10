@@ -307,4 +307,53 @@ class ServerApiService {
       return false;
     }
   }
+
+  // ── 物种设置 ───────────────────────────────────────────────────────────────
+
+  /// 通知服务器当前宠物物种，服务器据此下发对应的 sample_rate
+  ///
+  /// POST /api/set_species
+  /// Body: { "device_id": "collar_001", "species": "cat" | "dog" }
+  /// 成功返回 { "status": "ok", "species": "cat", "sample_rate": 26 }
+  ///
+  /// 物种 → 采样率对应关系（V7.3 固件）：
+  ///   dog → 26 Hz（IMU 高频，适合跑步/跳跃等大幅运动）
+  ///   cat → 26 Hz（猫咪步态分析，与狗相同，服务器可按需调整）
+  ///
+  /// 返回值：
+  ///   null → 请求成功
+  ///   String → 错误描述（网络失败 / 服务器返回非 200）
+  Future<String?> setSpecies(String species) async {
+    try {
+      final resp = await http.post(
+        Uri.parse('$_baseUrl/api/set_species'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'device_id': _deviceId,
+          'species': species,
+        }),
+      ).timeout(_httpTimeout);
+
+      if (resp.statusCode == 200) {
+        if (kDebugMode) {
+          final body = jsonDecode(resp.body);
+          debugPrint('[ServerAPI] set_species 成功：species=$species '
+              'sample_rate=${body['sample_rate']}');
+        }
+        return null; // 成功
+      } else {
+        final msg = 'set_species 失败：HTTP ${resp.statusCode}';
+        if (kDebugMode) debugPrint('[ServerAPI] $msg');
+        return msg;
+      }
+    } on TimeoutException {
+      const msg = 'set_species 超时';
+      if (kDebugMode) debugPrint('[ServerAPI] $msg');
+      return msg;
+    } catch (e) {
+      final msg = 'set_species 异常：$e';
+      if (kDebugMode) debugPrint('[ServerAPI] $msg');
+      return msg;
+    }
+  }
 }

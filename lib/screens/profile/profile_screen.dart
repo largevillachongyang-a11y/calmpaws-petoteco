@@ -522,6 +522,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool statusOk = false;
 
     showDialog(
+      barrierColor: Colors.black54, // ← 修复蓝色蒙版：显式设置遮罩为纯黑，覆盖 Material3 默认蓝紫色
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(

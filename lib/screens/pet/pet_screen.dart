@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/pet/health_calendar_card.dart';
 import '../setup/wifi_provision_screen.dart';
 import '../../services/wifi_config_service.dart';
+import '../../services/server_api_service.dart';
 
 class PetScreen extends StatelessWidget {
   const PetScreen({super.key});
@@ -27,6 +28,8 @@ class PetScreen extends StatelessWidget {
             SliverToBoxAdapter(child: _buildHeader(context, pet, provider, s)),
             SliverToBoxAdapter(child: _buildHealthTags(pet, s)),
             SliverToBoxAdapter(child: _buildDeviceSection(context, provider, s)),
+            // ── 物种选择卡片（选猫/狗后立即通知服务器切换采样率）─────────────
+            SliverToBoxAdapter(child: _SpeciesCard(pet: pet, provider: provider)),
             // 健康日历融合视图（传感器 + 主人记录，数据分层不合并）
             const SliverToBoxAdapter(child: HealthCalendarCard()),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -363,6 +366,267 @@ class _DeviceStat extends StatelessWidget {
             Text(subtitle!, style: AppTextStyles.labelSmall.copyWith(fontSize: 10, color: AppColors.textMuted)),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 物种选择卡片 — 用户选猫/狗后立即 POST /api/set_species 通知服务器
+// 服务器收到后在下次心跳中下发对应的 sample_rate，项圈切换 IMU 采样率
+// ─────────────────────────────────────────────────────────────────────────────
+class _SpeciesCard extends StatefulWidget {
+  final PetProfile pet;
+  final PetHealthProvider provider;
+
+  const _SpeciesCard({required this.pet, required this.provider});
+
+  @override
+  State<_SpeciesCard> createState() => _SpeciesCardState();
+}
+
+class _SpeciesCardState extends State<_SpeciesCard> {
+  bool _syncing = false; // 正在同步中（显示加载动画）
+
+  Future<void> _selectSpecies(String species) async {
+    if (_syncing || species == widget.pet.species) return;
+
+    setState(() => _syncing = true);
+
+    // 步骤1：本地更新（立即刷新 UI）
+    final newPet = widget.pet.copyWith(species: species);
+    widget.provider.updatePetLocal(newPet);
+
+    // 步骤2：后台并发执行 —— 通知服务器 + 同步云端
+    final apiResult = await ServerApiService().setSpecies(species);
+
+    if (mounted) setState(() => _syncing = false);
+
+    // 步骤3：后台同步 Firestore（不阻塞 UI）
+    widget.provider.syncPetToCloud();
+
+    // 步骤4：显示结果 SnackBar
+    if (mounted) {
+      final isZh = context.read<LocaleProvider>().isZh;
+      final speciesName = isZh
+          ? (species == 'dog' ? '狗狗 🐕' : '猫咪 🐈')
+          : (species == 'dog' ? 'Dog 🐕' : 'Cat 🐈');
+
+      if (apiResult == null) {
+        // 成功
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isZh
+              ? '✅ 已切换为$speciesName，项圈采样率将在下次心跳同步'
+              : '✅ Switched to $speciesName — sample rate will sync on next heartbeat'),
+          backgroundColor: AppColors.sageGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 3),
+        ));
+      } else {
+        // 失败（网络问题），但本地已更新，提示用户
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isZh
+              ? '⚠️ 本地已保存$speciesName，服务器同步失败：$apiResult'
+              : '⚠️ Saved locally as $speciesName, server sync failed: $apiResult'),
+          backgroundColor: AppColors.warningAmber,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 监听 provider 以响应物种变化（来自编辑弹窗的保存操作）
+    final pet = context.watch<PetHealthProvider>().pet;
+    final s = context.watch<LocaleProvider>().strings;
+    final isZh = context.watch<LocaleProvider>().isZh;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [BoxShadow(
+          color: AppColors.shadowColor,
+          blurRadius: 12,
+          offset: const Offset(0, 3),
+        )],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行
+          Row(
+            children: [
+              const Text('🔬', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isZh ? '宠物物种' : 'Pet Species',
+                  style: AppTextStyles.headlineSmall,
+                ),
+              ),
+              // 同步中：显示小加载圈
+              if (_syncing)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.sageGreen,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 副标题说明
+          Text(
+            isZh
+                ? '选择后 APP 会通知项圈自动切换 IMU 采样率'
+                : 'APP will notify the collar to adjust IMU sample rate',
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 16),
+          // 选择按钮行
+          Row(
+            children: [
+              Expanded(
+                child: _SpeciesButton(
+                  emoji: '🐕',
+                  label: s.petSpeciesDog,
+                  sublabel: isZh ? '高频运动检测' : 'High-motion detection',
+                  selected: pet.species == 'dog',
+                  loading: _syncing && pet.species != 'dog',
+                  onTap: _syncing ? null : () => _selectSpecies('dog'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SpeciesButton(
+                  emoji: '🐈',
+                  label: s.petSpeciesCat,
+                  sublabel: isZh ? '轻盈步态分析' : 'Light gait analysis',
+                  selected: pet.species == 'cat',
+                  loading: _syncing && pet.species != 'cat',
+                  onTap: _syncing ? null : () => _selectSpecies('cat'),
+                ),
+              ),
+            ],
+          ),
+          // 当前状态提示
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.sageMuted,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: AppColors.sageGreen,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isZh
+                        ? '当前：${pet.species == 'dog' ? '狗狗 🐕' : '猫咪 🐈'} · 切换后项圈在下次心跳（≤30s）同步'
+                        : 'Current: ${pet.species == 'dog' ? 'Dog 🐕' : 'Cat 🐈'} · Collar syncs on next heartbeat (≤30s)',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.sageGreen,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 物种选择按钮（大按钮样式，含 emoji + 名称 + 采样率说明）
+class _SpeciesButton extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String sublabel;
+  final bool selected;
+  final bool loading;
+  final VoidCallback? onTap;
+
+  const _SpeciesButton({
+    required this.emoji,
+    required this.label,
+    required this.sublabel,
+    required this.selected,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.sageMuted : AppColors.cream,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.sageGreen : AppColors.divider,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 28)),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: selected ? AppColors.sageGreen : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              sublabel,
+              style: TextStyle(
+                fontSize: 11,
+                color: selected ? AppColors.sageGreen : AppColors.textMuted,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (selected) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.sageGreen,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  context.watch<LocaleProvider>().isZh ? '✓ 已选' : '✓ Selected',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -795,7 +1059,12 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                     // 步骤2：立即关闭对话框（此后 mounted = false，不可再用 context）
                     if (mounted) Navigator.of(context).pop();
 
-                    // 步骤3：后台同步 Firestore，通过回调把结果交给父页面处理
+                    // 步骤3：物种有变化时通知服务器切换采样率（后台静默，不影响 UI）
+                    if (_species != widget.pet.species) {
+                      ServerApiService().setSpecies(_species);
+                    }
+
+                    // 步骤4：后台同步 Firestore，通过回调把结果交给父页面处理
                     // 注意：不再使用 mounted 检查，因为对话框已关闭
                     final cloudErr = await widget.provider.syncPetToCloud();
                     widget.onSaved?.call(cloudErr);
