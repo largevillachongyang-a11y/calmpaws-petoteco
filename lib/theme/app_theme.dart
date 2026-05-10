@@ -11,10 +11,11 @@
 // 重要设计决策：
 //   1. useMaterial3: true — 启用 Material3 设计系统
 //   2. splashFactory: NoSplash — 全局禁用点击水波纹，避免蓝色蒙版问题
-//   3. surfaceTint: Colors.transparent — 禁用 Material3 的海拔着色层
-//      （该层会根据 primary 颜色给组件表面染色，在绿色主题下会偏蓝）
-//   4. focusColor: Colors.transparent — 禁用焦点高亮（Web 端键盘导航会触发）
-//   5. scrim: Colors.black — Dialog/BottomSheet 遮罩为纯黑色
+//   3. ColorScheme() 完全手动构建 — 不使用 fromSeed，彻底杜绝 HCT 算法
+//      自动生成蓝色 surface/surfaceVariant/surfaceBright 等颜色
+//   4. surfaceTint: Colors.transparent — 禁用 Material3 的海拔着色层
+//   5. focusColor: Colors.transparent — 禁用焦点高亮（Web 端键盘导航会触发）
+//   6. scrim: Colors.black — Dialog/BottomSheet 遮罩为纯黑色
 //
 // ⚠️ 注意：修改颜色时请同时更新 AppColors 和 colorScheme.copyWith 中的对应值，
 //          确保 Material3 自动生成的颜色被正确覆盖。
@@ -159,36 +160,67 @@ class AppTextStyles {
 
 class AppTheme {
   static ThemeData get lightTheme {
-    // 先生成 colorScheme，然后完整覆盖所有蓝色相关颜色
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.sageGreen,
-      primary: AppColors.sageGreen,
-      secondary: AppColors.warmOrange,
-      surface: AppColors.cream,
+    // ─────────────────────────────────────────────────────────────────────────
+    // 🔑 完全手动构建 ColorScheme，彻底避免 fromSeed 自动生成蓝色 surface 系列颜色
+    //
+    // 根本原因：ColorScheme.fromSeed 在 Flutter 3.x 中会用 HCT 色彩算法从
+    // seedColor 自动推导出所有 surface/container 颜色，当 seedColor 为绿色时
+    // 算法会产生带蓝色调的 surfaceVariant/surfaceBright/surfaceDim 等，
+    // 即使 .copyWith() 也无法完整覆盖所有衍生颜色。
+    //
+    // 解决方案：直接使用 ColorScheme() 构造函数，100% 手动指定每个颜色，
+    // 没有任何自动推导，确保零蓝色残留。
+    // ─────────────────────────────────────────────────────────────────────────
+    const colorScheme = ColorScheme(
       brightness: Brightness.light,
-      error: AppColors.alertRed,
-      scrim: Colors.black,
-    ).copyWith(
-      // Material3 fromSeed 可能生成蓝色 primaryContainer/secondaryContainer
-      // 强制覆盖为绿色调，彻底消灭一切蓝色来源
+
+      // ── Primary（暖绿色系）─────────────────────────────────────────────────
+      primary:          AppColors.sageGreen,
+      onPrimary:        Colors.white,
       primaryContainer: AppColors.sageMuted,
-      secondaryContainer: const Color(0xFFFFF3E8),
       onPrimaryContainer: AppColors.sageGreen,
+
+      // ── Secondary（暖橙色系）──────────────────────────────────────────────
+      secondary:          AppColors.warmOrange,
+      onSecondary:        Colors.white,
+      secondaryContainer: Color(0xFFFFF3E8),
       onSecondaryContainer: AppColors.warmOrange,
-      // surfaceContainerHighest 是 InkWell hover 的来源之一
-      surfaceContainerHighest: AppColors.sageMuted,
-      surfaceContainerHigh: AppColors.cream,
-      surfaceContainer: AppColors.cream,
-      surfaceContainerLow: AppColors.cream,
-      surfaceContainerLowest: AppColors.cream,
-      surfaceTint: Colors.transparent, // 消除 Material3 的主题着色层
-      onSurface: AppColors.textPrimary,
-      onSurfaceVariant: AppColors.textSecondary,
-      outline: AppColors.divider,
+
+      // ── Tertiary（复用绿色，避免算法生成蓝色 tertiary）────────────────────
+      tertiary:          AppColors.sageGreen,
+      onTertiary:        Colors.white,
+      tertiaryContainer: AppColors.sageMuted,
+      onTertiaryContainer: AppColors.sageGreen,
+
+      // ── Error（红色系）────────────────────────────────────────────────────
+      error:          AppColors.alertRed,
+      onError:        Colors.white,
+      errorContainer: AppColors.alertRedMuted,
+      onErrorContainer: AppColors.alertRed,
+
+      // ── Surface（全部暖白/奶油色，零蓝色）────────────────────────────────
+      surface:                    AppColors.cream,
+      onSurface:                  AppColors.textPrimary,
+      // surfaceVariant 已废弃（v3.18+），改用 surfaceContainerHighest
+      // 此处仍保留以兼容旧版 Widget 引用，但不产生蓝色
+      surfaceTint:                Colors.transparent,      // 禁用 M3 海拔着色层
+      // surfaceContainer 系列：全部用奶油白或卡片白
+      surfaceContainerLowest:     AppColors.cream,
+      surfaceContainerLow:        AppColors.cream,
+      surfaceContainer:           AppColors.cream,
+      surfaceContainerHigh:       AppColors.cardBackground,
+      surfaceContainerHighest:    AppColors.sageMuted,     // InkWell hover 来源，用绿色调
+
+      // ── Inverse surface（深色模式翻转，保持一致）─────────────────────────
+      inverseSurface:   AppColors.textPrimary,
+      onInverseSurface: AppColors.cream,
+      inversePrimary:   AppColors.sageLight,
+
+      // ── Outline / Shadow / Scrim ────────────────────────────────────────
+      outline:        AppColors.divider,
       outlineVariant: AppColors.divider,
-      // 确保 scrim/barrier 相关颜色为纯黑色
-      scrim: Colors.black,
-      shadow: Colors.black12,
+      shadow:         Colors.black12,
+      scrim:          Colors.black,      // Dialog/BottomSheet 遮罩纯黑
     );
 
     return ThemeData(

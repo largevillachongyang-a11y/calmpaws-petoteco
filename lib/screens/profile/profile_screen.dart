@@ -486,7 +486,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   Text(
-                    'CalmPaws  v1.3.2 (build 12)  ·  2026-05-05',
+                    'CalmPaws  v1.4.0 (build 13)  ·  2026-05-10',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
