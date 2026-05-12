@@ -40,7 +40,7 @@ class ServerApiService {
   ServerApiService._internal();
 
   // ── 配置 ──────────────────────────────────────────────────────────────────
-  String _baseUrl  = 'http://10.217.248.160:5000';  // 默认测试服务器IP（手机热点下电脑IP）
+  String _baseUrl  = 'http://43.110.47.139:5000';  // 公网服务器IP
   String _deviceId = 'collar_001';
   static const int _pollIntervalSeconds = 2;
   static const Duration _httpTimeout = Duration(seconds: 4);

@@ -24,7 +24,7 @@ class WifiConfigService {
   static const String _kDeviceId   = 'server_device_id';
 
   // 默认值（与固件 SERVER_DEFAULT 保持一致）
-  static const String kDefaultServerUrl  = 'http://10.217.248.160:5000';
+  static const String kDefaultServerUrl  = 'http://43.110.47.139:5000';
   static const String kDefaultDeviceId   = 'collar_001';
 
   String _serverUrl = kDefaultServerUrl;
