@@ -40,7 +40,7 @@ class ServerApiService {
   ServerApiService._internal();
 
   // ── 配置 ──────────────────────────────────────────────────────────────────
-  String _baseUrl  = 'http://43.110.47.139:5000';  // 公网服务器IP
+  String _baseUrl  = 'https://api.myvideotest2026.top';  // 公网服务器HTTPS
   String _deviceId = 'collar_001';
   static const int _pollIntervalSeconds = 2;
   static const Duration _httpTimeout = Duration(seconds: 4);
