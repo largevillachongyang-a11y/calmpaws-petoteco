@@ -316,9 +316,9 @@ class ServerApiService {
   /// Body: { "device_id": "collar_001", "species": "cat" | "dog" }
   /// 成功返回 { "status": "ok", "species": "cat", "sample_rate": 26 }
   ///
-  /// 物种 → 采样率对应关系（V7.3 固件）：
-  ///   dog → 26 Hz（IMU 高频，适合跑步/跳跃等大幅运动）
-  ///   cat → 26 Hz（猫咪步态分析，与狗相同，服务器可按需调整）
+  /// 物种 → 采样率对应关系（V7.10 固件）：
+  ///   dog → 104 Hz（ISM330DHCX 高频模式，适合跑步/跳跃等大幅运动）
+  ///   cat →  26 Hz（ISM330DHCX 低频模式，猫咪步态分析）
   ///
   /// 返回值：
   ///   null → 请求成功
