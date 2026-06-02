@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/pet_health_provider.dart';
@@ -1031,46 +1032,60 @@ class _EditPetDialogState extends State<_EditPetDialog> {
               ),
               const SizedBox(height: 20),
 
-              // ── 保存按钮 ──
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    overlayColor: Colors.transparent,
-                    backgroundColor: AppColors.sageGreen,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              // ── 取消 / 保存 按钮行 ──
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: AppColors.sageGreen.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('取消', style: TextStyle(color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
+                    ),
                   ),
-                  onPressed: () async {
-                    final age = int.tryParse(_ageCtrl.text.trim()) ?? widget.pet.ageMonths;
-                    final weight = double.tryParse(_weightCtrl.text.trim()) ?? widget.pet.weightKg;
-                    final newPet = widget.pet.copyWith(
-                      name: _nameCtrl.text.trim(),
-                      species: _species,
-                      breed: _breedCtrl.text.trim(),
-                      ageMonths: age,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        overlayColor: Colors.transparent,
+                        backgroundColor: AppColors.sageGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () async {
+                        final age = int.tryParse(_ageCtrl.text.trim()) ?? widget.pet.ageMonths;
+                        final weight = double.tryParse(_weightCtrl.text.trim()) ?? widget.pet.weightKg;
+                        final newPet = widget.pet.copyWith(
+                          name: _nameCtrl.text.trim(),
+                          species: _species,
+                          breed: _breedCtrl.text.trim(),
+                          ageMonths: age,
                       weightKg: weight,
                       healthTags: _selectedTags,
-                    );
+                        );
 
-                    // 步骤1：写入内存 + 本地缓存（立即生效，不依赖网络）
-                    widget.provider.updatePetLocal(newPet);
+                        // 步骤1：写入内存 + 本地缓存（立即生效，不依赖网络）
+                        widget.provider.updatePetLocal(newPet);
 
-                    // 步骤2：立即关闭对话框（此后 mounted = false，不可再用 context）
-                    if (mounted) Navigator.of(context).pop();
+                        // 步骤2：立即关闭对话框（此后 mounted = false，不可再用 context）
+                        if (mounted) Navigator.of(context).pop();
 
-                    // 步骤3：物种有变化时通知服务器切换采样率（后台静默，不影响 UI）
-                    if (_species != widget.pet.species) {
-                      ServerApiService().setSpecies(_species);
-                    }
+                        // 步骤3：物种有变化时通知服务器切换采样率（后台静默，不影响 UI）
+                        if (_species != widget.pet.species) {
+                          ServerApiService().setSpecies(_species);
+                        }
 
-                    // 步骤4：后台同步 Firestore，通过回调把结果交给父页面处理
-                    // 注意：不再使用 mounted 检查，因为对话框已关闭
-                    final cloudErr = await widget.provider.syncPetToCloud();
-                    widget.onSaved?.call(cloudErr);
-                  },
-                  child: Text(locS.petSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                ),
+                        // 步骤4：后台同步 Firestore，通过回调把结果交给父页面处理
+                        final cloudErr = await widget.provider.syncPetToCloud();
+                        widget.onSaved?.call(cloudErr);
+                      },
+                      child: Text(locS.petSave, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1140,8 +1155,11 @@ class _PetAvatar extends StatefulWidget {
 
 class _PetAvatarState extends State<_PetAvatar> {
   bool _uploading = false;
+  bool _showCancel = false;
+  bool _cancelled = false;
 
   Future<void> _pickAndUpload() async {
+    final ls = context.read<LocaleProvider>().strings;
     final picker = ImagePicker();
     final XFile? file = await picker.pickImage(
       source: ImageSource.gallery,
@@ -1150,19 +1168,87 @@ class _PetAvatarState extends State<_PetAvatar> {
       imageQuality: 85,
     );
     if (file == null) return;
-    setState(() => _uploading = true);
-    try {
-      final bytes = await file.readAsBytes();
-      final err = await widget.provider.uploadPetPhoto(bytes);
+
+    // ── 文件大小检查（500 KB 上限）
+    final bytes = await file.readAsBytes();
+    const int maxBytes = 500 * 1024;
+    if (bytes.length > maxBytes) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(err == null ? '✅ 照片已更新' : '❌ 上传失败：$err'),
-          duration: const Duration(seconds: 3),
+          content: const Text('图片过大，请选择小于 500KB 的图片'),
+          backgroundColor: AppColors.alertRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+      return;
+    }
+
+    // ── 开始上传
+    _cancelled = false;
+    setState(() { _uploading = true; _showCancel = false; });
+
+    // 3秒后显示取消按钮
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _uploading && !_cancelled) {
+        setState(() => _showCancel = true);
+      }
+    });
+
+    try {
+      final err = await widget.provider.uploadPetPhoto(bytes);
+
+      if (_cancelled) return;
+
+      if (mounted) {
+        String msg;
+        Color bg;
+        if (err == null) {
+          msg = '✅ 头像已更新';
+          bg = AppColors.sageGreen;
+        } else if (err == 'timeout') {
+          msg = '上传超时，请检查网络后重试';
+          bg = AppColors.alertRed;
+        } else if (err == 'storage-permission-denied') {
+          msg = 'Storage 权限不足，请联系管理员';
+          bg = AppColors.alertRed;
+        } else if (err == 'network-error') {
+          msg = '网络错误，请检查网络连接后重试';
+          bg = AppColors.alertRed;
+        } else if (err == 'not-logged-in') {
+          msg = '请先登录再上传照片';
+          bg = AppColors.alertRed;
+        } else {
+          msg = '上传失败：$err';
+          bg = AppColors.alertRed;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
+          backgroundColor: bg,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      if (mounted && !_cancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('上传失败：${e.toString()}'),
+          backgroundColor: AppColors.alertRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
         ));
       }
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) setState(() { _uploading = false; _showCancel = false; });
     }
+  }
+
+  void _cancelUpload() {
+    _cancelled = true;
+    if (mounted) setState(() { _uploading = false; _showCancel = false; });
   }
 
   @override
@@ -1171,6 +1257,7 @@ class _PetAvatarState extends State<_PetAvatar> {
     return GestureDetector(
       onTap: _uploading ? null : _pickAndUpload,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Container(
             width: 80,
@@ -1182,15 +1269,32 @@ class _PetAvatarState extends State<_PetAvatar> {
             ),
             child: ClipOval(
               child: _uploading
-                  ? const Center(
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: AppColors.sageGreen,
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: AppColors.sageGreen,
+                          ),
                         ),
-                      ),
+                        if (_showCancel) ...[
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: _cancelUpload,
+                            child: const Text(
+                              '✕',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.alertRed,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     )
                   : photoUrl != null && photoUrl.isNotEmpty
                       ? Image.network(
@@ -1205,22 +1309,22 @@ class _PetAvatarState extends State<_PetAvatar> {
                         ),
             ),
           ),
-          // 编辑角标
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: AppColors.sageGreen,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.5),
+          if (!_uploading)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: AppColors.sageGreen,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Icon(Icons.camera_alt_rounded,
+                    size: 13, color: Colors.white),
               ),
-              child: const Icon(Icons.camera_alt_rounded,
-                  size: 13, color: Colors.white),
             ),
-          ),
         ],
       ),
     );

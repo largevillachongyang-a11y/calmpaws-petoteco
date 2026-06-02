@@ -320,16 +320,25 @@ class PetHealthProvider extends ChangeNotifier {
   Future<String?> uploadPetPhoto(List<int> imageBytes) async {
     if (_currentUserId == null) return 'not-logged-in';
     try {
-      final url = await _firestoreService.uploadPetPhoto(_currentUserId!, imageBytes);
-      if (url == null) return 'upload-failed';
+      final url = await _firestoreService
+          .uploadPetPhoto(_currentUserId!, imageBytes)
+          .timeout(const Duration(seconds: 20));
       // 更新本地 PetProfile photoPath 为网络 URL
       final updated = _pet.copyWith(photoPath: url);
       updatePetLocal(updated);
       // 同步到 Firestore
       await syncPetToCloud();
       return null;
+    } on TimeoutException {
+      return 'timeout';
     } catch (e) {
-      return e.toString();
+      final msg = e.toString();
+      if (msg.contains('permission-denied') || msg.contains('unauthorized')) {
+        return 'storage-permission-denied';
+      } else if (msg.contains('network') || msg.contains('socket')) {
+        return 'network-error';
+      }
+      return msg;
     }
   }
 

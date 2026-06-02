@@ -162,7 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () => _showEditProfile(context),
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
@@ -512,6 +512,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ─────────────────────────────────────────────────────────────────────────
   // 弹窗方法（全部使用 StatefulWidget 的 mounted context，确保安全）
   // ─────────────────────────────────────────────────────────────────────────
+
+  // ── 编辑用户资料弹窗 ─────────────────────────────────────────────────────────
+  void _showEditProfile(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final nameCtrl = TextEditingController(text: user?.displayName ?? '');
+    bool saving = false;
+
+    showDialog(
+      barrierColor: Colors.black54,
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.person_rounded, color: AppColors.sageGreen),
+              SizedBox(width: 10),
+              Text('编辑资料', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('昵称', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: nameCtrl,
+                decoration: InputDecoration(
+                  hintText: '请输入昵称',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                ),
+                textInputAction: TextInputAction.done,
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                child: Row(
+                  children: [
+                    Icon(Icons.email_outlined, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        user?.email ?? '',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.sageGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final newName = nameCtrl.text.trim();
+                      if (newName.isEmpty) return;
+                      setS(() => saving = true);
+                      try {
+                        await FirebaseAuth.instance.currentUser?.updateDisplayName(newName);
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                          if (mounted) {
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('✅ 昵称已更新'),
+                                backgroundColor: AppColors.sageGreen,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        setS(() => saving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('保存失败：$e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('保存', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   // ── 服务器设置弹窗 ──────────────────────────────────────────────────────────
   void _showServerSettingsDialog(BuildContext context) {

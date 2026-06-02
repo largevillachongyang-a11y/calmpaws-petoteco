@@ -150,25 +150,21 @@ class FirestoreService {
 
   /// 上传宠物照片到 Firebase Storage，返回下载 URL
   /// 路径：pet_photos/{uid}/avatar.jpg
-  Future<String?> uploadPetPhoto(String uid, List<int> imageBytes) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('pet_photos')
-          .child(uid)
-          .child('avatar.jpg');
-      final uploadTask = ref.putData(
-        Uint8List.fromList(imageBytes),
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      debugFirestore('uploadPetPhoto OK: $downloadUrl');
-      return downloadUrl;
-    } catch (e) {
-      debugFirestore('uploadPetPhoto FAILED: $e');
-      return null;
-    }
+  /// 失败时直接 rethrow，由调用方处理错误提示
+  Future<String> uploadPetPhoto(String uid, List<int> imageBytes) async {
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('pet_photos')
+        .child(uid)
+        .child('avatar.jpg');
+    final uploadTask = ref.putData(
+      Uint8List.fromList(imageBytes),
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final snapshot = await uploadTask;
+    final downloadUrl = await snapshot.ref.getDownloadURL();
+    debugFirestore('uploadPetPhoto OK: $downloadUrl');
+    return downloadUrl;
   }
 
   // =============================================================================
