@@ -1163,19 +1163,23 @@ class _PetAvatarState extends State<_PetAvatar> {
     final picker = ImagePicker();
     final XFile? file = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 80,  // 移动端压缩，Web端无效
     );
     if (file == null) return;
 
-    // ── 文件大小检查（500 KB 上限）
     final bytes = await file.readAsBytes();
-    const int maxBytes = 500 * 1024;
+
+    // ── 文件大小检查
+    // Web 端 image_picker 不压缩，移动端 maxWidth/imageQuality 有效
+    // 统一上限 5MB，超出则拒绝并告知实际大小
+    const int maxBytes = 5 * 1024 * 1024; // 5 MB
     if (bytes.length > maxBytes) {
       if (mounted) {
+        final sizeMB = (bytes.length / 1024 / 1024).toStringAsFixed(1);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('图片过大，请选择小于 500KB 的图片'),
+          content: Text('图片太大（${sizeMB}MB），请选择小于 5MB 的图片'),
           backgroundColor: AppColors.alertRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
