@@ -32,6 +32,18 @@ class AppStrings {
   String get deviceOffline => _t('No Device Connected', '设备未连接');
   String get deviceConnect => _t('Connect', '连接');
   String get deviceBle => _t('BLE', '蓝牙');
+  String get deviceServerError => _t('⚠️ Server connection failed', '⚠️ 服务器连接失败');
+  String deviceCollarHost(String host) => _t('CalmPaws Collar · $host', 'CalmPaws 项圈 · $host');
+  String get deviceRetry => _t('Retry', '重试');
+  String get syncInProgress => _t('Syncing', '同步中');
+  String get syncStatusRequesting => _t('Requesting sync...', '正在请求同步...');
+  String get syncStatusEmpty => _t('No offline data', '无离线数据');
+  String syncStatusWriting(int count) =>
+      _t('Sync complete, writing $count records...', '同步完成，正在写入 $count 条记录...');
+  String syncStatusDone(int count) =>
+      _t('✅ Synced $count offline records', '✅ 已同步 $count 条离线记录');
+  String syncStatusReceiving(int count) =>
+      _t('Receiving... $count rows', '正在接收... 已收 $count 条');
 
   // ── Feeding Timer ─────────────────────────────────────────────────────────
   String get timerTitle => _t('ZenBelly Tracker', 'ZenBelly 追踪器');

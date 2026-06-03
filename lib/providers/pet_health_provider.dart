@@ -52,6 +52,7 @@ import '../models/models.dart';
 import '../services/mock_ble_service.dart';
 import '../services/server_api_service.dart';
 import '../services/firestore_service.dart';
+import '../utils/app_strings.dart';
 
 class PetHealthProvider extends ChangeNotifier {
   // ── 当前已登录用户 ID（用于 SharedPreferences key 隔离）──────────────────
@@ -329,9 +330,10 @@ class PetHealthProvider extends ChangeNotifier {
       final url = await _firestoreService
           .uploadPetPhoto(_currentUserId!, imageBytes)
           .timeout(const Duration(seconds: 20));
-      // 更新本地 PetProfile photoPath 为网络 URL
-      final updated = _pet.copyWith(photoPath: url);
+      // 追加版本参数，避免 Web 端 Image.network 同 URL 缓存导致头像不刷新
       _petPhotoRevision++;
+      final cacheBusted = '$url${url.contains('?') ? '&' : '?'}v=$_petPhotoRevision';
+      final updated = _pet.copyWith(photoPath: cacheBusted);
       updatePetLocal(updated);
       // 同步到 Firestore
       await syncPetToCloud();
@@ -1492,6 +1494,7 @@ class PetHealthProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
   bool _isSyncing = false;
   String _syncStatus = '';
+  String _syncLocale = 'en';
   int _syncRowsReceived = 0;
   final List<BlePacket> _offlineBuffer = [];
 
@@ -1499,12 +1502,25 @@ class PetHealthProvider extends ChangeNotifier {
   String get syncStatus => _syncStatus;
   int get syncRowsReceived => _syncRowsReceived;
 
-  void requestSync() {
+  void _setSyncStatus(String phase, {int? count}) {
+    final s = AppStrings.of(_syncLocale);
+    _syncStatus = switch (phase) {
+      'requesting' => s.syncStatusRequesting,
+      'empty' => s.syncStatusEmpty,
+      'writing' => s.syncStatusWriting(count ?? _syncRowsReceived),
+      'done' => s.syncStatusDone(count ?? _syncRowsReceived),
+      'receiving' => s.syncStatusReceiving(count ?? _syncRowsReceived),
+      _ => '',
+    };
+  }
+
+  void requestSync({String locale = 'en'}) {
     if (_isSyncing) return;
+    _syncLocale = locale;
     _isSyncing = true;
     _syncRowsReceived = 0;
     _offlineBuffer.clear();
-    _syncStatus = '正在请求同步...';
+    _setSyncStatus('requesting');
     notifyListeners();
     // Mock模式：模拟SYNC_EMPTY（无离线文件）
     // [TODO] 真实BLE时替换为：pCharacteristic.write(Uint8List.fromList('SYNC'.codeUnits))
@@ -1518,17 +1534,17 @@ class PetHealthProvider extends ChangeNotifier {
   void _handleBleMessage(String msg) {
     if (msg == 'SYNC_EMPTY') {
       _isSyncing = false;
-      _syncStatus = '无离线数据';
+      _setSyncStatus('empty');
       notifyListeners();
       return;
     }
     if (msg == 'SYNC_DONE') {
-      _syncStatus = '同步完成，正在写入 $_syncRowsReceived 条记录...';
+      _setSyncStatus('writing');
       notifyListeners();
       _flushOfflineDataToFirestore().then((_) {
         // [TODO] 真实BLE时替换为：pCharacteristic.write(Uint8List.fromList('ACK'.codeUnits))
         _isSyncing = false;
-        _syncStatus = '✅ 已同步 $_syncRowsReceived 条离线记录';
+        _setSyncStatus('done');
         notifyListeners();
       });
       return;
@@ -1538,7 +1554,7 @@ class PetHealthProvider extends ChangeNotifier {
       if (packet != null) {
         _offlineBuffer.add(packet);
         _syncRowsReceived++;
-        _syncStatus = '正在接收... 已收 $_syncRowsReceived 条';
+        _setSyncStatus('receiving', count: _syncRowsReceived);
         notifyListeners();
       }
     }

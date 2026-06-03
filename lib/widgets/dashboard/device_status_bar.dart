@@ -22,10 +22,10 @@ class DeviceStatusBar extends StatelessWidget {
     // 动态设备名：连接中显示 IP，有错误显示 error，正常显示 CalmPaws 项圈
     final deviceDisplayName = () {
       if (!connected) return s.deviceOffline;
-      if (hasError) return '⚠️ 服务器连接失败';
+      if (hasError) return s.deviceServerError;
       final url = provider.serverBaseUrl;
       final host = Uri.tryParse(url)?.host ?? url;
-      return 'CalmPaws 项圈 · $host';
+      return s.deviceCollarHost(host);
     }();
     // 状态点颜色：error 时用红色
     final dotColor = (!connected || hasError) ? AppColors.alertRed : AppColors.sageGreen;
@@ -104,7 +104,11 @@ class DeviceStatusBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 // ── SYNC 按钮 ────────────────────────────────────────────────
                 GestureDetector(
-                  onTap: isSyncing ? null : provider.requestSync,
+                  onTap: isSyncing
+                      ? null
+                      : () => provider.requestSync(
+                            locale: context.read<LocaleProvider>().locale,
+                          ),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -136,7 +140,7 @@ class DeviceStatusBar extends StatelessWidget {
                               color: AppColors.sageGreen, size: 12),
                         const SizedBox(width: 4),
                         Text(
-                          isSyncing ? '同步中' : '同步',
+                          isSyncing ? s.syncInProgress : s.petSync,
                           style: AppTextStyles.labelSmall.copyWith(
                             color: AppColors.sageGreen,
                             fontWeight: FontWeight.w700,
@@ -157,9 +161,9 @@ class DeviceStatusBar extends StatelessWidget {
                       color: AppColors.alertRed,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      '重试',
-                      style: TextStyle(
+                    child: Text(
+                      s.deviceRetry,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w700),
