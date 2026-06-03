@@ -254,6 +254,7 @@ class AppStrings {
   String get profileNicknameSaved => _t('✅ Nickname updated', '✅ 昵称已更新');
   String get profilePhotoUpdated => _t('✅ Profile photo updated', '✅ 头像已更新');
   String get profilePhotoTapHint => _t('Tap photo to change', '点击头像更换');
+  String get profileChangePhoto => _t('Change Profile Photo', '更换头像');
   String get profilePhotoTooLargeFirestore => _t(
     'Photo is too large for cloud save (max ~700KB). Please choose a smaller image.',
     '图片过大无法保存到云端（约 700KB 以内），请换一张更小的图',

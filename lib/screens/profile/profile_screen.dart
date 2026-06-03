@@ -60,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _firestore = FirestoreService();
   String? _userPhotoUrl;
   int _userPhotoRevision = 0;
+  bool _userPhotoUploading = false;
 
   @override
   void initState() {
@@ -90,6 +91,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (uid == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_photo_$uid', dataUrl);
+  }
+
+  Future<void> _handleUserPhotoPick(BuildContext context, dynamic s) async {
+    setState(() => _userPhotoUploading = true);
+    final result = await _pickAndSaveUserPhoto(s);
+    if (mounted) setState(() => _userPhotoUploading = false);
+    if (!mounted) return;
+    if (result == 'ok') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.profilePhotoUpdated),
+          backgroundColor: AppColors.sageGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else if (result != null &&
+        result != 'cancelled' &&
+        result != 'not-logged-in') {
+      final msg = result == 'image-too-large'
+          ? s.profilePhotoTooLargeFirestore
+          : s.petPhotoUploadFailed(result);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Widget _buildUserAvatarPicker({
+    required double size,
+    required String? photoUrl,
+    required int revision,
+    required bool uploading,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: uploading ? null : onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.sageGreen, width: 2),
+              color: AppColors.sageLight,
+            ),
+            child: uploading
+                ? Center(
+                    child: SizedBox(
+                      width: size * 0.35,
+                      height: size * 0.35,
+                      child: const CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  )
+                : CirclePhoto(
+                    url: photoUrl,
+                    size: size - 4,
+                    rebuildKey: revision,
+                  ),
+          ),
+          if (!uploading)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: AppColors.sageGreen,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<String?> _pickAndSaveUserPhoto(dynamic s) async {
@@ -165,25 +245,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // 用户信息行
           Row(
             children: [
-              GestureDetector(
-                onTap: () => _showEditProfile(context),
-                child: Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: _userPhotoUrl == null
-                        ? const LinearGradient(colors: [AppColors.sageGreen, Color(0xFF5A9970)])
-                        : null,
-                    color: _userPhotoUrl != null ? AppColors.sageLight : null,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.sageGreen, width: 2),
-                  ),
-                  child: CirclePhoto(
-                    url: _userPhotoUrl ?? FirebaseAuth.instance.currentUser?.photoURL,
-                    size: 60,
-                    rebuildKey: _userPhotoRevision,
-                  ),
-                ),
+              _buildUserAvatarPicker(
+                size: 64,
+                photoUrl: _userPhotoUrl ?? FirebaseAuth.instance.currentUser?.photoURL,
+                revision: _userPhotoRevision,
+                uploading: _userPhotoUploading,
+                onTap: () => _handleUserPhotoPick(context, s),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -619,90 +686,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(s.profileEditTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: Column(
+          content: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
-                child: GestureDetector(
-                  onTap: uploadingPhoto
-                      ? null
-                      : () async {
-                          setS(() => uploadingPhoto = true);
-                          final result = await _pickAndSaveUserPhoto(s);
-                          if (!ctx.mounted) return;
-                          setS(() => uploadingPhoto = false);
-                          if (result == 'ok') {
-                            setS(() {
-                              dialogPhotoUrl = _userPhotoUrl;
-                              dialogPhotoRevision = _userPhotoRevision;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(s.profilePhotoUpdated),
-                                backgroundColor: AppColors.sageGreen,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          } else if (result != null &&
-                              result != 'cancelled' &&
-                              result != 'not-logged-in') {
-                            final msg = result == 'image-too-large'
-                                ? s.profilePhotoTooLargeFirestore
-                                : s.petPhotoUploadFailed(result);
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text(msg), backgroundColor: Colors.red),
-                            );
-                          }
-                        },
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.sageGreen, width: 2),
-                          color: AppColors.sageLight,
-                        ),
-                        child: uploadingPhoto
-                            ? const Center(
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              )
-                            : CirclePhoto(
-                                url: dialogPhotoUrl,
-                                size: 68,
-                                rebuildKey: dialogPhotoRevision,
-                              ),
-                      ),
-                      if (!uploadingPhoto)
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: const BoxDecoration(
-                              color: AppColors.sageGreen,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                child: _buildUserAvatarPicker(
+                  size: 80,
+                  photoUrl: dialogPhotoUrl,
+                  revision: dialogPhotoRevision,
+                  uploading: uploadingPhoto,
+                  onTap: () async {
+                    setS(() => uploadingPhoto = true);
+                    final result = await _pickAndSaveUserPhoto(s);
+                    if (!ctx.mounted) return;
+                    setS(() => uploadingPhoto = false);
+                    if (result == 'ok') {
+                      setS(() {
+                        dialogPhotoUrl = _userPhotoUrl;
+                        dialogPhotoRevision = _userPhotoRevision;
+                      });
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(s.profilePhotoUpdated),
+                            backgroundColor: AppColors.sageGreen,
+                            behavior: SnackBarBehavior.floating,
                           ),
-                        ),
-                    ],
-                  ),
+                        );
+                      }
+                    } else if (result != null &&
+                        result != 'cancelled' &&
+                        result != 'not-logged-in') {
+                      final msg = result == 'image-too-large'
+                          ? s.profilePhotoTooLargeFirestore
+                          : s.petPhotoUploadFailed(result);
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
                 ),
               ),
-              const SizedBox(height: 6),
-              Center(
-                child: Text(
-                  s.profilePhotoTapHint,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: uploadingPhoto
+                    ? null
+                    : () async {
+                        setS(() => uploadingPhoto = true);
+                        final result = await _pickAndSaveUserPhoto(s);
+                        if (!ctx.mounted) return;
+                        setS(() => uploadingPhoto = false);
+                        if (result == 'ok') {
+                          setS(() {
+                            dialogPhotoUrl = _userPhotoUrl;
+                            dialogPhotoRevision = _userPhotoRevision;
+                          });
+                        } else if (result != null &&
+                            result != 'cancelled' &&
+                            result != 'not-logged-in') {
+                          final msg = result == 'image-too-large'
+                              ? s.profilePhotoTooLargeFirestore
+                              : s.petPhotoUploadFailed(result);
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                label: Text(s.profileChangePhoto),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.sageGreen,
+                  side: const BorderSide(color: AppColors.sageGreen),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
               const SizedBox(height: 14),
@@ -737,6 +795,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
+            ),
           ),
           actions: [
             TextButton(
