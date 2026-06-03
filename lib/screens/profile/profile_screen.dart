@@ -262,7 +262,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           // 用户信息行
           Row(
-            clipBehavior: Clip.none,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildUserAvatarPicker(
