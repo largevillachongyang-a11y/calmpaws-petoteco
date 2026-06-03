@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/environment_config.dart';
 
 /// 配网步骤枚举
 enum ProvisionStep {
@@ -44,7 +45,7 @@ class ProvisioningService {
   factory ProvisioningService() => _instance;
   ProvisioningService._internal();
 
-  static const String kDefaultDeviceId = 'collar_001';
+  static String get kDefaultDeviceId => EnvironmentConfig.testDeviceId;
 
   ProvisionStep _step = ProvisionStep.idle;
   String _statusMessage = '';
@@ -76,8 +77,8 @@ class ProvisioningService {
 
     try {
       final resp = await http
-          .get(Uri.parse('$url/health'))
-          .timeout(const Duration(seconds: 6));
+          .get(EnvironmentConfig.apiUri('/api/health', baseUrlOverride: url))
+          .timeout(EnvironmentConfig.requestTimeout);
 
       if (resp.statusCode == 200) {
         _setStep(ProvisionStep.done, '服务器连接成功 ✅');

@@ -13,6 +13,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/environment_config.dart';
 import 'server_api_service.dart';
 
 class WifiConfigService {
@@ -23,12 +24,12 @@ class WifiConfigService {
   static const String _kServerUrl  = 'server_base_url';
   static const String _kDeviceId   = 'server_device_id';
 
-  // 默认值（与固件 SERVER_DEFAULT 保持一致）
-  static const String kDefaultServerUrl  = 'https://api.myvideotest2026.top';
-  static const String kDefaultDeviceId   = 'collar_001';
+  // 默认值（与 EnvironmentConfig 保持一致）
+  static String get kDefaultServerUrl => EnvironmentConfig.baseUrl;
+  static String get kDefaultDeviceId => EnvironmentConfig.testDeviceId;
 
-  String _serverUrl = kDefaultServerUrl;
-  String _deviceId  = kDefaultDeviceId;
+  String _serverUrl = EnvironmentConfig.baseUrl;
+  String _deviceId = EnvironmentConfig.testDeviceId;
 
   String get serverUrl => _serverUrl;
   String get deviceId  => _deviceId;
