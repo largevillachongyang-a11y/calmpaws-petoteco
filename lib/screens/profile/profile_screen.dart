@@ -125,49 +125,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool uploading,
     required VoidCallback? onTap,
   }) {
+    // 预留角标空间，避免父级 Row/Card 裁剪右下角相机图标
+    const badgeSize = 24.0;
+    final outer = size + 6;
     return GestureDetector(
       onTap: uploading ? null : onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.sageGreen, width: 2),
-              color: AppColors.sageLight,
-            ),
-            child: uploading
-                ? Center(
-                    child: SizedBox(
-                      width: size * 0.35,
-                      height: size * 0.35,
-                      child: const CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                  )
-                : CirclePhoto(
-                    url: photoUrl,
-                    size: size - 4,
-                    rebuildKey: revision,
-                  ),
-          ),
-          if (!uploading)
+      child: SizedBox(
+        width: outer,
+        height: outer,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
             Positioned(
-              right: 0,
-              bottom: 0,
+              left: 0,
+              top: 0,
               child: Container(
-                width: 24,
-                height: 24,
+                width: size,
+                height: size,
                 decoration: BoxDecoration(
-                  color: AppColors.sageGreen,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(color: AppColors.sageGreen, width: 2),
+                  color: AppColors.sageLight,
                 ),
-                child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                child: uploading
+                    ? Center(
+                        child: SizedBox(
+                          width: size * 0.35,
+                          height: size * 0.35,
+                          child: const CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                      )
+                    : CirclePhoto(
+                        url: photoUrl,
+                        size: size - 4,
+                        rebuildKey: revision,
+                      ),
               ),
             ),
-        ],
+            if (!uploading)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: badgeSize,
+                  height: badgeSize,
+                  decoration: BoxDecoration(
+                    color: AppColors.sageGreen,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -233,8 +251,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(22),
-      // clipBehavior: 防止 InkWell/ripple 效果溢出圆角边界，避免蓝色蒙版残留
-      clipBehavior: Clip.hardEdge,
+      // 勿用 Clip.hardEdge：会裁掉头像右下角相机角标（宠物页同款卡片无此裁剪）
+      clipBehavior: Clip.none,
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -244,6 +262,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           // 用户信息行
           Row(
+            clipBehavior: Clip.none,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildUserAvatarPicker(
                 size: 64,
