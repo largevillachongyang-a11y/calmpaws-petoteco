@@ -1224,6 +1224,9 @@ class _PetAvatarState extends State<_PetAvatar> {
         } else if (err == 'not-logged-in') {
           msg = ls.petPhotoLoginRequired;
           bg = AppColors.alertRed;
+        } else if (err == 'image-too-large') {
+          msg = ls.petPhotoTooLargeFirestore;
+          bg = AppColors.alertRed;
         } else {
           msg = ls.petPhotoUploadFailed(err);
           bg = AppColors.alertRed;

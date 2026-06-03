@@ -39,6 +39,9 @@ import '../onboarding/onboarding_screen.dart';
 import '../../services/wifi_config_service.dart';
 import '../../services/server_api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../services/firestore_service.dart';
+import '../../widgets/common/circle_photo.dart';
 import '../dev/debug_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,6 +57,74 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _firestore = FirestoreService();
+  String? _userPhotoUrl;
+  int _userPhotoRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserPhoto();
+  }
+
+  Future<void> _loadUserPhoto() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final local = prefs.getString('user_photo_$uid');
+    if (local != null && local.isNotEmpty && mounted) {
+      setState(() => _userPhotoUrl = local);
+    }
+    final cloud = await _firestore.loadUserPhotoUrl(uid);
+    if (cloud != null && cloud.isNotEmpty && mounted) {
+      setState(() {
+        _userPhotoUrl = cloud;
+        _userPhotoRevision++;
+      });
+      await prefs.setString('user_photo_$uid', cloud);
+    }
+  }
+
+  Future<void> _persistUserPhoto(String dataUrl) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_photo_$uid', dataUrl);
+  }
+
+  Future<String?> _pickAndSaveUserPhoto(dynamic s) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return 'not-logged-in';
+
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
+    if (file == null) return 'cancelled';
+
+    final bytes = await file.readAsBytes();
+    const maxBytes = 700 * 1024;
+    if (bytes.length > maxBytes) {
+      return 'image-too-large';
+    }
+
+    try {
+      final dataUrl = await _firestore.saveUserPhoto(uid, bytes);
+      await _persistUserPhoto(dataUrl);
+      if (mounted) {
+        setState(() {
+          _userPhotoUrl = dataUrl;
+          _userPhotoRevision++;
+        });
+      }
+      return 'ok';
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 使用 watch 确保语言切换后整个页面重建
@@ -94,14 +165,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // 用户信息行
           Row(
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(colors: [AppColors.sageGreen, Color(0xFF5A9970)]),
-                  shape: BoxShape.circle,
+              GestureDetector(
+                onTap: () => _showEditProfile(context),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: _userPhotoUrl == null
+                        ? const LinearGradient(colors: [AppColors.sageGreen, Color(0xFF5A9970)])
+                        : null,
+                    color: _userPhotoUrl != null ? AppColors.sageLight : null,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.sageGreen, width: 2),
+                  ),
+                  child: CirclePhoto(
+                    url: _userPhotoUrl ?? FirebaseAuth.instance.currentUser?.photoURL,
+                    size: 60,
+                    rebuildKey: _userPhotoRevision,
+                  ),
                 ),
-                child: const Center(child: Text('👤', style: TextStyle(fontSize: 28))),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -518,6 +600,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final nameCtrl = TextEditingController(text: user?.displayName ?? '');
     bool saving = false;
+    bool uploadingPhoto = false;
+    String? dialogPhotoUrl = _userPhotoUrl ?? user?.photoURL;
+    int dialogPhotoRevision = _userPhotoRevision;
 
     showDialog(
       barrierColor: Colors.black54,
@@ -538,6 +623,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: GestureDetector(
+                  onTap: uploadingPhoto
+                      ? null
+                      : () async {
+                          setS(() => uploadingPhoto = true);
+                          final result = await _pickAndSaveUserPhoto(s);
+                          if (!ctx.mounted) return;
+                          setS(() => uploadingPhoto = false);
+                          if (result == 'ok') {
+                            setS(() {
+                              dialogPhotoUrl = _userPhotoUrl;
+                              dialogPhotoRevision = _userPhotoRevision;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(s.profilePhotoUpdated),
+                                backgroundColor: AppColors.sageGreen,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } else if (result != null &&
+                              result != 'cancelled' &&
+                              result != 'not-logged-in') {
+                            final msg = result == 'image-too-large'
+                                ? s.profilePhotoTooLargeFirestore
+                                : s.petPhotoUploadFailed(result);
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                            );
+                          }
+                        },
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.sageGreen, width: 2),
+                          color: AppColors.sageLight,
+                        ),
+                        child: uploadingPhoto
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : CirclePhoto(
+                                url: dialogPhotoUrl,
+                                size: 68,
+                                rebuildKey: dialogPhotoRevision,
+                              ),
+                      ),
+                      if (!uploadingPhoto)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: AppColors.sageGreen,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  s.profilePhotoTapHint,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 14),
               Text(s.profileNicknameLabel, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 6),
               TextField(

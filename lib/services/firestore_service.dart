@@ -30,8 +30,10 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'dart:typed_data';
 import '../models/models.dart';
+import '../utils/image_data_url.dart';
 import '../services/mock_ble_service.dart' show DailyStressDataPoint;
 
 class FirestoreService {
@@ -145,26 +147,77 @@ class FirestoreService {
   }
 
   // =============================================================================
-  // 宠物照片上传（Firebase Storage）
+  // 头像上传（Web 用 Firestore data URL，App 用 Firebase Storage）
   // =============================================================================
 
-  /// 上传宠物照片到 Firebase Storage，返回下载 URL
-  /// 路径：pet_photos/{uid}/avatar.jpg
-  /// 失败时直接 rethrow，由调用方处理错误提示
+  static const int _maxDataUrlPhotoBytes = 700 * 1024;
+
+  String _photoAsDataUrl(List<int> imageBytes) {
+    if (imageBytes.length > _maxDataUrlPhotoBytes) {
+      throw Exception('image-too-large-for-firestore');
+    }
+    return bytesToJpegDataUrl(imageBytes);
+  }
+
+  bool _shouldUseDataUrlFallback(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('cors') ||
+        msg.contains('404') ||
+        msg.contains('network') ||
+        msg.contains('failed to fetch') ||
+        msg.contains('storage');
+  }
+
+  /// 宠物头像：Web / Storage 失败时写入 data URL（绕过 Storage CORS）
   Future<String> uploadPetPhoto(String uid, List<int> imageBytes) async {
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('pet_photos')
-        .child(uid)
-        .child('avatar.jpg');
-    final uploadTask = ref.putData(
-      Uint8List.fromList(imageBytes),
-      SettableMetadata(contentType: 'image/jpeg'),
+    if (kIsWeb) {
+      final dataUrl = _photoAsDataUrl(imageBytes);
+      debugFirestore('uploadPetPhoto (web data URL) len=${dataUrl.length}');
+      return dataUrl;
+    }
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('pet_photos')
+          .child(uid)
+          .child('avatar.jpg');
+      final uploadTask = ref.putData(
+        Uint8List.fromList(imageBytes),
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      debugFirestore('uploadPetPhoto OK: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('uploadPetPhoto Storage failed, fallback data URL: $e');
+      if (_shouldUseDataUrlFallback(e)) {
+        return _photoAsDataUrl(imageBytes);
+      }
+      rethrow;
+    }
+  }
+
+  /// 用户资料头像（存 users/{uid}.user_photo_url）
+  Future<String> saveUserPhoto(String uid, List<int> imageBytes) async {
+    final dataUrl = _photoAsDataUrl(imageBytes);
+    await _db.collection('users').doc(uid).set(
+      {'user_photo_url': dataUrl, 'updated_at': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
     );
-    final snapshot = await uploadTask;
-    final downloadUrl = await snapshot.ref.getDownloadURL();
-    debugFirestore('uploadPetPhoto OK: $downloadUrl');
-    return downloadUrl;
+    debugFirestore('saveUserPhoto OK: uid=$uid len=${dataUrl.length}');
+    return dataUrl;
+  }
+
+  Future<String?> loadUserPhotoUrl(String uid) async {
+    try {
+      final doc = await _db.collection('users').doc(uid).get();
+      final url = doc.data()?['user_photo_url'] as String?;
+      if (url != null && url.isNotEmpty) return url;
+    } catch (e) {
+      debugFirestore('loadUserPhotoUrl error: $e');
+    }
+    return null;
   }
 
   // =============================================================================

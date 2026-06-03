@@ -53,6 +53,7 @@ import '../services/mock_ble_service.dart';
 import '../services/server_api_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_strings.dart';
+import '../utils/image_data_url.dart';
 
 class PetHealthProvider extends ChangeNotifier {
   // ── 当前已登录用户 ID（用于 SharedPreferences key 隔离）──────────────────
@@ -332,8 +333,10 @@ class PetHealthProvider extends ChangeNotifier {
           .timeout(const Duration(seconds: 20));
       // 追加版本参数，避免 Web 端 Image.network 同 URL 缓存导致头像不刷新
       _petPhotoRevision++;
-      final cacheBusted = '$url${url.contains('?') ? '&' : '?'}v=$_petPhotoRevision';
-      final updated = _pet.copyWith(photoPath: cacheBusted);
+      final displayUrl = isDataImageUrl(url)
+          ? url
+          : '$url${url.contains('?') ? '&' : '?'}v=$_petPhotoRevision';
+      final updated = _pet.copyWith(photoPath: displayUrl);
       updatePetLocal(updated);
       // 同步到 Firestore
       await syncPetToCloud();
@@ -342,9 +345,12 @@ class PetHealthProvider extends ChangeNotifier {
       return 'timeout';
     } catch (e) {
       final msg = e.toString();
+      if (msg.contains('image-too-large-for-firestore')) {
+        return 'image-too-large';
+      }
       if (msg.contains('permission-denied') || msg.contains('unauthorized')) {
         return 'storage-permission-denied';
-      } else if (msg.contains('network') || msg.contains('socket')) {
+      } else if (msg.contains('network') || msg.contains('socket') || msg.contains('cors')) {
         return 'network-error';
       }
       return msg;

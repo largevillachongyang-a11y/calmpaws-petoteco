@@ -206,6 +206,7 @@ class AppStrings {
   String get petPhotoNetworkError => _t('Network error. Check your connection and try again.', '网络错误，请检查网络连接后重试');
   String get petPhotoLoginRequired => _t('Please sign in before uploading a photo.', '请先登录再上传照片');
   String petPhotoUploadFailed(String err) => _t('Upload failed: $err', '上传失败：$err');
+  String get petPhotoTooLargeFirestore => profilePhotoTooLargeFirestore;
 
   // ── Shop ──────────────────────────────────────────────────────────────────
   String get shopTitle => _t('Shop', '商城');
@@ -251,6 +252,12 @@ class AppStrings {
   String get profileNicknameLabel => _t('Nickname', '昵称');
   String get profileNicknameHint => _t('Enter your nickname', '请输入昵称');
   String get profileNicknameSaved => _t('✅ Nickname updated', '✅ 昵称已更新');
+  String get profilePhotoUpdated => _t('✅ Profile photo updated', '✅ 头像已更新');
+  String get profilePhotoTapHint => _t('Tap photo to change', '点击头像更换');
+  String get profilePhotoTooLargeFirestore => _t(
+    'Photo is too large for cloud save (max ~700KB). Please choose a smaller image.',
+    '图片过大无法保存到云端（约 700KB 以内），请换一张更小的图',
+  );
   String profileSaveFailed(String err) => _t('Save failed: $err', '保存失败：$err');
   // Subscription management sheet
   String get subSheetTitle => _t('Manage Subscription', '管理订阅');
