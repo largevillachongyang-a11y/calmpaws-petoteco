@@ -51,7 +51,7 @@ class PetScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _PetAvatar(pet: pet, provider: provider),
+          _PetAvatar(provider: provider),
           const SizedBox(width: 18),
           Expanded(
             child: Column(
@@ -296,28 +296,29 @@ class PetScreen extends StatelessWidget {
         provider: provider,
         s: s,
         onSaved: (String? cloudErr) {
+          final ls = context.read<LocaleProvider>().strings;
           // 在父页面上下文中显示 SnackBar（不受对话框 unmount 影响）
           String msg;
           Color bgColor;
           int secs;
           if (cloudErr == null) {
-            msg = '✅ 宠物档案已保存并同步到云端';
+            msg = ls.petProfileSaved;
             bgColor = const Color(0xFF4CAF50);
             secs = 2;
           } else if (cloudErr == 'permission-denied') {
-            msg = '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则';
+            msg = ls.petProfileFirestoreDenied;
             bgColor = const Color(0xFFF59E0B);
             secs = 6;
           } else if (cloudErr == 'network-error' || cloudErr == 'timeout') {
-            msg = '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步';
+            msg = ls.petProfileSavedLocal;
             bgColor = const Color(0xFFF59E0B);
             secs = 4;
           } else if (cloudErr == 'unauthenticated') {
-            msg = '⚠️ 登录状态异常，请重新登录后保存';
+            msg = ls.petProfileAuthError;
             bgColor = const Color(0xFFEF5350);
             secs = 4;
           } else {
-            msg = '⚠️ 已保存到本机，云端同步失败\n原因：$cloudErr';
+            msg = ls.petProfileCloudError(cloudErr);
             bgColor = const Color(0xFFF59E0B);
             secs = 5;
           }
@@ -1043,7 +1044,7 @@ class _EditPetDialogState extends State<_EditPetDialog> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('取消', style: TextStyle(color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
+                      child: Text(locS.cancel, style: const TextStyle(color: AppColors.sageGreen, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1145,9 +1146,8 @@ class _SpeciesChip extends StatelessWidget {
 
 // ── 宠物头像组件（支持照片上传）─────────────────────────────────────────────────
 class _PetAvatar extends StatefulWidget {
-  final PetProfile pet;
   final PetHealthProvider provider;
-  const _PetAvatar({required this.pet, required this.provider});
+  const _PetAvatar({required this.provider});
 
   @override
   State<_PetAvatar> createState() => _PetAvatarState();
@@ -1179,7 +1179,7 @@ class _PetAvatarState extends State<_PetAvatar> {
       if (mounted) {
         final sizeMB = (bytes.length / 1024 / 1024).toStringAsFixed(1);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('图片太大（${sizeMB}MB），请选择小于 5MB 的图片'),
+          content: Text(ls.petPhotoTooLarge(sizeMB)),
           backgroundColor: AppColors.alertRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1206,25 +1206,26 @@ class _PetAvatarState extends State<_PetAvatar> {
       if (_cancelled) return;
 
       if (mounted) {
+        final ls = context.read<LocaleProvider>().strings;
         String msg;
         Color bg;
         if (err == null) {
-          msg = '✅ 头像已更新';
+          msg = ls.petPhotoUpdated;
           bg = AppColors.sageGreen;
         } else if (err == 'timeout') {
-          msg = '上传超时，请检查网络后重试';
+          msg = ls.petPhotoUploadTimeout;
           bg = AppColors.alertRed;
         } else if (err == 'storage-permission-denied') {
-          msg = 'Storage 权限不足，请联系管理员';
+          msg = ls.petPhotoStorageDenied;
           bg = AppColors.alertRed;
         } else if (err == 'network-error') {
-          msg = '网络错误，请检查网络连接后重试';
+          msg = ls.petPhotoNetworkError;
           bg = AppColors.alertRed;
         } else if (err == 'not-logged-in') {
-          msg = '请先登录再上传照片';
+          msg = ls.petPhotoLoginRequired;
           bg = AppColors.alertRed;
         } else {
-          msg = '上传失败：$err';
+          msg = ls.petPhotoUploadFailed(err);
           bg = AppColors.alertRed;
         }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -1257,7 +1258,9 @@ class _PetAvatarState extends State<_PetAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    final photoUrl = widget.pet.photoPath;
+    final provider = context.watch<PetHealthProvider>();
+    final photoUrl = provider.pet.photoPath;
+    final revision = provider.petPhotoRevision;
     return GestureDetector(
       onTap: _uploading ? null : _pickAndUpload,
       child: Stack(
@@ -1303,6 +1306,7 @@ class _PetAvatarState extends State<_PetAvatar> {
                   : photoUrl != null && photoUrl.isNotEmpty
                       ? Image.network(
                           photoUrl,
+                          key: ValueKey('pet_avatar_upload_${revision}_$photoUrl'),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => const Center(
                             child: Text('🐶', style: TextStyle(fontSize: 38)),

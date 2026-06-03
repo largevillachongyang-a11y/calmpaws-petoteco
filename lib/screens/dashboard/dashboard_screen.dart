@@ -36,6 +36,7 @@ import '../../widgets/dashboard/device_status_bar.dart';
 import '../../widgets/dashboard/behavior_state_card.dart';
 import '../../widgets/dashboard/journal_quick_entry.dart';
 import '../notifications/notification_center_screen.dart';
+import '../../widgets/common/pet_avatar_image.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -124,19 +125,7 @@ class DashboardScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          // Pet avatar
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.sageLight,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.sageGreen, width: 2.5),
-            ),
-            child: const Center(
-              child: Text('🐶', style: TextStyle(fontSize: 26)),
-            ),
-          ),
+          const PetAvatarImage(size: 52, borderWidth: 2.5, emojiSize: 26),
           const SizedBox(width: 14),
           Expanded(
             child: Column(

@@ -87,6 +87,10 @@ class PetHealthProvider extends ChangeNotifier {
   );
   PetProfile get pet => _pet;
 
+  /// 头像上传成功后递增，用于打破 [Image.network] 同 URL 缓存并触发 UI 重建。
+  int _petPhotoRevision = 0;
+  int get petPhotoRevision => _petPhotoRevision;
+
   // ── 加载指定用户的宠物数据（登录后调用）────────────────────────────────────
   // P0-1三层加载策略：
   //   第1层：SharedPreferences（本地，毫秒级，最快）
@@ -99,6 +103,7 @@ class PetHealthProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString('pet_name_$userId');
       if (name != null && name.isNotEmpty) {
+        final photoPath = prefs.getString('pet_photo_$userId');
         _pet = PetProfile(
           id: prefs.getString('pet_id_$userId') ?? 'pet_$userId',
           name: name,
@@ -107,6 +112,7 @@ class PetHealthProvider extends ChangeNotifier {
           ageMonths: prefs.getInt('pet_age_$userId') ?? 0,
           weightKg: prefs.getDouble('pet_weight_$userId') ?? 0.0,
           healthTags: prefs.getStringList('pet_tags_$userId') ?? [],
+          photoPath: photoPath != null && photoPath.isNotEmpty ? photoPath : null,
           createdAt: DateTime.tryParse(
                 prefs.getString('pet_created_$userId') ?? '') ??
               DateTime.now(),
@@ -325,6 +331,7 @@ class PetHealthProvider extends ChangeNotifier {
           .timeout(const Duration(seconds: 20));
       // 更新本地 PetProfile photoPath 为网络 URL
       final updated = _pet.copyWith(photoPath: url);
+      _petPhotoRevision++;
       updatePetLocal(updated);
       // 同步到 Firestore
       await syncPetToCloud();
@@ -353,6 +360,9 @@ class PetHealthProvider extends ChangeNotifier {
     await prefs.setDouble('pet_weight_$uid', pet.weightKg);
     await prefs.setStringList('pet_tags_$uid', pet.healthTags);
     await prefs.setString('pet_created_$uid', pet.createdAt.toIso8601String());
+    if (pet.photoPath != null && pet.photoPath!.isNotEmpty) {
+      await prefs.setString('pet_photo_$uid', pet.photoPath!);
+    }
   }
 
   // ── 数据源：真实服务器API（优先）+ MockBleService（fallback/调试）────────

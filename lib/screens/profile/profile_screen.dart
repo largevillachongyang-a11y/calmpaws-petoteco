@@ -522,26 +522,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       barrierColor: Colors.black54,
       context: context,
-      builder: (ctx) => StatefulBuilder(
+      builder: (ctx) {
+        final s = context.watch<LocaleProvider>().strings;
+        return StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.person_rounded, color: AppColors.sageGreen),
-              SizedBox(width: 10),
-              Text('编辑资料', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Icon(Icons.person_rounded, color: AppColors.sageGreen),
+              const SizedBox(width: 10),
+              Text(s.profileEditTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('昵称', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              Text(s.profileNicknameLabel, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 6),
               TextField(
                 controller: nameCtrl,
                 decoration: InputDecoration(
-                  hintText: '请输入昵称',
+                  hintText: s.profileNicknameHint,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   prefixIcon: const Icon(Icons.badge_outlined, size: 20),
@@ -571,7 +573,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+              child: Text(s.cancel, style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -592,7 +594,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             setState(() {});
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: const Text('✅ 昵称已更新'),
+                                content: Text(s.profileNicknameSaved),
                                 backgroundColor: AppColors.sageGreen,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -605,18 +607,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         setS(() => saving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('保存失败：$e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text(s.profileSaveFailed('$e')), backgroundColor: Colors.red),
                           );
                         }
                       }
                     },
               child: saving
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('保存', style: TextStyle(color: Colors.white)),
+                  : Text(s.save, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 

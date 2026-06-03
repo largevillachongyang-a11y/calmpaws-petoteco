@@ -181,6 +181,19 @@ class AppStrings {
   String get petSpeciesDog => _t('Dog', '狗狗');
   String get petSpeciesCat => _t('Cat', '猫咪');
   String get petSave => _t('Save Changes', '保存修改');
+  String get petProfileSaved => _t('✅ Pet profile saved and synced to cloud', '✅ 宠物档案已保存并同步到云端');
+  String get petProfileSavedLocal => _t('⚠️ Network timeout — saved on this device only.\nSave again when online to sync.', '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步');
+  String get petProfileFirestoreDenied => _t('⚠️ Cloud sync failed: Firestore permission denied.\nUpdate Rules in Firebase Console.', '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则');
+  String get petProfileAuthError => _t('⚠️ Session expired. Please sign in again and save.', '⚠️ 登录状态异常，请重新登录后保存');
+  String petProfileCloudError(String err) => _t('⚠️ Saved locally; cloud sync failed.\nReason: $err', '⚠️ 已保存到本机，云端同步失败\n原因：$err');
+  String get petPhotoUpdated => _t('✅ Profile photo updated', '✅ 头像已更新');
+  String petPhotoTooLarge(String sizeMb) =>
+      _t('Image too large (${sizeMb}MB). Please choose one under 5MB.', '图片太大（${sizeMb}MB），请选择小于 5MB 的图片');
+  String get petPhotoUploadTimeout => _t('Upload timed out. Check your network and try again.', '上传超时，请检查网络后重试');
+  String get petPhotoStorageDenied => _t('Storage permission denied. Contact your administrator.', 'Storage 权限不足，请联系管理员');
+  String get petPhotoNetworkError => _t('Network error. Check your connection and try again.', '网络错误，请检查网络连接后重试');
+  String get petPhotoLoginRequired => _t('Please sign in before uploading a photo.', '请先登录再上传照片');
+  String petPhotoUploadFailed(String err) => _t('Upload failed: $err', '上传失败：$err');
 
   // ── Shop ──────────────────────────────────────────────────────────────────
   String get shopTitle => _t('Shop', '商城');
@@ -222,6 +235,11 @@ class AppStrings {
   String get profilePrivacy => _t('Privacy & Data', '隐私与数据');
   String get profileSignOut => _t('Sign Out', '退出登录');
   String get profileLanguage => _t('Language / 语言', 'Language / 语言');
+  String get profileEditTitle => _t('Edit Profile', '编辑资料');
+  String get profileNicknameLabel => _t('Nickname', '昵称');
+  String get profileNicknameHint => _t('Enter your nickname', '请输入昵称');
+  String get profileNicknameSaved => _t('✅ Nickname updated', '✅ 昵称已更新');
+  String profileSaveFailed(String err) => _t('Save failed: $err', '保存失败：$err');
   // Subscription management sheet
   String get subSheetTitle => _t('Manage Subscription', '管理订阅');
   String subSheetBody(String name) =>
@@ -296,6 +314,7 @@ class AppStrings {
   String get ok => _t('OK', '好的');
 
   // Common
+  String get save => _t('Save', '保存');
   String get cancel => _t('Cancel', '取消');
   String get close => _t('Close', '关闭');
   String get gotIt => _t('Got it!', '好的！');
