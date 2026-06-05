@@ -50,7 +50,8 @@ class _StressChartCardState extends State<StressChartCard> {
     final isZh = context.watch<LocaleProvider>().isZh;
     final provider = widget.provider;
     final response = _currentResponse;
-    final loading = provider.isLoadingHistory && response == null;
+    final loading = provider.isLoadingHistory &&
+        (response == null || !_hasChartData(response));
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -96,10 +97,13 @@ class _StressChartCardState extends State<StressChartCard> {
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded, size: 20),
                   color: AppColors.textMuted,
-                  tooltip: isZh ? '刷新' : 'Refresh',
+                  tooltip: isZh ? '从服务器重新加载' : 'Reload from server',
                   onPressed: provider.isLoadingHistory
                       ? null
-                      : () => provider.loadServerHistory(ranges: [_currentRange]),
+                      : () => provider.loadServerHistory(
+                            ranges: [_currentRange],
+                            clearBeforeLoad: true,
+                          ),
                 ),
             ],
           ),

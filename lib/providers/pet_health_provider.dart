@@ -476,10 +476,19 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   /// 从 VPS 拉取历史曲线（24h / 7d / 30d），结果缓存于 [_serverHistory]。
-  Future<void> loadServerHistory({List<String>? ranges}) async {
+  /// [clearBeforeLoad] 为 true 时先清掉对应缓存再请求（刷新按钮用，避免旧图残留）。
+  Future<void> loadServerHistory({
+    List<String>? ranges,
+    bool clearBeforeLoad = false,
+  }) async {
     if (!_useRealServer) return;
 
     final toLoad = ranges ?? HistoryRange.all;
+    if (clearBeforeLoad) {
+      for (final range in toLoad) {
+        _serverHistory.remove(range);
+      }
+    }
     _isLoadingHistory = true;
     _serverHistoryError = null;
     notifyListeners();
