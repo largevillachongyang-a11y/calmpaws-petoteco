@@ -31,6 +31,7 @@ import '../../widgets/dashboard/status_cards_row.dart';
 import '../../widgets/dashboard/device_status_bar.dart';
 import '../../widgets/dashboard/behavior_state_card.dart';
 import '../../widgets/dashboard/journal_quick_entry.dart';
+import '../../widgets/dashboard/server_alerts_banner.dart';
 import '../notifications/notification_center_screen.dart';
 import '../../widgets/common/pet_avatar_image.dart';
 
@@ -54,7 +55,12 @@ class DashboardScreen extends StatelessWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                child: DeviceStatusBar(provider: provider),
+                child: Column(
+                  children: [
+                    DeviceStatusBar(provider: provider),
+                    ServerAlertsBanner(provider: provider),
+                  ],
+                ),
               ),
             ),
 

@@ -38,6 +38,12 @@ class AppStrings {
     'Server connected — no cached readings yet. Data will appear when the collar uploads.',
     '已连接服务器，暂无项圈缓存数据。项圈上报后将自动显示。',
   );
+  String get serverAlertsTitle => _t('Device alert', '设备告警');
+  String serverAlertLowBattery(int pct) =>
+      _t('Collar battery low ($pct%)', '项圈电量低（$pct%）');
+  String get serverAlertLowBatteryGeneric =>
+      _t('Collar battery low', '项圈电量低');
+  String get anxietyScoreLabel => _t('Anxiety', '焦虑分');
   String deviceCollarHost(String host) => _t('CalmPaws Collar · $host', 'CalmPaws 项圈 · $host');
   String get deviceRetry => _t('Retry', '重试');
   String get syncInProgress => _t('Syncing', '同步中');

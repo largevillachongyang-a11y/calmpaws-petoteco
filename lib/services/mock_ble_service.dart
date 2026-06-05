@@ -283,32 +283,3 @@ List<List<HourlyStressPoint>> generateHistoricalDailyData(int days) {
   });
 }
 
-/// Generate a 14-day daily stress summary list
-List<DailyStressDataPoint> generateDailyStressChart() {
-  final random = Random(42);
-  return List.generate(14, (i) {
-    final isAfter = i >= 7;
-    double base = isAfter ? 65 - (i - 7) * 7.0 : 60 + random.nextDouble() * 20;
-    base += random.nextDouble() * 10 - 5;
-    return DailyStressDataPoint(
-      dayIndex: i,
-      stressScore: base.clamp(5.0, 95.0),
-      isAfterTreatment: isAfter,
-      label: 'D${i + 1}',
-    );
-  });
-}
-
-class DailyStressDataPoint {
-  final int dayIndex;
-  final double stressScore;
-  final bool isAfterTreatment;
-  final String label;
-
-  const DailyStressDataPoint({
-    required this.dayIndex,
-    required this.stressScore,
-    required this.isAfterTreatment,
-    required this.label,
-  });
-}

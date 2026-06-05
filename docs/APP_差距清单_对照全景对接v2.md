@@ -1,6 +1,6 @@
 # CalmPaws APP 差距清单（对照《全景对接文档 v2》）
 
-> **更新日期**：2026-06-03（P0 收尾 + P1 完成后）  
+> **更新日期**：2026-06-03（P0 收尾 + P1 + APP 独立收尾完成后）  
 > **对照文档**：`docs/CalmPaws_全景对接文档_给Cursor_v2.md`  
 > **代码仓库**：`calmpaws-petoteco`（main 分支）  
 > **预览**：https://largevillachongyang-a11y.github.io/calmpaws-petoteco/  
@@ -13,7 +13,7 @@
 | 维度 | 完成度 | 说明 |
 |------|--------|------|
 | **§0 三件立刻要做的事** | **3 / 3** | 喂食卡移除、历史图重写、服务器焦虑分 — 均已完成 |
-| **§5.1 立刻做清单** | **约 13 / 14 项** | 仅剩 P2（头像 VPS、FCM）及服务器联调验证 |
+| **§5.1 立刻做清单** | **14 / 14 项（APP 侧）** | 仅剩 P2（头像 VPS、FCM）及服务器联调验证 |
 | **四条工程铁律** | **4 / 4** | 时区、EnvironmentConfig、204 防御、状态染色均已落地 |
 | **§5.4 明确不变项** | **7 / 7** | 全部对齐 |
 
@@ -37,12 +37,13 @@
 
 | 项 | 状态 | 备注 |
 |----|------|------|
-| `FeedingTimerCard` | ✅ 已移除 | 文件可保留未引用，或后续清理 |
+| `FeedingTimerCard` | ✅ 已移除 | P1 删挂载；widget 文件已删除 |
 | `TimeToCalmCard` | ✅ 已移除 | 同上 |
 | APP 端焦虑分 getter | ✅ 已移除 | UI 读 `serverAnxietyScore` |
 | `_recentDeltas` 滑动窗口 | ✅ **P0 收尾已删** | 无其他引用 |
-| Firestore `daily_stress` 写入 | ✅ P1 已停写 | `firestore_service` 方法仍存在但未调用 |
-| Firestore `feeding_sessions` 写入 | ✅ P1 已停写 | 同上 |
+| Firestore `daily_stress` 读写 | ✅ 已清理 | `firestore_service` 相关方法已删除 |
+| Firestore `feeding_sessions` 读写 | ✅ 已清理 | 同上；`FeedingSession` 模型保留只读兼容 |
+| `mock_ble` 废弃 `generateDailyStressChart` | ✅ 已删 | 14 天模拟曲线生成器已移除 |
 
 ### 3.2 应新增
 
@@ -87,7 +88,7 @@
 | `/api/status` 轮询 2s | ✅ |
 | `/api/app_online` | ✅ |
 | `/api/set_species` | ✅ |
-| `/api/alerts` | ✅ `fetchAlerts()` 已实现（Dashboard 未深度集成） |
+| `/api/alerts` | ✅ | `fetchAlertsList()` + Dashboard `ServerAlertsBanner`（60s 轮询） |
 
 ---
 
@@ -97,6 +98,7 @@
 |------|----------|--------------|
 | `GET /api/status/<id>?key=` | ✅ 轮询、解析 anxiety_score/label/sleep_*；204 UI | 项圈未上报时 204；label 枚举与文档一致 |
 | `GET /api/history/<id>?range=&key=` | ✅ 三档拉取 + 缓存 + 刷新 | points / summary 字段是否按 v2 填充 |
+| `GET /api/alerts/<id>?key=` | ✅ 连接后拉取 + 横幅展示 | 当前服务器常返回空数组 `{"alerts":[]}` |
 | `GET /api/health` | ✅ | — |
 | 鉴权 key | ✅ APP 已带 | 服务器验证逻辑待下版 |
 
@@ -107,6 +109,7 @@
 ```
 Header（宠物头像）
 DeviceStatusBar（含 SYNC；204 时琥珀色等待提示）
+ServerAlertsBanner（/api/alerts 低电量等，有告警时显示）
 BehaviorStateCard（服务器 label + anxiety_score）
 StressChartCard（24h/7d/30d + 染色 + 监测时长）
 StatusCardsRow
@@ -145,8 +148,9 @@ JournalQuickEntry
 | P0-4 | 重写 `StressChartCard` 三档图表 |
 | P1 | 移除 ZenBelly 喂食流程；停写 feeding/daily_stress |
 | P0 收尾 | label 驱动行为卡、204 UI、删 `_recentDeltas` |
+| APP 独立收尾 | alerts 横幅、代码清理、焦虑分 i18n |
 
-验收文档：`docs/P0-1_验收说明.md` … `docs/P0-4_验收说明.md`、`docs/P1_验收说明.md`、`docs/P0_收尾_验收说明.md`
+验收文档：`docs/P0-1_验收说明.md` … `docs/P0-4_验收说明.md`、`docs/P1_验收说明.md`、`docs/P0_收尾_验收说明.md`、`docs/APP_独立收尾_验收说明.md`
 
 ---
 
@@ -160,6 +164,17 @@ JournalQuickEntry
 ---
 
 ## 十一、决策确认（仍然有效）
+
+### 实施原则（与项目负责人对齐）
+
+| 类型 | 做法 |
+|------|------|
+| **不依赖服务器**（APP 能独立完成） | ✅ **现在就做** |
+| **依赖服务器**（需 VPS 新接口 / FCM / 项圈数据） | ⏸️ **先不做**，标「待服务器」 |
+
+> 勿写成「不依赖服务器则不做」——那是笔误，含义相反。
+
+### 产品决策
 
 1. **Web 头像 Base64**：本期保留，VPS 头像 API 就绪后再迁（P2）。
 2. **API key**：APP 全量带 key；服务器验证待下版。
@@ -175,16 +190,17 @@ JournalQuickEntry
 1. **配置与鉴权**：`baseUrl`、`deviceId`、`key` 集中配置；所有 HTTP 请求带 `?key=calmpaws_secret`（可改环境变量）。
 2. **实时 `/api/status`**：2s 轮询；解析 `anxiety_score`、`label`、`battery`、`rssi`、`sleep_*`；同 timestamp 去重；**204 显示等待 UI**。
 3. **历史 `/api/history`**：24h / 7d / 30d 三档；Provider 缓存；刷新按钮同时重拉三档。
-4. **Dashboard 产品形态**：无喂食流程；行为卡 + 三档焦虑历史图 + 7 状态图例。
-5. **部署**：push `main` → GitHub Actions → gh-pages 预览。
+4. **Dashboard 产品形态**：无喂食流程；设备告警横幅 + 行为卡 + 三档焦虑历史图 + 7 状态图例。
+5. **`/api/alerts`**：连接后拉取 + 60s 轮询；有告警时在设备栏下方显示横幅（当前服务器多为空数组，不显示）。
+6. **代码清理**：删除喂食 widget、`firestore` 喂食/压力读写、`mock_ble` 废弃图表生成器。
+7. **i18n**：行为卡焦虑分圆环标签走 `AppStrings.anxietyScoreLabel`。
+8. **部署**：push `main` → GitHub Actions → gh-pages 预览。
 
 ### APP 侧待完成（不阻塞服务器）
 
 | 项 | 优先级 | 说明 |
 |----|--------|------|
-| 清理未引用代码 | 低 | `feeding_timer_card.dart`、`mock_ble` 中废弃方法、`firestore` 停写方法 |
-| `/api/alerts` UI 集成 | 低 | 已有 `fetchAlerts()`，未在 Dashboard 展示 |
-| i18n 行为卡「焦虑分」硬编码 | 低 | `_AnxietyRing` 底部文案未走 `AppStrings` |
+| （暂无） | — | APP 侧 v2 对接项已全部完成；仅剩 P2 与联调 |
 
 ### 依赖服务器 / 硬件（请服务器侧推进）
 
@@ -214,7 +230,10 @@ curl -s "https://api.myvideotest2026.top/api/health?key=calmpaws_secret"
 curl -s "https://api.myvideotest2026.top/api/status/collar_001?key=calmpaws_secret" -w "\nHTTP:%{http_code}\n"
 curl -s "https://api.myvideotest2026.top/api/history/collar_001?range=24h&key=calmpaws_secret" | head -c 800
 curl -s "https://api.myvideotest2026.top/api/history/collar_001?range=7d&key=calmpaws_secret" | head -c 800
+curl -s "https://api.myvideotest2026.top/api/alerts/collar_001?key=calmpaws_secret"
 ```
+
+**alerts 联调**：服务器在 `alerts` 数组中返回对象（建议含 `type`/`message`，低电量可加 `battery`）；APP 会在设备栏下方显示红色/琥珀色横幅。
 
 ---
 

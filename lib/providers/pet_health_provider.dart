@@ -47,6 +47,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/history_models.dart';
 import '../models/models.dart';
+import '../models/server_alert.dart';
 import '../services/mock_ble_service.dart';
 import '../services/server_api_service.dart';
 import '../services/firestore_service.dart';
@@ -360,6 +361,8 @@ class PetHealthProvider extends ChangeNotifier {
   double _anxietyScoreFromServer = 0; // /api/status 返回的 anxiety_score
   String? _serverBehaviorLabel; // /api/status 返回的 label
   bool _statusAwaitingCachedData = false; // 204 暂无新缓存
+  Timer? _alertsPollTimer;
+  List<ServerAlert> _serverAlerts = [];
 
   // B：状态切换需要连续2包确认，防止单包噪声引发状态跳变（仅 Mock 模式）
   //    连续2包（10秒）相同状态才切换，避免 calm→stressed→calm 的闪烁
@@ -386,6 +389,7 @@ class PetHealthProvider extends ChangeNotifier {
   String get serverConnectionStatus => _serverApi.connectionStatus;
   bool get statusAwaitingCachedData => _statusAwaitingCachedData;
   String? get serverBehaviorLabel => _serverBehaviorLabel;
+  List<ServerAlert> get serverAlerts => List.unmodifiable(_serverAlerts);
 
   /// 配置服务器地址（从设置页面调用）
   Future<void> configureServer(String baseUrl, String deviceId) async {
@@ -422,12 +426,29 @@ class PetHealthProvider extends ChangeNotifier {
       _serverApi.start();
       _bleSub = _serverApi.stream.listen(_onPacket);
       unawaited(loadServerHistory());
+      unawaited(loadServerAlerts());
+      _alertsPollTimer?.cancel();
+      _alertsPollTimer = Timer.periodic(
+        const Duration(seconds: 60),
+        (_) => unawaited(loadServerAlerts()),
+      );
     } else {
       // Mock模式：本地模拟数据（调试用）
       _ble.start();
       _bleSub = _ble.stream.listen(_onPacket);
     }
     _deviceConnected = true;
+    notifyListeners();
+  }
+
+  /// 拉取 /api/alerts 设备告警（低电量等），供 Dashboard 横幅展示。
+  Future<void> loadServerAlerts() async {
+    if (!_useRealServer || !_deviceConnected) return;
+    try {
+      _serverAlerts = await _serverApi.fetchAlertsList();
+    } catch (e) {
+      debugPrint('loadServerAlerts error: $e');
+    }
     notifyListeners();
   }
 
@@ -490,6 +511,9 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   void disconnectDevice() {
+    _alertsPollTimer?.cancel();
+    _alertsPollTimer = null;
+    _serverAlerts = [];
     _serverApi.onStatus204 = null;
     _statusAwaitingCachedData = false;
     _serverBehaviorLabel = null;

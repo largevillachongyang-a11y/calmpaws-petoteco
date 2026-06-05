@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/environment_config.dart';
 import '../models/history_models.dart';
 import '../models/models.dart';
+import '../models/server_alert.dart';
 
 class ServerApiService {
   static final ServerApiService _instance = ServerApiService._internal();
@@ -294,6 +295,34 @@ class ServerApiService {
       }
     }
     return null;
+  }
+
+  /// 拉取设备告警列表；失败或空响应返回 []。
+  Future<List<ServerAlert>> fetchAlertsList() async {
+    try {
+      final resp = await http
+          .get(_uri('/api/alerts/$_deviceId'))
+          .timeout(EnvironmentConfig.requestTimeout);
+
+      if (resp.statusCode != 200 || resp.body.isEmpty) return [];
+
+      final data = jsonDecode(resp.body);
+      if (data is! Map<String, dynamic>) return [];
+
+      final raw = data['alerts'];
+      if (raw is! List) return [];
+
+      final alerts = raw.map(ServerAlert.fromJson).where((a) => !a.isEmpty).toList();
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] fetchAlerts：${alerts.length} 条');
+      }
+      return alerts;
+    } catch (e) {
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] fetchAlertsList 失败：$e');
+      }
+      return [];
+    }
   }
 
   Future<bool> healthCheck() async {

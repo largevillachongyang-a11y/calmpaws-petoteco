@@ -7,12 +7,8 @@
 // Firestore 数据结构（路径设计）：
 //   users/
 //     {uid}/                          ← 每个用户一个文档（存用户级配置）
-//       feeding_sessions/             ← 子集合：喂食记录
-//         {sessionId}                 ← 一次喂食会话
 //       journal_entries/              ← 子集合：健康日志
 //         {entryId}                   ← 一条日志
-//       daily_stress/                 ← 子集合：每日压力数据
-//         {yyyy-MM-dd}                ← 以日期字符串为文档 ID，方便按日期查询
 //
 // 为什么按 uid 分路径而不是在文档里加 userId 字段？
 //   • Firestore 安全规则可以直接用 request.auth.uid == userId 路径匹配
@@ -34,7 +30,6 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'dart:typed_data';
 import '../models/models.dart';
 import '../utils/image_data_url.dart';
-import '../services/mock_ble_service.dart' show DailyStressDataPoint;
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -42,17 +37,9 @@ class FirestoreService {
   // ── 集合路径辅助方法 ─────────────────────────────────────────────────────────
   // 集中管理路径字符串，避免散落在各方法中拼写错误
 
-  /// 喂食记录子集合引用
-  CollectionReference<Map<String, dynamic>> _feedingSessions(String uid) =>
-      _db.collection('users').doc(uid).collection('feeding_sessions');
-
   /// 健康日志子集合引用
   CollectionReference<Map<String, dynamic>> _journalEntries(String uid) =>
       _db.collection('users').doc(uid).collection('journal_entries');
-
-  /// 每日压力数据子集合引用
-  CollectionReference<Map<String, dynamic>> _dailyStress(String uid) =>
-      _db.collection('users').doc(uid).collection('daily_stress');
 
   // =============================================================================
   // 宠物档案（PetProfile）P0-1：换机不丢宠物档案
@@ -221,80 +208,6 @@ class FirestoreService {
   }
 
   // =============================================================================
-  // 喂食记录（FeedingSession）
-  // =============================================================================
-  ///
-  /// 调用时机：
-  ///   • 用户点击「已喂食」按钮，会话结束（_completeFeedingSession）后调用
-  ///   • 不在会话进行中实时保存，避免频繁写入
-  ///
-  /// [API 需求] Firestore 文档结构：
-  ///   {
-  ///     "feed_time": Timestamp,           ← 喂食时间
-  ///     "time_to_calm": int | null,       ← 平静用时（秒），进行中为 null
-  ///     "stress_before": int | null,      ← 喂食前压力计数
-  ///     "stress_after": int | null,       ← 喂食后压力计数
-  ///     "created_at": Timestamp           ← 文档创建时间（用于排序）
-  ///   }
-  ///
-  /// [TODO: 异常处理] 写入失败时（如断网），Firestore 会离线缓存并在恢复后自动重试。
-  ///   如需明确提示用户"保存失败"，捕获异常并返回错误状态。
-  Future<void> saveFeedingSession(String uid, FeedingSession session) async {
-    try {
-      await _feedingSessions(uid).doc(session.id).set({
-        'feed_time': Timestamp.fromDate(session.feedTime),
-        'time_to_calm': session.timeToCalm,
-        'stress_before': session.stressCountBefore,
-        'stress_after': session.stressCountAfter,
-        // SERVER_TIMESTAMP 由 Firestore 服务端填写，确保时间一致性
-        'created_at': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      // 静默失败：不影响 UI，下次网络恢复后重试
-      // [TODO: 异常处理] 如需用户感知，向上抛出异常并在 UI 显示 SnackBar
-      debugFirestore('saveFeedingSession error: $e');
-    }
-  }
-
-  /// 加载最近 N 条喂食记录
-  ///
-  /// 调用时机：用户登录后，MainNavScreen.initState 间接触发
-  ///
-  /// 排序策略：按 feed_time 倒序取前 limit 条，在内存中完成，无需复合索引
-  ///
-  /// [API 需求] 返回格式同 saveFeedingSession 的文档结构
-  /// [TODO: 异常处理] 若 Firestore 规则拒绝访问（未登录/规则配置错误），
-  ///   会抛出 permission-denied 异常，调用方需处理
-  Future<List<FeedingSession>> loadFeedingSessions(String uid,
-      {int limit = 30}) async {
-    try {
-      // 简单查询，不加 orderBy，避免触发 Firestore 复合索引要求
-      final snapshot = await _feedingSessions(uid).limit(limit * 2).get();
-
-      final sessions = snapshot.docs.map((doc) {
-        final d = doc.data();
-        return FeedingSession(
-          id: doc.id,
-          // Timestamp → DateTime 转换，处理 null 情况
-          feedTime: (d['feed_time'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          timeToCalm: d['time_to_calm'] as int?,
-          stressCountBefore: d['stress_before'] as int?,
-          stressCountAfter: d['stress_after'] as int?,
-        );
-      }).toList();
-
-      // 内存排序：按喂食时间倒序（最新的在最前）
-      sessions.sort((a, b) => b.feedTime.compareTo(a.feedTime));
-
-      // 截取所需数量
-      return sessions.take(limit).toList();
-    } catch (e) {
-      debugFirestore('loadFeedingSessions error: $e');
-      return []; // 加载失败返回空列表，UI 显示"暂无记录"
-    }
-  }
-
-  // =============================================================================
   // 健康日志（JournalEntry）
   // =============================================================================
 
@@ -358,79 +271,6 @@ class FirestoreService {
       return entries.take(limit).toList();
     } catch (e) {
       debugFirestore('loadJournalEntries error: $e');
-      return [];
-    }
-  }
-
-  // =============================================================================
-  // 每日压力数据（DailyStressDataPoint）
-  // =============================================================================
-
-  /// 保存/更新一个每日压力数据点
-  ///
-  /// 调用时机：
-  ///   • 每天结束时（或 App 退出前）保存当天汇总数据
-  ///   • 使用 set with merge:true，允许当天多次更新（如当天重新喂食后更新数据）
-  ///
-  /// 文档 ID 使用 'yyyy-MM-dd' 格式，方便按日期精确查询，无需额外索引
-  ///
-  /// [API 需求] Firestore 文档结构：
-  ///   {
-  ///     "day_index": int,              ← 相对今天的天数偏移（0=今天，-1=昨天...）
-  ///     "stress_score": double,        ← 当天平均压力分 0-100
-  ///     "is_after_treatment": bool,    ← 当天是否使用了 ZenBelly 产品
-  ///     "label": String,               ← 显示标签（"Mon", "Tue" 等）
-  ///     "date": Timestamp,             ← 实际日期（用于精确时间范围查询）
-  ///     "updated_at": Timestamp
-  ///   }
-  Future<void> saveDailyStressPoint(
-      String uid, DailyStressDataPoint point, DateTime date) async {
-    try {
-      // 以 'yyyy-MM-dd' 作为文档 ID，同一天多次调用只会更新不会重复创建
-      final dateStr =
-          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      await _dailyStress(uid).doc(dateStr).set({
-        'day_index': point.dayIndex,
-        'stress_score': point.stressScore,
-        'is_after_treatment': point.isAfterTreatment,
-        'label': point.label,
-        'date': Timestamp.fromDate(date),
-        'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)); // merge:true 避免覆盖同一天已有数据
-    } catch (e) {
-      debugFirestore('saveDailyStressPoint error: $e');
-    }
-  }
-
-  /// 加载最近 N 天的压力数据
-  ///
-  /// 调用时机：用户登录后，用于渲染 Dashboard 压力趋势图
-  ///
-  /// 排序策略：不使用 orderBy 避免 Firestore 复合索引错误，
-  ///   改为加载所有数据后在内存中按 dayIndex 排序（数据量小，性能不是瓶颈）
-  /// 返回值按 dayIndex 升序排列（图表从左到右 = 最旧到最新）
-  Future<List<DailyStressDataPoint>> loadDailyStressPoints(String uid,
-      {int days = 14}) async {
-    try {
-      // 不加 orderBy，避免触发 Firestore 单字段索引之外的复合索引要求
-      final snapshot =
-          await _dailyStress(uid).limit(days * 2).get();
-
-      final points = snapshot.docs.map((doc) {
-        final d = doc.data();
-        return DailyStressDataPoint(
-          dayIndex: (d['day_index'] as num?)?.toInt() ?? 0,
-          stressScore: (d['stress_score'] as num?)?.toDouble() ?? 0.0,
-          isAfterTreatment: (d['is_after_treatment'] as bool?) ?? false,
-          label: (d['label'] as String?) ?? '',
-        );
-      }).toList();
-
-      // 按 dayIndex 升序（图表左边是最旧的数据）
-      points.sort((a, b) => a.dayIndex.compareTo(b.dayIndex));
-      return points;
-    } catch (e) {
-      debugFirestore('loadDailyStressPoints error: $e');
       return [];
     }
   }

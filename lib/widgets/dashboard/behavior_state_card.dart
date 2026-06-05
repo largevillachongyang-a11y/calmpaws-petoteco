@@ -283,6 +283,7 @@ class _AnxietyRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = context.watch<LocaleProvider>().strings.anxietyScoreLabel;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -311,7 +312,7 @@ class _AnxietyRing extends StatelessWidget {
         ),
         const SizedBox(height: 3),
         Text(
-          '焦虑分',
+          label,
           style: TextStyle(
             fontSize: 9,
             color: color.withValues(alpha: 0.7),
