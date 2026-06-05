@@ -107,15 +107,31 @@ class AppStrings {
   String get ttcEvents => _t('events', '次');
   String get ttcViewAll => _t('View All History', '查看全部历史');
 
-  // ── Stress Chart ──────────────────────────────────────────────────────────
-  String get chartTitle => _t('Stress Reduction', '应激减少趋势');
+  // ── Stress Chart（P0-4：/api/history 三档图表）────────────────────────────
+  String get chartTitle => _t('Anxiety History', '焦虑历史');
   String get chartSubtitle => _t(
-    '14-day trend · Before vs After ZenBelly',
-    '14天行为趋势 · ZenBelly 服用前后对比',
+    'From server · colored by behavior state',
+    '服务器数据 · 按行为状态染色',
   );
-  String get chartLegendBefore => _t('Before treatment', '服用前');
-  String get chartLegendAfter => _t('After ZenBelly', '服用后');
-  String chartReduction(String v) => _t('↓ $v%', '降低 $v%');
+  String get chartTab24h => _t('24h', '24小时');
+  String get chartTab7d => _t('7d', '7天');
+  String get chartTab30d => _t('30d', '30天');
+  String get chartNoData => _t('No data yet', '暂无数据');
+  String get chartLoading => _t('Loading history…', '加载历史中…');
+  String get chartMockHint => _t(
+    'Connect to server to view history',
+    '请连接服务器查看历史曲线',
+  );
+  String chartMonitoredToday(int hours, int minutes) => _t(
+    'Monitored today · $hours h $minutes m',
+    '今日已监测 $hours 小时 $minutes 分钟',
+  );
+  String chartMonitoredPeriod(int withData, int total, String hours) => _t(
+    'Monitored $withData/$total days · $hours h total',
+    '监测 $withData/$total 天 · 累计 $hours 小时',
+  );
+  String get chartAvgAnxiety => _t('Avg', '均值');
+  String get chartPeakAnxiety => _t('Peak', '峰值');
 
   // ── Status Cards ──────────────────────────────────────────────────────────
   String get cardSleep => _t('Last Night Sleep', '昨夜睡眠');

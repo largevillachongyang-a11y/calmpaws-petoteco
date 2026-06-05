@@ -9,7 +9,7 @@
 //   FeedingTimerCard  — 核心 CTA：「已喂食 ZenBelly」按钮 + 计时器
 //   BehaviorStateCard — 当前行为状态（平静/踱步/应激/玩耍/发抖）
 //   TimeToCalmCard    — Time-to-Calm 趋势（上次 vs 平均）
-//   StressChartCard   — 14 天压力折线图
+//   StressChartCard   — 焦虑历史图（24h/7d/30d，/api/history）
 //   StatusCardsRow    — 活动量 / 昨晚睡眠 / 应激次数 三小卡片
 //   JournalQuickEntry — 今日快速记录（大便/心情/食欲/精力）
 //
