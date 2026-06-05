@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/environment_config.dart';
+import '../models/history_models.dart';
 import '../models/models.dart';
 
 class ServerApiService {
@@ -220,6 +221,59 @@ class ServerApiService {
     _deviceOnline = false;
     _connectionStatus = 'error';
     if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] 错误：$msg');
+  }
+
+  /// 拉取历史曲线数据（24h / 7d / 30d）。
+  /// /api/history 正常返回 200（含空 points）；网络/解析失败返回带 error 的空响应。
+  Future<HistoryResponse> fetchHistory(
+    String range, {
+    int? from,
+    int? to,
+  }) async {
+    assert(HistoryRange.all.contains(range), 'range must be 24h, 7d or 30d');
+
+    final query = <String, String>{'range': range};
+    if (from != null) query['from'] = from.toString();
+    if (to != null) query['to'] = to.toString();
+
+    try {
+      final resp = await http
+          .get(_uri('/api/history/$_deviceId', queryParameters: query))
+          .timeout(EnvironmentConfig.requestTimeout);
+
+      if (resp.statusCode == 200) {
+        if (resp.body.isEmpty) {
+          return HistoryResponse.empty(_deviceId, range);
+        }
+        final data = jsonDecode(resp.body);
+        if (data is! Map<String, dynamic>) {
+          return HistoryResponse.error(_deviceId, range, '响应格式无效');
+        }
+        final parsed = HistoryResponse.fromJson(data, range: range);
+        if (EnvironmentConfig.debugMode && kDebugMode) {
+          debugPrint('[ServerAPI] fetchHistory $range：${parsed.points.length} 点 '
+              'online_minutes=${parsed.summary.onlineMinutes}');
+        }
+        return parsed;
+      }
+
+      if (resp.statusCode == 204) {
+        return HistoryResponse.empty(_deviceId, range);
+      }
+
+      return HistoryResponse.error(
+        _deviceId,
+        range,
+        'HTTP ${resp.statusCode}',
+      );
+    } on TimeoutException {
+      return HistoryResponse.error(_deviceId, range, '请求超时');
+    } catch (e) {
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] fetchHistory $range 失败：$e');
+      }
+      return HistoryResponse.error(_deviceId, range, '连接失败：$e');
+    }
   }
 
   Future<Map<String, dynamic>?> fetchAlerts() async {

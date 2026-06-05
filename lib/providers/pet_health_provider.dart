@@ -48,6 +48,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/history_models.dart';
 import '../models/models.dart';
 import '../services/mock_ble_service.dart';
 import '../services/server_api_service.dart';
@@ -69,6 +70,21 @@ class PetHealthProvider extends ChangeNotifier {
   // UI 可根据此状态显示加载指示器或空状态提示
   bool _isLoadingHistory = false;
   bool get isLoadingHistory => _isLoadingHistory;
+
+  // ── 服务器历史曲线缓存（P0-3，供 P0-4 StressChartCard 使用）──────────────
+  final Map<String, HistoryResponse> _serverHistory = {};
+  String? _serverHistoryError;
+
+  HistoryResponse? get history24h => _serverHistory[HistoryRange.h24];
+  HistoryResponse? get history7d => _serverHistory[HistoryRange.d7];
+  HistoryResponse? get history30d => _serverHistory[HistoryRange.d30];
+  HistoryResponse? historyForRange(String range) => _serverHistory[range];
+  String? get serverHistoryError => _serverHistoryError;
+  bool get hasServerHistory =>
+      _serverHistory.values.any((r) => r.isSuccess);
+
+  /// 24h summary 监测时长（分钟），图表重写前供调试/后续 UI 使用
+  int? get onlineMinutes24h => history24h?.summary.onlineMinutes;
 
   // ── 宠物档案 ──────────────────────────────────────────────────────────────
   // 默认为 Demo 数据（Biscuit），作为首次登录用户未设置宠物时的占位。
@@ -422,10 +438,11 @@ class PetHealthProvider extends ChangeNotifier {
   Future<void> configureServer(String baseUrl, String deviceId) async {
     await _serverApi.configure(baseUrl: baseUrl, deviceId: deviceId);
     if (_useRealServer && _deviceConnected) {
-      // 重启连接以应用新配置
       disconnectDevice();
       await Future.delayed(const Duration(milliseconds: 500));
       connectDevice();
+    } else if (_useRealServer) {
+      unawaited(loadServerHistory());
     }
   }
 
@@ -448,6 +465,7 @@ class PetHealthProvider extends ChangeNotifier {
       _serverApi.onSleepStateReceived = _onSleepStateFromServer;
       _serverApi.start();
       _bleSub = _serverApi.stream.listen(_onPacket);
+      unawaited(loadServerHistory());
     } else {
       // Mock模式：本地模拟数据（调试用）
       _ble.start();
@@ -455,6 +473,36 @@ class PetHealthProvider extends ChangeNotifier {
     }
     _deviceConnected = true;
     notifyListeners();
+  }
+
+  /// 从 VPS 拉取历史曲线（24h / 7d / 30d），结果缓存于 [_serverHistory]。
+  Future<void> loadServerHistory({List<String>? ranges}) async {
+    if (!_useRealServer) return;
+
+    final toLoad = ranges ?? HistoryRange.all;
+    _isLoadingHistory = true;
+    _serverHistoryError = null;
+    notifyListeners();
+
+    try {
+      final results = await Future.wait(
+        toLoad.map(_serverApi.fetchHistory),
+      );
+      for (var i = 0; i < toLoad.length; i++) {
+        final range = toLoad[i];
+        final res = results[i];
+        _serverHistory[range] = res;
+        if (res.error != null && _serverHistoryError == null) {
+          _serverHistoryError = '$range: ${res.error}';
+        }
+      }
+    } catch (e) {
+      _serverHistoryError = e.toString();
+      debugPrint('loadServerHistory error: $e');
+    } finally {
+      _isLoadingHistory = false;
+      notifyListeners();
+    }
   }
 
   /// B方案：收到服务器睡眠计时数据，恢复Provider内部状态
