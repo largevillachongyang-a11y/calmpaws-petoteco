@@ -100,10 +100,7 @@ class _StressChartCardState extends State<StressChartCard> {
                   tooltip: isZh ? '从服务器重新加载' : 'Reload from server',
                   onPressed: provider.isLoadingHistory
                       ? null
-                      : () => provider.loadServerHistory(
-                            ranges: [_currentRange],
-                            clearBeforeLoad: true,
-                          ),
+                      : () => provider.loadServerHistory(clearBeforeLoad: true),
                 ),
             ],
           ),
