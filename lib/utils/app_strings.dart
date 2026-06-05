@@ -272,6 +272,10 @@ class AppStrings {
   String get profileSupportBadge => _t('Chat', '在线');
   String get profileDeviceGuide => _t('Device Setup Guide', '设备使用指南');
   String get profileReports => _t('Health Reports', '健康报告');
+  String get profileReportsHint => _t(
+    'Anxiety history is on the Health dashboard (24h / 7d / 30d charts).',
+    '焦虑历史请查看健康页「焦虑历史」图表（24小时/7天/30天）。',
+  );
   String get profileNotifications => _t('Notifications', '消息通知');
   String get profilePrivacy => _t('Privacy & Data', '隐私与数据');
   String get profileSignOut => _t('Sign Out', '退出登录');

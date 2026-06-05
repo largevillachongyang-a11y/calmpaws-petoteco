@@ -1229,25 +1229,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showHealthReports(BuildContext context, PetHealthProvider provider, dynamic s) {
-    final sessions = provider.sessionHistory;
     showDialog(
       barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
         title: Text(s.profileReports),
-        content: sessions.isEmpty
-            ? Text(s.timerNoSessionDesc, style: AppTextStyles.bodyMedium)
-            : SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: sessions
-                      .take(5)
-                      .map((session) => _SessionReportRow(session: session))
-                      .toList(),
-                ),
-              ),
+        content: Text(s.profileReportsHint, style: AppTextStyles.bodyMedium),
         actions: [
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppColors.sageGreen, overlayColor: Colors.transparent),
@@ -1767,40 +1755,3 @@ class _ContactRow extends StatelessWidget {
   }
 }
 
-class _SessionReportRow extends StatelessWidget {
-  final dynamic session;
-  const _SessionReportRow({required this.session});
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<LocaleProvider>().strings;
-    final secs = session.timeToCalm as int? ?? 0;
-    final mins = (secs / 60).toStringAsFixed(1);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.cream,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(_timeAgo(session.feedTime as DateTime, s), style: AppTextStyles.bodySmall),
-          Text(
-            s.sessionMinToCalm(mins),
-            style: AppTextStyles.labelLarge.copyWith(fontSize: 14, color: AppColors.sageGreen),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _timeAgo(DateTime t, dynamic s) {
-    final diff = DateTime.now().difference(t);
-    if (diff.inDays > 0) return s.daysAgo(diff.inDays);
-    if (diff.inHours > 0) return s.hoursAgo(diff.inHours);
-    if (diff.inMinutes > 0) return s.minutesAgo(diff.inMinutes);
-    return s.today;
-  }
-}

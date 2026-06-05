@@ -70,7 +70,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
       // 注册 PetHealthProvider 监听器，预警变化时自动写入通知
       context.read<PetHealthProvider>().addListener(_onPetHealthChanged);
       // 注册喂食完成回调
-      _registerFeedingCallback();
+      _registerPetHealthCallbacks();
       // 首次登录时展示设备配对引导（检测 SharedPreferences 中的 onboarding_shown 标志）
       // 若标志不存在则弹出，写入后不再重复显示
       OnboardingScreen.showIfNeeded(context);
@@ -86,7 +86,6 @@ class _MainNavScreenState extends State<MainNavScreen> {
     // 同时清除所有回调，避免喂食/预警/总结完成后试图访问已卸载的 context
     final petProvider = context.read<PetHealthProvider>();
     petProvider.removeListener(_onPetHealthChanged);
-    petProvider.onFeedingCompleted = null;
     petProvider.onAlertNotification = null;
     petProvider.onDailySummaryReady = null;
     super.dispose();
@@ -103,33 +102,11 @@ class _MainNavScreenState extends State<MainNavScreen> {
     await svc.requestPermission();
   }
 
-  // 注册所有 P1 回调（喂食完成 + 预警通知 + 每日总结）
-  // PetHealthProvider 通过回调将事件转发到 NotificationProvider，避免循环依赖
-  void _registerFeedingCallback() {
+  // 注册 P1 回调（预警通知 + 每日总结）
+  void _registerPetHealthCallbacks() {
     if (!mounted) return;
     final petProvider = context.read<PetHealthProvider>();
     final isZh = context.read<LocaleProvider>().isZh;
-
-    // ── 喂食完成通知 ──────────────────────────────────────────────────────────
-    petProvider.onFeedingCompleted = (session) {
-      if (!mounted) return;
-      final notifProvider = context.read<NotificationProvider>();
-      final petName = petProvider.pet.name;
-      final ttcLabel = session.timeToCalm != null
-          ? (session.timeToCalm! < 60
-              ? '${session.timeToCalm}s'
-              : '${session.timeToCalm! ~/ 60}m ${session.timeToCalm! % 60}s')
-          : '--';
-
-      notifProvider.addNotification(
-        type: NotificationType.feeding,
-        title: isZh ? '✅ 喂食记录完成' : '✅ Feeding Session Recorded',
-        body: isZh
-            ? '$petName 喂食后平静用时 $ttcLabel。ZenBelly 健康趋势已更新。'
-            : '$petName calmed down in $ttcLabel after feeding. Trend updated.',
-        actionRoute: 'dashboard',
-      );
-    };
 
     // ── P1 预警通知（发抖/应激频繁/昏睡）────────────────────────────────────
     // type: 'shiver_alert' | 'stress_frequent' | 'lethargy'
@@ -180,7 +157,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
       _lastAlertType = petProvider.alertType;
 
       // activity 和 pacing_long 由监听器写入通知中心
-      // shiver / stress_frequent / lethargy / sleep_disturbed 由回调直接写入（_registerFeedingCallback）
+      // shiver / stress_frequent / lethargy / sleep_disturbed 由回调直接写入
       if (petProvider.alertType == 'activity') {
         final petName = petProvider.pet.name;
         notifProvider.addNotification(

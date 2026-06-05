@@ -4,10 +4,7 @@
 // 职责：作为应用的全局状态中心，管理以下所有业务数据：
 //   1. 宠物档案（PetProfile）：名称、品种、年龄、健康标签等
 //   2. BLE 设备连接状态和实时数据流（MockBleService 模拟）
-//   3. 喂食会话（FeedingSession）：开始/停止计时、记录历史
-//   4. 焦虑/行为状态（AnxietyLevel、BehaviorState）：来自 BLE 数据
-//   5. 健康日志（HealthLog）：用户手动记录的行为观察
-//   6. 全局预警（Alert）：焦虑过高时触发横幅提醒
+//   3. 焦虑/行为状态：来自 BLE / 服务器实时数据
 //
 // ✅ 数据持久化架构（用户级别隔离）：
 //   宠物档案通过 SharedPreferences 按 Firebase userId 隔离持久化。
@@ -25,7 +22,7 @@
 //   状态 C（应激）→ 1 小时内 >10 次触发应激频繁通知
 //   状态 F（昏睡）→ 白天连续静止 >3 小时触发药物昏睡检测通知
 //   活力低于均值 → 连续 2 天才触发（避免误报）
-//   喂食完成     → 记录 Time-to-Calm，写入通知中心
+//   喂食完成     → （P1 已移除 ZenBelly 喂食流程）
 //   每日总结     → 每晚 20:00 汇总当日六大状态时长
 //
 //   通知回调（避免循环依赖）：
@@ -176,10 +173,7 @@ class PetHealthProvider extends ChangeNotifier {
       createdAt: DateTime(2024, 1, 15),
     );
     // 清空云端数据的内存缓存，下次登录后重新从 Firestore 加载
-    _sessionHistory.clear();
     _journalEntries.clear();
-    // 重置压力图为 Demo 数据，下次登录后用真实数据覆盖
-    _stressChartData = generateDailyStressChart();
     notifyListeners();
   }
 
@@ -202,48 +196,8 @@ class PetHealthProvider extends ChangeNotifier {
     _pendingState = PetBehaviorState.calm;
     _sleepState = null;
 
-    // 演示喂食历史（最近5条）
-    final now = DateTime.now();
-    _sessionHistory.clear();
-    _sessionHistory.addAll([
-      FeedingSession(
-        id: 'demo_fs_1',
-        feedTime: now.subtract(const Duration(hours: 2)),
-        timeToCalm: 8,
-        stressCountBefore: 2,
-        stressCountAfter: 0,
-      ),
-      FeedingSession(
-        id: 'demo_fs_2',
-        feedTime: now.subtract(const Duration(hours: 8)),
-        timeToCalm: 12,
-        stressCountBefore: 3,
-        stressCountAfter: 1,
-      ),
-      FeedingSession(
-        id: 'demo_fs_3',
-        feedTime: now.subtract(const Duration(days: 1, hours: 2)),
-        timeToCalm: 7,
-        stressCountBefore: 1,
-        stressCountAfter: 0,
-      ),
-      FeedingSession(
-        id: 'demo_fs_4',
-        feedTime: now.subtract(const Duration(days: 1, hours: 9)),
-        timeToCalm: 15,
-        stressCountBefore: 4,
-        stressCountAfter: 1,
-      ),
-      FeedingSession(
-        id: 'demo_fs_5',
-        feedTime: now.subtract(const Duration(days: 2, hours: 3)),
-        timeToCalm: 9,
-        stressCountBefore: 2,
-        stressCountAfter: 0,
-      ),
-    ]);
-
     // 演示日志
+    final now = DateTime.now();
     _journalEntries.clear();
     _journalEntries.addAll([
       JournalEntry(
@@ -277,9 +231,6 @@ class PetHealthProvider extends ChangeNotifier {
         negativeFlags: const [],
       ),
     ]);
-
-    // 演示压力图（14天，模拟真实波动）
-    _stressChartData = generateDailyStressChart();
 
     notifyListeners();
   }
@@ -579,178 +530,18 @@ class PetHealthProvider extends ChangeNotifier {
     }
 
     _checkAlerts(delta);
-    _updateFeedingSession(delta);
     notifyListeners();
   }
 
-  // ── 喂食会话（FeedingSession）────────────────────────────────────────────
-  // 已接入 Firestore：会话结束后自动保存云端，登录时自动加载历史。
-  //
-  // [API 需求] Firestore 路径：users/{uid}/feeding_sessions/{sessionId}
-  //   文档字段：feed_time, time_to_calm, stress_before, stress_after, created_at
-  //
-  // ── 通知回调机制（避免循环依赖）──────────────────────────────────────────
-  // PetHealthProvider 不直接持有 NotificationProvider
-  // 而是通过回调将事件转发给外部（MainNavScreen），由外部写入通知
-
-  // 喂食完成回调：参数为已完成的 FeedingSession 对象
-  void Function(FeedingSession)? onFeedingCompleted;
+  // ── 通知回调（避免循环依赖）──────────────────────────────────────────────
+  // PetHealthProvider 不直接持有 NotificationProvider，
+  // 由 MainNavScreen 注册回调并写入通知中心。
 
   // P1 通知回调：参数为 (type, title, body)
-  // type：'shiver_alert' | 'stress_frequent' | 'lethargy' | 'activity_low'
   void Function(String type, String title, String body)? onAlertNotification;
 
-  // 每日总结回调：参数为总结数据 Map
+  // 每日总结回调
   void Function(DailyHealthSummaryData)? onDailySummaryReady;
-
-  FeedingSession? _activeSession;
-  final List<FeedingSession> _sessionHistory = [];
-  Timer? _sessionTimer;
-  int _sessionElapsedSeconds = 0;
-
-  FeedingSession? get activeSession => _activeSession;
-  List<FeedingSession> get sessionHistory =>
-      List.unmodifiable(_sessionHistory);
-  int get sessionElapsedSeconds => _sessionElapsedSeconds;
-
-  // 用户点击「已喂食」按钮时调用
-  // 业务逻辑：记录喂食前的压力值，开始计时，每秒更新 UI，
-  //           检测到连续平静状态后自动结束（Time-to-Calm 指标核心逻辑）
-  // [TODO: API 需求] 喂食事件应实时同步到后端：
-  //   POST /api/feeding-sessions { petId, feedTime, stressCountBefore }
-  //   会话结束后 PATCH /api/feeding-sessions/{id} { timeToCalm, stressCountAfter }
-  void startFeedingSession() {
-    if (_activeSession != null) return; // 防止重复开始
-
-    // 记录喂食前的压力计数（用最近一包的差值包，代表最新5秒内的应激次数）
-    final preStress = _deltaPacket?.strC ?? 0;
-
-    _activeSession = FeedingSession(
-      id: 'session_${DateTime.now().millisecondsSinceEpoch}',
-      feedTime: DateTime.now(),
-      stressCountBefore: preStress,
-      timeline: [],
-    );
-    _sessionElapsedSeconds = 0;
-
-    _sessionTimer?.cancel();
-    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      _sessionElapsedSeconds++;
-      notifyListeners();
-
-      // 自动完成：宠物持续平静 且 已喂食超过 2 分钟 → 记录 Time-to-Calm
-      // _isCalmState() 判断条件：无压力事件 + 徘徊次数低 + 无颤抖
-      if (_activeSession != null && _isCalmState() && _sessionElapsedSeconds > 120) {
-        _completeFeedingSession();
-      }
-
-      // 安全超时：90 分钟后强制结束，防止用户忘记停止导致计时无限增长
-      if (_sessionElapsedSeconds >= 5400) {
-        _completeFeedingSession();
-      }
-    });
-
-    notifyListeners();
-  }
-
-  void _completeFeedingSession() {
-    if (_activeSession == null) return;
-    _sessionTimer?.cancel();
-
-    final postStress = _deltaPacket?.strC ?? 0;
-    final completed = _activeSession!.copyWith(
-      timeToCalm: _sessionElapsedSeconds,
-      stressCountAfter: postStress,
-    );
-
-    // 1. 先更新内存，UI 立即刷新
-    _sessionHistory.insert(0, completed);
-    _activeSession = null;
-    notifyListeners();
-
-    // 2. 异步保存到 Firestore（不阻塞 UI）
-    // 业务意义：喂食记录持久化后，用户换手机登录仍能看到完整的 Time-to-Calm 趋势
-    if (_currentUserId != null) {
-      _firestoreService.saveFeedingSession(_currentUserId!, completed);
-      // 同时更新今天的压力数据点，让趋势图反映最新喂食效果
-      _saveTodayStressPoint();
-    }
-
-    // 3. 触发喂食完成回调（通知 MainNavScreen 写入通知中心）
-    // 回调由 MainNavScreen.initState 注册，PetHealthProvider 不感知 NotificationProvider
-    onFeedingCompleted?.call(completed);
-  }
-
-  // 将今天的实时压力数据保存为一个 DailyStressDataPoint 写入 Firestore
-  // 调用时机：喂食会话结束后，确保当天数据有最新的喂食后压力状态
-  void _saveTodayStressPoint() {
-    if (_currentUserId == null) return;
-    final today = DateTime.now();
-    final dayOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        [today.weekday - 1];
-    final point = DailyStressDataPoint(
-      dayIndex: 0, // 0 = 今天
-      stressScore: serverAnxietyScore.toDouble(),
-      isAfterTreatment: _sessionHistory.isNotEmpty,
-      label: dayOfWeek,
-    );
-    _firestoreService.saveDailyStressPoint(_currentUserId!, point, today);
-  }
-
-  void cancelFeedingSession() {
-    _sessionTimer?.cancel();
-    _activeSession = null;
-    _sessionElapsedSeconds = 0;
-    notifyListeners();
-  }
-
-  // ── 平静状态判定 ─────────────────────────────────────────────────────────
-  // 判定依据：本5秒差值包中无以下任意信号：
-  //   strC == 0  → 本5秒内零应激次数
-  //   paceD < 3  → 本5秒内踱步不超过3秒（短暂位移不算踱步）
-  //   shivC == 0 → 本5秒内零发抖次数
-  //
-  // 设计说明：
-  //   • startFeedingSession 中检查：满足平静条件 AND 喂食时间 > 120秒 才算 Time-to-Calm
-  //   • 2分钟最短时间防止喂食后宠物因换位置短暂安静就被误判为「平静」
-  //   • 使用差值包（非累计包），确保判断的是「当前这5秒」的状态
-  bool _isCalmState() {
-    // 使用差值包判断：本5秒内无应激、无踱步、无发抖
-    final p = _deltaPacket;
-    if (p == null) return false;
-    return p.strC == 0 && p.paceD < 3 && p.shivC == 0;
-  }
-
-  // ── 喂食后行为快照（BehaviorSnapshot）────────────────────────────────────
-  // 每5分钟记录一次行为快照，用于产品端展示「喂食后趋势曲线」
-  //   • 调用时机：每次收到 BLE 包（每5秒），检查是否达到5分钟间隔
-  //   • 快照字段：喂食后分钟数 + 当时状态 + 焦虑分值
-  //   • 存储位置：FeedingSession.timeline 列表，会话结束时随 session 一起写 Firestore
-  //
-  // 注意：此处用 packet.behaviorState（原始5秒判断），非 _confirmedState（2包确认）
-  //       因为快照是历史记录，不需要防抖，原始状态更直观
-  void _updateFeedingSession(BlePacket packet) {
-    if (_activeSession == null) return;
-    // Record snapshot every 5 minutes
-    final minutes = _sessionElapsedSeconds ~/ 60;
-    if (minutes > 0 && _sessionElapsedSeconds % 300 == 0) {
-      final snapshot = BehaviorSnapshot(
-        minutesAfterFeed: minutes,
-        state: packet.behaviorState,
-        anxietyScore: serverAnxietyScore,
-      );
-      final updated = _activeSession!.copyWith(
-        timeline: [..._activeSession!.timeline, snapshot],
-      );
-      _activeSession = updated;
-    }
-  }
-
-  String get sessionElapsedLabel {
-    final m = _sessionElapsedSeconds ~/ 60;
-    final s = _sessionElapsedSeconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
 
   // ── 全局预警系统 ────────────────────────────────────────────────────────────
   // P1 完整预警规则：
@@ -1156,27 +947,6 @@ class PetHealthProvider extends ChangeNotifier {
     }
   }
 
-  // ── Daily Summary & Charts ────────────────────────────────────────────────
-  late List<DailyStressDataPoint> _stressChartData;
-  int _baselineDaysRemaining = 0; // 0 = baseline complete
-
-  List<DailyStressDataPoint> get stressChartData => _stressChartData;
-  int get baselineDaysRemaining => _baselineDaysRemaining;
-  bool get isBaselineLearning => _baselineDaysRemaining > 0;
-
-  // Pre-computed session history (for last feeding display)
-  int? get lastTimeToCalmSeconds {
-    if (_sessionHistory.isEmpty) return null;
-    return _sessionHistory.first.timeToCalm;
-  }
-
-  String get lastTimeToCalmLabel {
-    final s = lastTimeToCalmSeconds;
-    if (s == null) return '--';
-    if (s < 60) return '${s}s';
-    return '${s ~/ 60}m ${s % 60}s';
-  }
-
   // ── 健康日志（主人手动记录）────────────────────────────────────────────────
   // 用户在 Dashboard 的「快速记录」卡片填写后调用 addJournalEntry。
   // 已接入 Firestore：新增立即写入云端，登录时从云端加载历史。
@@ -1205,10 +975,22 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   // ── 健康日历：生成最近 N 天的 DailyRecord 列表 ────────────────────────────
-  // 规则：
-  //   - sensorSummary 来自 stressChartData（14 天历史）+ 今日实时数据
-  //   - journalEntry  来自 _journalEntries，按日期匹配
-  //   - 两层完全独立，不做合并计算
+  // sensorSummary 优先来自 /api/history 30d；journalEntry 来自 Firestore 日志
+  String _dateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  HistoryPoint? _historyPointForDate(DateTime date) {
+    final key = _dateKey(date);
+    for (final range in [HistoryRange.d30, HistoryRange.d7]) {
+      final response = _serverHistory[range];
+      if (response == null) continue;
+      for (final p in response.points) {
+        if (p.date == key && p.recordCount > 0) return p;
+      }
+    }
+    return null;
+  }
+
   List<DailyRecord> getDailyRecords({int days = 14}) {
     final today = DateTime.now();
     final records = <DailyRecord>[];
@@ -1216,28 +998,17 @@ class PetHealthProvider extends ChangeNotifier {
     for (int i = days - 1; i >= 0; i--) {
       final date = DateTime(today.year, today.month, today.day)
           .subtract(Duration(days: i));
+      final isToday = i == 0;
+      final hist = _historyPointForDate(date);
 
-      // ── 传感器层：从历史 stressChartData 取（14天内）──
       SensorDaySummary? sensor;
-      final chartIdx = (days - 1) - i; // 0 = 最早, days-1 = 今天
-      if (chartIdx < _stressChartData.length) {
-        final pt = _stressChartData[chartIdx];
-        // 今天用实时数据补充
-        final isToday = i == 0;
+      if (isToday || hist != null) {
         final stressScore = isToday
             ? serverAnxietyScore.toDouble()
-            : pt.stressScore;
+            : hist!.anxietyScore;
         final activity = isToday
             ? currentActivityScore
-            : (pt.stressScore < 40 ? 65 : 35); // 历史近似值
-
-        // 匹配当天的喂食记录
-        final feeding = _sessionHistory.where((s) {
-          final d = s.feedTime;
-          return d.year == date.year &&
-              d.month == date.month &&
-              d.day == date.day;
-        }).toList();
+            : (stressScore < 40 ? 65 : 35);
 
         sensor = SensorDaySummary(
           avgStressScore: stressScore,
@@ -1245,12 +1016,11 @@ class PetHealthProvider extends ChangeNotifier {
           pacingMinutes: (stressScore / 3).round(),
           playMinutes: activity ~/ 2,
           activityScore: activity,
-          hasFeeding: feeding.isNotEmpty,
-          timeToCalmSecs: feeding.isNotEmpty ? feeding.first.timeToCalm : null,
+          hasFeeding: false,
+          timeToCalmSecs: null,
         );
       }
 
-      // ── 主人记录层：按日期精确匹配 ──
       JournalEntry? journal;
       for (final e in _journalEntries) {
         if (e.date.year == date.year &&
@@ -1297,31 +1067,23 @@ class PetHealthProvider extends ChangeNotifier {
   /// 今日焦虑变化趋势（与昨日均值比较）
   /// 正值=恶化，负值=改善
   double get todayCalmTrend {
-    // 今日实时焦虑分
     final todayScore = serverAnxietyScore.toDouble();
-    // 历史均值（取最近7天 stressChartData 的均值作为参考基准）
-    if (_stressChartData.isEmpty) return 0.0;
-    final recentDays = _stressChartData.take(7).map((p) => p.stressScore);
-    final historyAvg = recentDays.reduce((a, b) => a + b) / recentDays.length;
+    final week = history7d;
+    if (week == null || week.points.isEmpty) return 0.0;
+    final scores = week.points
+        .where((p) => p.recordCount > 0)
+        .map((p) => p.anxietyScore)
+        .toList();
+    if (scores.isEmpty) return 0.0;
+    final historyAvg = scores.reduce((a, b) => a + b) / scores.length;
     if (historyAvg == 0) return 0.0;
-    // 返回变化百分比（负值代表今日比历史均值更好）
     return ((todayScore - historyAvg) / historyAvg * 100).clamp(-99.0, 99.0);
   }
 
-  // ── 构造函数 ──────────────────────────────────────────────────────────────
-  // 初始化时只启动 BLE 模拟数据流和生成 Demo 压力图。
-  // 历史数据（喂食/日志）不在构造函数加载，而是在 loadPetForUser() 中按用户加载，
-  // 避免未登录时请求 Firestore 触发权限错误。
-  //
-  // [TODO] 生产版本 connectDevice() 应改为：
-  //   1. 检查蓝牙权限（permission_handler）
-  //   2. 扫描指定 UUID 的 BLE 设备
-  //   3. 连接成功后开始数据流
   PetHealthProvider() {
-    _stressChartData = generateDailyStressChart(); // 生成 14 天 Demo 压力曲线（登录后会被云端数据覆盖）
-    if (kDebugMode) _seedHistoricalSessions();      // ⚠️ 仅 Debug 模式注入 Demo 数据，生产包不执行
-    _initAndConnect();                              // 加载已保存服务器地址后再连接
-    _startDailySummaryTimer();                      // 启动每日健康总结定时器
+    if (kDebugMode) _seedDemoJournalEntries();
+    _initAndConnect();
+    _startDailySummaryTimer();
   }
 
   /// 启动时先加载持久化的服务器地址，再连接设备
@@ -1355,19 +1117,6 @@ class PetHealthProvider extends ChangeNotifier {
   void _triggerDailySummary() {
     if (onDailySummaryReady == null) return;
 
-    final todaySessionCount = _sessionHistory.where((s) {
-      final d = s.feedTime;
-      final now = DateTime.now();
-      return d.year == now.year && d.month == now.month && d.day == now.day;
-    }).length;
-
-    final avgTtc = _sessionHistory
-        .where((s) =>
-            s.timeToCalm != null &&
-            s.feedTime.day == DateTime.now().day)
-        .map((s) => s.timeToCalm!)
-        .fold<int>(0, (a, b) => a + b);
-
     final summary = DailyHealthSummaryData(
       date: DateTime.now(),
       petName: _pet.name,
@@ -1377,14 +1126,10 @@ class PetHealthProvider extends ChangeNotifier {
       shiverSeconds:    _todayShiverSeconds,
       sleepSeconds:     _todaySleepNormalSeconds,
       lethargySeconds:  _todayLethargySeconds,
-      feedingCount:     todaySessionCount,
-      stressEventCount: _todayStressEventCount, // 今日应激事件日增量（跨天清零，不受1小时窗口限制）
-      avgTimeToCalmSecs: todaySessionCount > 0
-          ? avgTtc ~/ todaySessionCount
-          : null,
+      stressEventCount: _todayStressEventCount,
       avgAnxietyScore:  serverAnxietyScore.toDouble(),
     );
-    onDailySummaryReady?.call(summary);
+    onDailySummaryReady!.call(summary);
   }
 
   /// 仅供测试使用：手动立即触发一次每日健康总结
@@ -1427,37 +1172,8 @@ class PetHealthProvider extends ChangeNotifier {
   // 注入 Demo 历史数据（喂食记录 + 健康日志），让未登录 / 首次登录时图表有内容展示
   // 登录成功后 loadPetForUser() 会调用 _loadCloudHistory()，用真实数据覆盖这些 Demo 数据
   // [TODO] 正式上线后可考虑移除 Demo 数据，改为空状态 + 引导提示
-  void _seedHistoricalSessions() {
-    // 3 条历史喂食记录，用于 Time-to-Calm 图表和喂食历史页面展示
+  void _seedDemoJournalEntries() {
     final now = DateTime.now();
-    _sessionHistory.addAll([
-      FeedingSession(
-        id: 'session_hist_1',
-        feedTime: now.subtract(const Duration(days: 1, hours: 2)),
-        timeToCalm: 1680,
-        stressCountBefore: 5,
-        stressCountAfter: 1,
-        timeline: [],
-      ),
-      FeedingSession(
-        id: 'session_hist_2',
-        feedTime: now.subtract(const Duration(days: 2, hours: 3)),
-        timeToCalm: 1920,
-        stressCountBefore: 7,
-        stressCountAfter: 2,
-        timeline: [],
-      ),
-      FeedingSession(
-        id: 'session_hist_3',
-        feedTime: now.subtract(const Duration(days: 3, hours: 2, minutes: 30)),
-        timeToCalm: 2100,
-        stressCountBefore: 8,
-        stressCountAfter: 1,
-        timeline: [],
-      ),
-    ]);
-
-    // Seed journal entries
     _journalEntries.addAll([
       JournalEntry(
         id: 'j1',
@@ -1482,61 +1198,30 @@ class PetHealthProvider extends ChangeNotifier {
     ]);
   }
 
-  // ── 从 Firestore 加载该用户的历史云端数据 ────────────────────────────────
-  // 调用时机：loadPetForUser() 确认用户登录后调用
-  //
-  // 加载策略（顺序执行，独立容错）：
-  //   1. 加载喂食历史（最近 30 条）
-  //   2. 加载健康日志（最近 60 条）
-  //   3. 加载压力趋势数据（最近 14 天）
-  //   4. 任何一步失败都不影响其他步骤，失败时保留 Demo 数据
-  //
-  // [TODO: 异常处理] 当前网络失败时静默降级到 Demo 数据。
-  //   可在此处设置 _isLoadingHistory = false 并通知 UI 显示离线提示。
+  // ── 从 Firestore 加载健康日志（P1：不再加载喂食/ daily_stress）────────────
   Future<void> _loadCloudHistory(String uid) async {
     _isLoadingHistory = true;
-    notifyListeners(); // 触发 UI 显示加载状态（如有加载指示器）
+    notifyListeners();
 
     try {
-      // ── 并发加载三类数据，减少总等待时间 ──
-      final results = await Future.wait([
-        _firestoreService.loadFeedingSessions(uid, limit: 30),
-        _firestoreService.loadJournalEntries(uid, limit: 60),
-        _firestoreService.loadDailyStressPoints(uid, days: 14),
-      ]);
-
-      final sessions = results[0] as List<FeedingSession>;
-      final journals = results[1] as List<JournalEntry>;
-      final stressPoints = results[2] as List<DailyStressDataPoint>;
-
-      // 有云端数据时：用云端数据替换 Demo 数据
-      // 没有云端数据时（新用户）：保留 Demo 数据让界面不空白
-      if (sessions.isNotEmpty) {
-        _sessionHistory
-          ..clear()
-          ..addAll(sessions);
-      }
+      final journals =
+          await _firestoreService.loadJournalEntries(uid, limit: 60);
       if (journals.isNotEmpty) {
         _journalEntries
           ..clear()
           ..addAll(journals);
       }
-      if (stressPoints.isNotEmpty) {
-        _stressChartData = stressPoints;
-      }
     } catch (e) {
-      // [TODO: 异常处理] 加载失败时保留 Demo 数据，可在 UI 显示「数据加载失败，显示演示数据」
       debugPrint('_loadCloudHistory error: $e');
     } finally {
       _isLoadingHistory = false;
-      notifyListeners(); // 数据加载完成，触发 UI 刷新
+      notifyListeners();
     }
   }
 
   @override
   void dispose() {
     _bleSub?.cancel();
-    _sessionTimer?.cancel();
     _dailySummaryTimer?.cancel();
     _ble.stop();
     super.dispose();
@@ -1664,16 +1349,14 @@ class PetHealthProvider extends ChangeNotifier {
 class DailyHealthSummaryData {
   final DateTime date;
   final String petName;
-  final int pacingSeconds;     // 状态A：踱步时长（秒）
-  final int playSeconds;       // 状态B：玩耍时长（秒）
-  final int stressSeconds;     // 状态C：应激时长（秒）
-  final int shiverSeconds;     // 状态D：发抖时长（秒）
-  final int sleepSeconds;      // 状态E：睡眠时长（秒）
-  final int lethargySeconds;   // 状态F：昏睡时长（秒）
-  final int feedingCount;      // 当日喂食次数
-  final int stressEventCount;  // 当日应激次数（与通知中心对齐）
-  final int? avgTimeToCalmSecs; // 平均平静用时（秒），null = 今日未喂食
-  final double avgAnxietyScore; // 当日平均焦虑分
+  final int pacingSeconds;
+  final int playSeconds;
+  final int stressSeconds;
+  final int shiverSeconds;
+  final int sleepSeconds;
+  final int lethargySeconds;
+  final int stressEventCount;
+  final double avgAnxietyScore;
 
   const DailyHealthSummaryData({
     required this.date,
@@ -1684,36 +1367,22 @@ class DailyHealthSummaryData {
     required this.shiverSeconds,
     required this.sleepSeconds,
     required this.lethargySeconds,
-    required this.feedingCount,
     required this.stressEventCount,
-    this.avgTimeToCalmSecs,
     required this.avgAnxietyScore,
   });
 
-  // 生成简洁的中文总结文字（用于通知正文）
   String toSummaryText(bool isZh) {
-    // 应激显示次数（与通知中心"过去1小时N次"对齐，让用户看得懂）
     final stressCount = stressEventCount;
-    final pacingMin   = pacingSeconds  ~/ 60;
-    final playMin     = playSeconds    ~/ 60;
-    final sleepHours  = sleepSeconds   ~/ 3600;
-    final score       = avgAnxietyScore.round();
+    final pacingMin = pacingSeconds ~/ 60;
+    final playMin = playSeconds ~/ 60;
+    final sleepHours = sleepSeconds ~/ 3600;
+    final score = avgAnxietyScore.round();
 
     if (isZh) {
-      final ttcStr = avgTimeToCalmSecs != null
-          ? '，平静用时 ${avgTimeToCalmSecs! ~/ 60} 分钟'
-          : '';
       return '焦虑分 $score｜踱步 $pacingMin 分｜应激 $stressCount 次｜'
-             '玩耍 $playMin 分｜睡眠 $sleepHours 小时'
-             '${feedingCount > 0 ? "｜今日喂食 $feedingCount 次$ttcStr" : "｜今日未喂食"}';
-    } else {
-      final ttcStr = avgTimeToCalmSecs != null
-          ? ', calmed in ${avgTimeToCalmSecs! ~/ 60}m'
-          : '';
-      return 'Anxiety $score | Pacing ${pacingMin}m | Stress $stressCount times | '
-             'Play ${playMin}m | Sleep ${sleepHours}h'
-             '${feedingCount > 0 ? " | Fed $feedingCount time(s)$ttcStr" : " | No feeding today"}';
+          '玩耍 $playMin 分｜睡眠 $sleepHours 小时';
     }
+    return 'Anxiety $score | Pacing ${pacingMin}m | Stress $stressCount times | '
+        'Play ${playMin}m | Sleep ${sleepHours}h';
   }
-
 }

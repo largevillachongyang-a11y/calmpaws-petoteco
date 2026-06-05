@@ -6,9 +6,7 @@
 // 页面构成（从上到下）：
 //   Header      — 宠物头像 + 宠物名（pet.name，非用户名）+ 问候语 + 通知铃
 //   DeviceStatusBar — BLE 设备连接状态 + 电量 + 信号强度
-//   FeedingTimerCard  — 核心 CTA：「已喂食 ZenBelly」按钮 + 计时器
 //   BehaviorStateCard — 当前行为状态（平静/踱步/应激/玩耍/发抖）
-//   TimeToCalmCard    — Time-to-Calm 趋势（上次 vs 平均）
 //   StressChartCard   — 焦虑历史图（24h/7d/30d，/api/history）
 //   StatusCardsRow    — 活动量 / 昨晚睡眠 / 应激次数 三小卡片
 //   JournalQuickEntry — 今日快速记录（大便/心情/食欲/精力）
@@ -28,8 +26,6 @@ import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/dashboard/feeding_timer_card.dart';
-import '../../widgets/dashboard/time_to_calm_card.dart';
 import '../../widgets/dashboard/stress_chart_card.dart';
 import '../../widgets/dashboard/status_cards_row.dart';
 import '../../widgets/dashboard/device_status_bar.dart';
@@ -62,31 +58,15 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
 
-            // ── Feeding Timer (Hero CTA) ───────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: FeedingTimerCard(provider: provider),
-              ),
-            ),
-
             // ── Current Behavior State ────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: BehaviorStateCard(provider: provider),
               ),
             ),
 
-            // ── Time-to-Calm ──────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: TimeToCalmCard(provider: provider),
-              ),
-            ),
-
-            // ── Stress Reduction Chart ────────────────────────────────────
+            // ── Anxiety History Chart ─────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
