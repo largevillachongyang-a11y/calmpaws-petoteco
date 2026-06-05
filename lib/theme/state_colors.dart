@@ -27,11 +27,12 @@ class StateColors {
     'sleep_abnormal': '睡眠异常',
   };
 
+  /// 图例用短标签（避免英文一行挤不下 7 项）
   static const Map<String, String> stateLabelEN = {
     'calm': 'Calm',
     'sleep_normal': 'Sleep',
     'playing': 'Play',
-    'pacing': 'Pacing',
+    'pacing': 'Pace',
     'stressed': 'Stress',
     'shivering': 'Shiver',
     'sleep_abnormal': 'Lethargy',

@@ -117,6 +117,18 @@ class AppStrings {
   String get chartTab7d => _t('7d', '7天');
   String get chartTab30d => _t('30d', '30天');
   String get chartNoData => _t('No data yet', '暂无数据');
+  String get chartNoData24h => _t(
+    'No data in the last 24 hours',
+    '近24小时暂无曲线数据',
+  );
+  String get chartNoData24hHint => _t(
+    'Collar has records on other days — switch to 7d or 30d',
+    '项圈曾在其他日期有记录，请切换至7天/30天查看',
+  );
+  String get chartNoData24hFooter => _t(
+    'No monitoring in the last 24h',
+    '近24小时无监测记录',
+  );
   String get chartLoading => _t('Loading history…', '加载历史中…');
   String get chartMockHint => _t(
     'Connect to server to view history',

@@ -115,16 +115,13 @@ class _StressChartCardState extends State<StressChartCard> {
             child: _buildChartBody(s, isZh, loading, response),
           ),
           const SizedBox(height: 12),
-          if (response != null && response.hasPoints) ...[
+          if (response != null && _hasChartData(response)) ...[
             _SummaryRow(response: response, s: s),
             const SizedBox(height: 10),
           ],
           _StateLegend(isZh: isZh),
           const SizedBox(height: 8),
-          Text(
-            _footerText(s, response),
-            style: AppTextStyles.bodySmall.copyWith(fontSize: 12),
-          ),
+          ..._footerLines(s, response),
         ],
       ),
     );
@@ -158,7 +155,14 @@ class _StressChartCardState extends State<StressChartCard> {
     if (response?.error != null) {
       return _CenterMessage(response!.error!);
     }
-    if (response == null || !response.hasPoints) {
+    if (response == null || !_hasChartData(response)) {
+      if (_tabIndex == 0) {
+        final weekDays = widget.provider.history7d?.summary.daysWithData ?? 0;
+        return _CenterMessage(
+          s.chartNoData24h,
+          subtext: weekDays > 0 ? s.chartNoData24hHint : null,
+        );
+      }
       return _CenterMessage(s.chartNoData);
     }
 
@@ -168,24 +172,67 @@ class _StressChartCardState extends State<StressChartCard> {
     return BarChart(_buildDailyChart(response, _tabIndex == 1 ? 7 : 30));
   }
 
-  String _footerText(AppStrings s, HistoryResponse? response) {
-    if (!widget.provider.useRealServer) return s.chartMockHint;
-    if (response == null) return s.chartNoData;
-
-    final summary = response.summary;
+  /// 24h：需有带 time 的数据点；7d/30d：需有 record_count>0 的天
+  bool _hasChartData(HistoryResponse response) {
     if (_tabIndex == 0) {
-      final mins = summary.onlineMinutes ?? 0;
-      final h = mins ~/ 60;
-      final m = mins % 60;
-      return s.chartMonitoredToday(h, m);
+      return response.points.any((p) => p.time != null && p.recordCount > 0);
+    }
+    return response.points.any((p) => p.date != null && p.recordCount > 0);
+  }
+
+  int _daysWithRecords(HistoryResponse? response) {
+    if (response == null) return 0;
+    return response.points.where((p) => p.recordCount > 0).length;
+  }
+
+  List<Widget> _footerLines(AppStrings s, HistoryResponse? response) {
+    final style = AppTextStyles.bodySmall.copyWith(fontSize: 12);
+    if (!widget.provider.useRealServer) {
+      return [Text(s.chartMockHint, style: style)];
+    }
+    if (response == null) {
+      return [Text(s.chartNoData, style: style)];
     }
 
-    final withData = summary.daysWithData ?? 0;
-    final total = summary.daysTotal ?? (_tabIndex == 1 ? 7 : 30);
-    final hours = (summary.onlineHoursTotal ??
-            (summary.onlineMinutesTotal ?? 0) / 60.0)
+    final lines = <Widget>[];
+
+    if (_tabIndex == 0) {
+      if (!_hasChartData(response)) {
+        lines.add(Text(s.chartNoData24hFooter, style: style));
+        final week = widget.provider.history7d;
+        final withData = week?.summary.daysWithData ?? 0;
+        if (withData > 0) {
+          final hours = (week!.summary.onlineHoursTotal ??
+                  (week.summary.onlineMinutesTotal ?? 0) / 60.0)
+              .toStringAsFixed(1);
+          lines.add(const SizedBox(height: 4));
+          lines.add(
+            Text(
+              s.chartMonitoredPeriod(withData, 7, hours),
+              style: style.copyWith(color: AppColors.textMuted),
+            ),
+          );
+        }
+        return lines;
+      }
+      final mins = response.summary.onlineMinutes ?? 0;
+      lines.add(Text(s.chartMonitoredToday(mins ~/ 60, mins % 60), style: style));
+      return lines;
+    }
+
+    if (!_hasChartData(response)) {
+      lines.add(Text(s.chartNoData, style: style));
+      return lines;
+    }
+
+    final withData =
+        response.summary.daysWithData ?? _daysWithRecords(response);
+    final total = response.summary.daysTotal ?? (_tabIndex == 1 ? 7 : 30);
+    final hours = (response.summary.onlineHoursTotal ??
+            (response.summary.onlineMinutesTotal ?? 0) / 60.0)
         .toStringAsFixed(1);
-    return s.chartMonitoredPeriod(withData, total, hours);
+    lines.add(Text(s.chartMonitoredPeriod(withData, total, hours), style: style));
+    return lines;
   }
 
   LineChartData _build24hChart(HistoryResponse response) {
@@ -324,21 +371,39 @@ class _StressChartCardState extends State<StressChartCard> {
       final point = byDate[key];
       final hasData = point != null && point.recordCount > 0;
 
-      groups.add(
-        BarChartGroupData(
-          x: i,
-          barRods: [
-            BarChartRodData(
-              toY: hasData ? point.anxietyScore : 2,
-              color: hasData
-                  ? StateColors.colorFor(point.dominantState)
-                  : AppColors.chartGrid,
-              width: dayCount <= 7 ? 18 : 8,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-            ),
-          ],
-        ),
-      );
+      if (hasData) {
+        // 焦虑分为 0 时仍显示细柱，表示「有监测、状态平静」
+        final barH = point.anxietyScore > 0 ? point.anxietyScore : 5.0;
+        groups.add(
+          BarChartGroupData(
+            x: i,
+            barRods: [
+              BarChartRodData(
+                toY: barH,
+                color: StateColors.colorFor(point.dominantState),
+                width: dayCount <= 7 ? 18 : 8,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(3)),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // 无数据天：不画柱，避免底部灰色半圆伪影
+        groups.add(
+          BarChartGroupData(
+            x: i,
+            barRods: [
+              BarChartRodData(
+                toY: 0,
+                color: Colors.transparent,
+                width: dayCount <= 7 ? 18 : 8,
+                borderRadius: BorderRadius.zero,
+              ),
+            ],
+          ),
+        );
+      }
     }
 
     return BarChartData(
@@ -405,8 +470,9 @@ class _StressChartCardState extends State<StressChartCard> {
                 const TextStyle(color: Colors.white, fontSize: 12),
               );
             }
+            final score = point.anxietyScore;
             return BarTooltipItem(
-              rod.toY.toStringAsFixed(0),
+              score.toStringAsFixed(0),
               const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
@@ -538,48 +604,66 @@ class _StateLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: StateColors.legendOrder.map((state) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: StateColors.colorFor(state),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  StateColors.labelFor(state, isZh),
-                  style: AppTextStyles.labelSmall.copyWith(fontSize: 11),
-                ),
-              ],
+    return Wrap(
+      spacing: 10,
+      runSpacing: 6,
+      children: StateColors.legendOrder.map((state) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: StateColors.colorFor(state),
+                shape: BoxShape.circle,
+              ),
             ),
-          );
-        }).toList(),
-      ),
+            const SizedBox(width: 4),
+            Text(
+              StateColors.labelFor(state, isZh),
+              style: AppTextStyles.labelSmall.copyWith(fontSize: 10),
+            ),
+          ],
+        );
+      }).toList(),
     );
   }
 }
 
 class _CenterMessage extends StatelessWidget {
   final String text;
-  const _CenterMessage(this.text);
+  final String? subtext;
+  const _CenterMessage(this.text, {this.subtext});
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text(
-        text,
-        style: AppTextStyles.bodySmall,
-        textAlign: TextAlign.center,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              style: AppTextStyles.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (subtext != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                subtext!,
+                style: AppTextStyles.bodySmall.copyWith(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
