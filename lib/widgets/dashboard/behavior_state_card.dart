@@ -14,7 +14,7 @@ import '../../theme/app_theme.dart';
 //   第三层（展开）：本包5秒驱动因素 + 今日累计状态时长（供主人了解全天情况）
 //
 // 数据来源：
-//   currentBehavior     → B方案确认状态（连续2包才切换，不会每5秒乱跳）
+//   currentBehavior     → 服务器 label（真实模式）或 B方案确认状态（Mock）
 //   serverAnxietyScore → 服务器返回的 anxiety_score（0–100）
 //   latestPacket        → 差值包（最近5秒增量），用于驱动因素展示
 //   todayPacingSeconds 等 → 今日累计时长（每日 00:00 重置）

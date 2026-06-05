@@ -3,6 +3,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
+import '../models/models.dart';
 
 class StateColors {
   StateColors._();
@@ -55,4 +56,26 @@ class StateColors {
       isZh
           ? (stateLabelCN[state] ?? state)
           : (stateLabelEN[state] ?? state);
+
+  /// /api/status 的 label 字段 → UI 行为枚举（snake_case）
+  static PetBehaviorState? behaviorFromLabel(String? label) {
+    switch (label) {
+      case 'calm':
+        return PetBehaviorState.calm;
+      case 'pacing':
+        return PetBehaviorState.pacing;
+      case 'stressed':
+        return PetBehaviorState.stressed;
+      case 'playing':
+        return PetBehaviorState.playing;
+      case 'shivering':
+        return PetBehaviorState.shivering;
+      case 'sleep_normal':
+        return PetBehaviorState.sleepNormal;
+      case 'sleep_abnormal':
+        return PetBehaviorState.sleepAbnormal;
+      default:
+        return null;
+    }
+  }
 }

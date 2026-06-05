@@ -30,6 +30,8 @@ class ServerApiService {
   int _lastPacketTimestamp = 0;
 
   void Function(int sleepNoRollSec, double? lastRollTime, String sleepState, int continuousCalmSec)? onSleepStateReceived;
+  /// /api/status 返回 204（暂无新缓存）时通知 UI
+  void Function()? onStatus204;
 
   bool get isRunning => _isRunning;
   bool get deviceOnline => _deviceOnline;
@@ -164,6 +166,7 @@ class ServerApiService {
         }
       } else if (resp.statusCode == 204) {
         _connectionStatus = 'connected';
+        onStatus204?.call();
         if (EnvironmentConfig.debugMode && kDebugMode) {
           debugPrint('[ServerAPI] 204 暂无新数据');
         }
@@ -192,6 +195,7 @@ class ServerApiService {
         battery: _parseInt(data['battery']) ?? 100,
         rssi: _parseInt(data['rssi']) ?? -70,
         anxietyScore: (_parseDouble(data['anxiety_score']) ?? 0.0).clamp(0.0, 100.0),
+        serverLabel: data['label'] as String?,
       );
     } catch (e) {
       if (EnvironmentConfig.debugMode && kDebugMode) {

@@ -19,17 +19,27 @@ class DeviceStatusBar extends StatelessWidget {
     // 服务器连接状态（connected/connecting/error/disconnected）
     final srvStatus = provider.serverConnectionStatus;
     final hasError = connected && srvStatus == 'error';
+    final awaitingData = connected && !hasError && provider.statusAwaitingCachedData;
     // 动态设备名：连接中显示 IP，有错误显示 error，正常显示 CalmPaws 项圈
     final deviceDisplayName = () {
       if (!connected) return s.deviceOffline;
       if (hasError) return s.deviceServerError;
+      if (awaitingData) return s.statusNoCachedData;
       final url = provider.serverBaseUrl;
       final host = Uri.tryParse(url)?.host ?? url;
       return s.deviceCollarHost(host);
     }();
     // 状态点颜色：error 时用红色
-    final dotColor = (!connected || hasError) ? AppColors.alertRed : AppColors.sageGreen;
-    final barColor = (!connected || hasError) ? AppColors.alertRedMuted : AppColors.sageMuted;
+    final dotColor = (!connected || hasError)
+        ? AppColors.alertRed
+        : awaitingData
+            ? AppColors.warningAmber
+            : AppColors.sageGreen;
+    final barColor = (!connected || hasError)
+        ? AppColors.alertRedMuted
+        : awaitingData
+            ? AppColors.warningAmberMuted
+            : AppColors.sageMuted;
 
     return Column(
       children: [
@@ -70,7 +80,7 @@ class DeviceStatusBar extends StatelessWidget {
                 ),
               ),
               // 已连接：显示电量、蓝牙、SYNC按钮
-              if (connected && !hasError) ...[  // 仅正常连接时显示电量/蓝牙/SYNC
+              if (connected && !hasError && !awaitingData) ...[  // 有数据时显示电量/蓝牙/SYNC
                 Icon(
                   lowBattery
                       ? Icons.battery_alert_rounded
@@ -193,6 +203,36 @@ class DeviceStatusBar extends StatelessWidget {
             ],
           ),
         ),
+        // ── 204 暂无缓存数据提示 ───────────────────────────────────────────
+        if (awaitingData)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.warningAmberMuted,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.hourglass_empty_rounded,
+                  size: 14,
+                  color: AppColors.warningAmber,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    s.statusNoCachedDataHint,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // ── SYNC 状态提示条（有状态时才显示）─────────────────────────────────
         if (syncStatus.isNotEmpty)
           AnimatedContainer(

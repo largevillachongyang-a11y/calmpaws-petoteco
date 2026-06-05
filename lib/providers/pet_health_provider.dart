@@ -52,6 +52,7 @@ import '../services/server_api_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_strings.dart';
 import '../utils/image_data_url.dart';
+import '../theme/state_colors.dart';
 
 class PetHealthProvider extends ChangeNotifier {
   // ── 当前已登录用户 ID（用于 SharedPreferences key 隔离）──────────────────
@@ -355,13 +356,12 @@ class PetHealthProvider extends ChangeNotifier {
   int _battery = 82;
   int _rssi    = -70;  // Wi-Fi RSSI（服务器收到的信号强度）
 
-  // ── B方案：状态确认 + 差分包滑动窗口 ──────────────────────────────────────
-  // _recentDeltas：最近4包差值（保留供后续平滑/调试；焦虑分已改由服务器 anxiety_score 提供）
-  static const List<double> kAnxietyWeights = [0.5, 0.3, 0.15, 0.05];
-  final List<BlePacket> _recentDeltas = [];
+  // ── B方案：状态确认（Mock 模式）/ 服务器 label（真实模式）────────────────────
   double _anxietyScoreFromServer = 0; // /api/status 返回的 anxiety_score
+  String? _serverBehaviorLabel; // /api/status 返回的 label
+  bool _statusAwaitingCachedData = false; // 204 暂无新缓存
 
-  // B：状态切换需要连续2包确认，防止单包噪声引发状态跳变
+  // B：状态切换需要连续2包确认，防止单包噪声引发状态跳变（仅 Mock 模式）
   //    连续2包（10秒）相同状态才切换，避免 calm→stressed→calm 的闪烁
   PetBehaviorState _confirmedState = PetBehaviorState.calm; // 当前已确认的稳定状态
   PetBehaviorState _pendingState   = PetBehaviorState.calm; // 待确认的候选状态
@@ -384,6 +384,8 @@ class PetHealthProvider extends ChangeNotifier {
   String get serverBaseUrl  => _serverApi.baseUrl;
   String get serverDeviceId => _serverApi.deviceId;
   String get serverConnectionStatus => _serverApi.connectionStatus;
+  bool get statusAwaitingCachedData => _statusAwaitingCachedData;
+  String? get serverBehaviorLabel => _serverBehaviorLabel;
 
   /// 配置服务器地址（从设置页面调用）
   Future<void> configureServer(String baseUrl, String deviceId) async {
@@ -411,9 +413,12 @@ class PetHealthProvider extends ChangeNotifier {
   void connectDevice() {
     _bleSub?.cancel();
     if (_useRealServer) {
-      // 真实服务器模式：HTTP轮询 /api/status/<device_id>
-      // 注册睡眠状态回调（B方案：从服务器恢复睡眠计时）
+      _statusAwaitingCachedData = true;
       _serverApi.onSleepStateReceived = _onSleepStateFromServer;
+      _serverApi.onStatus204 = () {
+        _statusAwaitingCachedData = true;
+        notifyListeners();
+      };
       _serverApi.start();
       _bleSub = _serverApi.stream.listen(_onPacket);
       unawaited(loadServerHistory());
@@ -485,6 +490,9 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   void disconnectDevice() {
+    _serverApi.onStatus204 = null;
+    _statusAwaitingCachedData = false;
+    _serverBehaviorLabel = null;
     _serverApi.stop();
     _ble.stop();
     _bleSub?.cancel();
@@ -499,11 +507,23 @@ class PetHealthProvider extends ChangeNotifier {
     _rssi    = rawPacket.rssi;
     _anxietyScoreFromServer = rawPacket.anxietyScore.clamp(0.0, 100.0);
 
+    if (_useRealServer) {
+      _statusAwaitingCachedData = false;
+      if (rawPacket.serverLabel != null) {
+        _serverBehaviorLabel = rawPacket.serverLabel;
+        final fromLabel = StateColors.behaviorFromLabel(rawPacket.serverLabel);
+        if (fromLabel != null) {
+          _confirmedState = fromLabel;
+          _pendingState = fromLabel;
+          _pendingStateCount = kStateConfirmPackets;
+        }
+      }
+    }
+
     // 计算本5秒增量（差值包）
     // 第一包（_latestPacket==null）是累计值，无法计算差值，直接丢弃并记录基准
     if (_latestPacket == null) {
-      _latestPacket = rawPacket; // 仅记录基准，不做状态判断
-      _battery = rawPacket.battery;
+      _latestPacket = rawPacket;
       notifyListeners();
       return;
     }
@@ -511,22 +531,18 @@ class PetHealthProvider extends ChangeNotifier {
     _latestPacket = rawPacket;
     _deltaPacket  = delta;
 
-    // 维护最近4包差值（滑动窗口，供差分逻辑保留）
-    _recentDeltas.add(delta);
-    if (_recentDeltas.length > kAnxietyWeights.length) {
-      _recentDeltas.removeAt(0);
-    }
-
-    // ── B方案：状态切换需连续2包确认 ────────────────────────────────────
-    final rawState = delta.behaviorState;
-    if (rawState == _pendingState) {
-      _pendingStateCount++;
-      if (_pendingStateCount >= kStateConfirmPackets && rawState != _confirmedState) {
-        _confirmedState = rawState;
+    // Mock 模式：B方案状态切换需连续2包确认
+    if (!_useRealServer) {
+      final rawState = delta.behaviorState;
+      if (rawState == _pendingState) {
+        _pendingStateCount++;
+        if (_pendingStateCount >= kStateConfirmPackets && rawState != _confirmedState) {
+          _confirmedState = rawState;
+        }
+      } else {
+        _pendingState      = rawState;
+        _pendingStateCount = 1;
       }
-    } else {
-      _pendingState      = rawState;
-      _pendingStateCount = 1;
     }
 
     _checkAlerts(delta);
@@ -695,9 +711,8 @@ class PetHealthProvider extends ChangeNotifier {
     const int samplingInterval = 5;
     final rawState = packet.behaviorState; // BlePacket 层状态（无睡眠细分）
 
-    // ── E1/E2 睡眠状态判断（App 层逻辑，2026-05-05 修订）──────────────
-    // 第一步：calm 持续 ≥ 30分钟 才进入睡眠状态
-    // 第二步：已入睡后，翻身 → sleepNormal，无翻身≥2小时 → sleepAbnormal
+    // ── E1/E2 睡眠状态判断（Mock 模式；真实模式由服务器 sleep_state 回调驱动）──
+    if (!_useRealServer) {
     if (rawState == PetBehaviorState.calm) {
       _continuousCalmSeconds += samplingInterval;
 
@@ -729,6 +744,7 @@ class PetHealthProvider extends ChangeNotifier {
       _sleepState = null;
       _continuousCalmSeconds        = 0;
       _continuousSleepNoRollSeconds = 0;
+    }
     }
 
     // 最终展示用状态（含 E1/E2 细分）

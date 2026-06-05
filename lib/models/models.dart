@@ -40,6 +40,8 @@ class BlePacket {
   final int rssi;    // BLE signal strength
   /// 服务器计算的焦虑分 0–100（/api/status 字段 anxiety_score，非 APP 端重算）
   final double anxietyScore;
+  /// 服务器行为标签（/api/status 字段 label，如 calm / sleep_normal）
+  final String? serverLabel;
 
   const BlePacket({
     required this.timestamp,
@@ -53,6 +55,7 @@ class BlePacket {
     required this.battery,
     required this.rssi,
     this.anxietyScore = 0,
+    this.serverLabel,
   });
 
   factory BlePacket.fromJson(Map<String, dynamic> json) {
@@ -68,6 +71,7 @@ class BlePacket {
       battery: (json['battery'] as num).toInt(),
       rssi: (json['rssi'] as num).toInt(),
       anxietyScore: (json['anxiety_score'] as num?)?.toDouble() ?? 0.0,
+      serverLabel: json['label'] as String?,
     );
   }
 
@@ -87,6 +91,7 @@ class BlePacket {
       battery: current.battery,
       rssi: current.rssi,
       anxietyScore: current.anxietyScore,
+      serverLabel: current.serverLabel,
     );
   }
 

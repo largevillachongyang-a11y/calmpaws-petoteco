@@ -33,6 +33,11 @@ class AppStrings {
   String get deviceConnect => _t('Connect', '连接');
   String get deviceBle => _t('BLE', '蓝牙');
   String get deviceServerError => _t('⚠️ Server connection failed', '⚠️ 服务器连接失败');
+  String get statusNoCachedData => _t('Waiting for collar data…', '等待项圈上报数据…');
+  String get statusNoCachedDataHint => _t(
+    'Server connected — no cached readings yet. Data will appear when the collar uploads.',
+    '已连接服务器，暂无项圈缓存数据。项圈上报后将自动显示。',
+  );
   String deviceCollarHost(String host) => _t('CalmPaws Collar · $host', 'CalmPaws 项圈 · $host');
   String get deviceRetry => _t('Retry', '重试');
   String get syncInProgress => _t('Syncing', '同步中');
