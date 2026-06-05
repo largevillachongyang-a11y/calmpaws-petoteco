@@ -158,7 +158,7 @@ class ServerApiService {
           onSleepStateReceived?.call(sleepNoRollSec, lastRollTime, sleepState, continuousCalmSec);
           _controller.add(packet);
           if (EnvironmentConfig.debugMode && kDebugMode) {
-            debugPrint('[ServerAPI] 收到数据包：strC=${packet.strC} shivD=${packet.shivD} paceD=${packet.paceD} bat=${packet.battery}%');
+            debugPrint('[ServerAPI] 收到数据包：anxiety=${packet.anxietyScore} strC=${packet.strC} shivD=${packet.shivD} paceD=${packet.paceD} bat=${packet.battery}%');
           }
         }
       } else if (resp.statusCode == 204) {
@@ -190,6 +190,7 @@ class ServerApiService {
         rollC: _parseInt(data['roll_c']) ?? 0,
         battery: _parseInt(data['battery']) ?? 100,
         rssi: _parseInt(data['rssi']) ?? -70,
+        anxietyScore: (_parseDouble(data['anxiety_score']) ?? 0.0).clamp(0.0, 100.0),
       );
     } catch (e) {
       if (EnvironmentConfig.debugMode && kDebugMode) {

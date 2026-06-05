@@ -38,6 +38,8 @@ class BlePacket {
   final int rollC;      // roll count (打滚次数)
   final int battery; // battery percentage
   final int rssi;    // BLE signal strength
+  /// 服务器计算的焦虑分 0–100（/api/status 字段 anxiety_score，非 APP 端重算）
+  final double anxietyScore;
 
   const BlePacket({
     required this.timestamp,
@@ -50,6 +52,7 @@ class BlePacket {
     required this.rollC,
     required this.battery,
     required this.rssi,
+    this.anxietyScore = 0,
   });
 
   factory BlePacket.fromJson(Map<String, dynamic> json) {
@@ -64,6 +67,7 @@ class BlePacket {
       rollC: (json['roll_c'] as num).toInt(),
       battery: (json['battery'] as num).toInt(),
       rssi: (json['rssi'] as num).toInt(),
+      anxietyScore: (json['anxiety_score'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -82,6 +86,7 @@ class BlePacket {
       rollC: (current.rollC - previous.rollC).clamp(0, 999),
       battery: current.battery,
       rssi: current.rssi,
+      anxietyScore: current.anxietyScore,
     );
   }
 
@@ -96,6 +101,7 @@ class BlePacket {
     'roll_c': rollC,
     'battery': battery,
     'rssi': rssi,
+    'anxiety_score': anxietyScore,
   };
 
   /// 根据本包（差值包）计算行为状态——优先级：颤抖 > 应激 > 踱步 > 玩耍 > 平静
@@ -115,25 +121,6 @@ class BlePacket {
     if (playD > 3) return PetBehaviorState.playing;
     // 没有活跃行为信号 → 静止（由上层根据 roll_c 判断是正常睡眠还是异常昏睡）
     return PetBehaviorState.calm;
-  }
-
-  /// 本包（差值包）的综合焦虑分 0-100
-  /// 分值算法基于本5秒增量：应激次数×20 + 踱步时长×3 + 颤抖时长×6 + 应激时长×2
-  /// ⚠️ 必须传入差值包，原始累计包会产生极高的错误分值
-  /// [TODO] 实际项目中应由数据科学家验证权重参数，目前为经验值
-  int get anxietyScore {
-    // 权重说明（与技术文档v2.0对齐）：
-    //   strC  × 10，上限20：应激次数，物理算法阈值未验证，降低权重减少误报
-    //   paceD × 3， 上限30：踱步时长，AI+双重验证，中等可靠
-    //   shivD × 6， 上限40：发抖时长，物理算法文献支撑，权重最高
-    //   strD  × 1， 上限10：应激时长，同 strC 降低权重
-    // ⚠️ 暂定值，待真实数据验证后调整
-    int score = 0;
-    score += (strC * 10).clamp(0, 20);                  // 应激次数 ×10，上限20
-    score += (paceD * 3).clamp(0.0, 30.0).toInt();      // 踱步时长 ×3，上限30
-    score += (shivD * 6).clamp(0.0, 40.0).toInt();      // 发抖时长 ×6，上限40（最可靠）
-    score += (strD * 1).clamp(0.0, 10.0).toInt();       // 应激时长 ×1，上限10
-    return score.clamp(0, 100);
   }
 
   /// 活动尽兴分 0-100（玩耍时长 + 打滚次数为主要贡献）

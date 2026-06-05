@@ -388,11 +388,11 @@ class PetHealthProvider extends ChangeNotifier {
   int _battery = 82;
   int _rssi    = -70;  // Wi-Fi RSSI（服务器收到的信号强度）
 
-  // ── A+B方案：滑动窗口 + 状态确认 ──────────────────────────────────────────
-  // A：最近4包差值的加权平均焦虑分，消除单包噪声导致的数值跳动
-  //    权重：最新包0.5，前一包0.3，再前0.15，最早0.05
+  // ── B方案：状态确认 + 差分包滑动窗口 ──────────────────────────────────────
+  // _recentDeltas：最近4包差值（保留供后续平滑/调试；焦虑分已改由服务器 anxiety_score 提供）
   static const List<double> kAnxietyWeights = [0.5, 0.3, 0.15, 0.05];
-  final List<BlePacket> _recentDeltas = []; // 最近4包差值，用于加权平均
+  final List<BlePacket> _recentDeltas = [];
+  double _anxietyScoreFromServer = 0; // /api/status 返回的 anxiety_score
 
   // B：状态切换需要连续2包确认，防止单包噪声引发状态跳变
   //    连续2包（10秒）相同状态才切换，避免 calm→stressed→calm 的闪烁
@@ -489,6 +489,7 @@ class PetHealthProvider extends ChangeNotifier {
   void _onPacket(BlePacket rawPacket) {
     _battery = rawPacket.battery;
     _rssi    = rawPacket.rssi;
+    _anxietyScoreFromServer = rawPacket.anxietyScore.clamp(0.0, 100.0);
 
     // 计算本5秒增量（差值包）
     // 第一包（_latestPacket==null）是累计值，无法计算差值，直接丢弃并记录基准
@@ -502,7 +503,7 @@ class PetHealthProvider extends ChangeNotifier {
     _latestPacket = rawPacket;
     _deltaPacket  = delta;
 
-    // ── A方案：维护最近4包差值，用于加权平均焦虑分 ───────────────────────
+    // 维护最近4包差值（滑动窗口，供差分逻辑保留）
     _recentDeltas.add(delta);
     if (_recentDeltas.length > kAnxietyWeights.length) {
       _recentDeltas.removeAt(0);
@@ -632,7 +633,7 @@ class PetHealthProvider extends ChangeNotifier {
         [today.weekday - 1];
     final point = DailyStressDataPoint(
       dayIndex: 0, // 0 = 今天
-      stressScore: currentAnxietyScore.toDouble(),
+      stressScore: serverAnxietyScore.toDouble(),
       isAfterTreatment: _sessionHistory.isNotEmpty,
       label: dayOfWeek,
     );
@@ -679,7 +680,7 @@ class PetHealthProvider extends ChangeNotifier {
       final snapshot = BehaviorSnapshot(
         minutesAfterFeed: minutes,
         state: packet.behaviorState,
-        anxietyScore: packet.anxietyScore,
+        anxietyScore: serverAnxietyScore,
       );
       final updated = _activeSession!.copyWith(
         timeline: [..._activeSession!.timeline, snapshot],
@@ -1167,7 +1168,7 @@ class PetHealthProvider extends ChangeNotifier {
         // 今天用实时数据补充
         final isToday = i == 0;
         final stressScore = isToday
-            ? currentAnxietyScore.toDouble()
+            ? serverAnxietyScore.toDouble()
             : pt.stressScore;
         final activity = isToday
             ? currentActivityScore
@@ -1213,23 +1214,12 @@ class PetHealthProvider extends ChangeNotifier {
     return records;
   }
 
-  // ── 对外暴露平滑后的行为状态和焦虑分 ─────────────────────────────────────
+  // ── 对外暴露行为状态与服务器焦虑分 ───────────────────────────────────────
   // currentBehavior：B方案确认状态（含 E1/E2 睡眠细分），连续2包才切换，不会每5秒乱跳
-  // currentAnxietyScore：A方案加权均值，数值平滑渐变不跳动
+  // serverAnxietyScore：服务器 /api/status 返回的 anxiety_score（0–100）
   // 注：currentBehavior 已在上方预警部分定义（包含 E1/E2 逻辑）
 
-  int get currentAnxietyScore {
-    if (_recentDeltas.isEmpty) return 0;
-    double weighted = 0;
-    double totalWeight = 0;
-    for (int i = 0; i < _recentDeltas.length; i++) {
-      final weightIdx = _recentDeltas.length - 1 - i; // 最新包对应权重列表第0项
-      final w = weightIdx < kAnxietyWeights.length ? kAnxietyWeights[weightIdx] : 0.05;
-      weighted += _recentDeltas[i].anxietyScore * w;
-      totalWeight += w;
-    }
-    return (weighted / totalWeight).round().clamp(0, 100);
-  }
+  int get serverAnxietyScore => _anxietyScoreFromServer.round().clamp(0, 100);
 
   int get currentActivityScore => _deltaPacket?.activityScore ?? 0;
 
@@ -1251,7 +1241,7 @@ class PetHealthProvider extends ChangeNotifier {
   /// 正值=恶化，负值=改善
   double get todayCalmTrend {
     // 今日实时焦虑分
-    final todayScore = currentAnxietyScore.toDouble();
+    final todayScore = serverAnxietyScore.toDouble();
     // 历史均值（取最近7天 stressChartData 的均值作为参考基准）
     if (_stressChartData.isEmpty) return 0.0;
     final recentDays = _stressChartData.take(7).map((p) => p.stressScore);
@@ -1335,7 +1325,7 @@ class PetHealthProvider extends ChangeNotifier {
       avgTimeToCalmSecs: todaySessionCount > 0
           ? avgTtc ~/ todaySessionCount
           : null,
-      avgAnxietyScore:  currentAnxietyScore.toDouble(),
+      avgAnxietyScore:  serverAnxietyScore.toDouble(),
     );
     onDailySummaryReady?.call(summary);
   }
@@ -1581,6 +1571,9 @@ class PetHealthProvider extends ChangeNotifier {
         rollC:     int.parse(parts[7].trim()),
         battery:   -1,
         rssi:      0,
+        anxietyScore: parts.length >= 10
+            ? double.parse(parts[9].trim()).clamp(0.0, 100.0)
+            : 0.0,
       );
     } catch (_) {
       return null;

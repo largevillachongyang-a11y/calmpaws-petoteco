@@ -121,7 +121,7 @@ class _EdgeImpulseScreenState extends State<EdgeImpulseScreen>
         rollC: pkt.rollC.toDouble(),
         shivC: pkt.shivC.toDouble(),
         shivD: pkt.shivD.toDouble(),
-        anxietyScore: provider.currentAnxietyScore,
+        anxietyScore: provider.serverAnxietyScore,
       ));
     });
 
@@ -560,7 +560,7 @@ class _CurrentPacketCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Anxiety ${provider.currentAnxietyScore}',
+                  'Anxiety ${provider.serverAnxietyScore}',
                   style: const TextStyle(
                       color: AppColors.sageGreen,
                       fontSize: 11,

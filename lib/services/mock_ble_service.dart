@@ -105,6 +105,7 @@ class MockBleService {
       rollC: _cumRollC,
       battery: _battery,
       rssi: _rssi,
+      anxietyScore: _mockAnxietyFromDelta(4, 45, 5, 0),
     );
     _controller.add(packet);
     return packet;
@@ -204,7 +205,14 @@ class MockBleService {
       rollC: _cumRollC,
       battery: _battery,
       rssi: _rssi,
+      anxietyScore: _mockAnxietyFromDelta(dStrC, dStrD, dPaceD, dShivD),
     );
+  }
+
+  /// Mock 模式焦虑分：与服务器公式对齐（基于本5秒增量）
+  double _mockAnxietyFromDelta(int strC, num strD, num paceD, num shivD) {
+    final score = strC * 10 + paceD * 3 + shivD * 6 + strD * 1;
+    return score.clamp(0.0, 100.0).toDouble();
   }
 
   _DayPhase _getDayPhase(int hour) {

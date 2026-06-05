@@ -214,7 +214,7 @@ class _ActiveTimer extends StatelessWidget {
   Widget build(BuildContext context) {
     final elapsed = provider.sessionElapsedSeconds;
     final behavior = provider.currentBehavior;
-    final anxietyScore = provider.currentAnxietyScore;
+    final anxietyScore = provider.serverAnxietyScore;
 
     // Progress arc: 0-100 maps to 0.0-1.0
     // We expect calm within ~30 min = 1800 sec

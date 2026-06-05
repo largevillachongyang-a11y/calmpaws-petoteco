@@ -10,12 +10,12 @@ import '../../theme/app_theme.dart';
 // =============================================================================
 // 三层信息架构：
 //   第一层（结论）：自然语言描述当前状态 + 已确认的稳定状态（B方案 2包确认）
-//   第二层（辅助）：加权平均焦虑分（A方案 4包滑动窗口）+ 趋势箭头
+//   第二层（辅助）：服务器焦虑分（/api/status anxiety_score）+ 趋势箭头
 //   第三层（展开）：本包5秒驱动因素 + 今日累计状态时长（供主人了解全天情况）
 //
 // 数据来源：
 //   currentBehavior     → B方案确认状态（连续2包才切换，不会每5秒乱跳）
-//   currentAnxietyScore → A方案加权均值（最近4包，最新包权重50%）
+//   serverAnxietyScore → 服务器返回的 anxiety_score（0–100）
 //   latestPacket        → 差值包（最近5秒增量），用于驱动因素展示
 //   todayPacingSeconds 等 → 今日累计时长（每日 00:00 重置）
 // =============================================================================
@@ -37,7 +37,7 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
     final provider = widget.provider;
     final behavior = provider.currentBehavior;
     final packet = provider.latestPacket;
-    final score = provider.currentAnxietyScore;
+    final score = provider.serverAnxietyScore;
     final petName = provider.pet.name;
 
     final (bgColor, accentColor, _, _) = _stateColors(behavior);
