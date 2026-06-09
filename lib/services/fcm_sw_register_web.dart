@@ -6,10 +6,9 @@ Future<void> registerFcmServiceWorkerIfNeeded() async {
   if (sw == null) return;
 
   final scriptUrl = Uri.base.resolve('firebase-messaging-sw.js').toString();
-  final scope = Uri.base.resolve('.').toString();
 
   try {
-    await sw.register(scriptUrl, scope: scope);
+    await sw.register(scriptUrl);
     await sw.ready;
   } catch (_) {
     // index.html 可能已注册；忽略重复注册错误
