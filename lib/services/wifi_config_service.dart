@@ -26,10 +26,10 @@ class WifiConfigService {
 
   // 默认值（与 EnvironmentConfig 保持一致）
   static String get kDefaultServerUrl => EnvironmentConfig.baseUrl;
-  static String get kDefaultDeviceId => EnvironmentConfig.testDeviceId;
+  static const String kDefaultDeviceId = 'collar_001';
 
   String _serverUrl = EnvironmentConfig.baseUrl;
-  String _deviceId = EnvironmentConfig.testDeviceId;
+  String _deviceId = kDefaultDeviceId;
 
   String get serverUrl => _serverUrl;
   String get deviceId  => _deviceId;

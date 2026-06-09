@@ -36,12 +36,13 @@ import 'firebase_options.dart';
 import 'providers/pet_health_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/notification_provider.dart';
-import 'screens/main_nav_screen.dart';
+import 'providers/device_binding_provider.dart';
+import 'screens/device/device_gate.dart';
+import 'services/auth_api_helper.dart';
+import 'services/auth_service.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/local_notification_service.dart';
-
-// Firebase 是否初始化成功的全局标志。
 // 使用全局变量（而非 Provider）是因为它在 runApp 前就确定了，
 // 且只需在 _AuthGate 这一处读取。
 bool _firebaseReady = false;
@@ -107,6 +108,7 @@ class PetotecoApp extends StatelessWidget {
         // NotificationProvider：应用内通知中心（预警/喂食记录/日志提醒）
         // 登录后通过 loadForUser() 加载该用户的历史通知，退出后 clearUserData() 清除
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => DeviceBindingProvider()),
       ],
       // Consumer<LocaleProvider> 确保语言切换后 MaterialApp 级别的文字也更新
       child: Consumer<LocaleProvider>(
@@ -166,11 +168,14 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   void initState() {
     super.initState();
-    // Web 环境下，检查是否有 redirect 登录结果待处理
-    // 这发生在：signInWithRedirect 完成后浏览器跳回 App 的场景
+    AuthApiHelper.instance.onSessionInvalid = _handleSessionInvalid;
     if (kIsWeb && _firebaseReady) {
       _handleRedirectResult();
     }
+  }
+
+  Future<void> _handleSessionInvalid() async {
+    await AuthService().signOut();
   }
 
   // 处理 Google signInWithRedirect 的回调结果
@@ -223,10 +228,15 @@ class _AuthGateState extends State<_AuthGate> {
         // 这样 initState 会重新触发，loadPetForUser 会加载新账号的宠物数据
         // 如果不加 key，Flutter 会复用旧的 MainNavScreen 实例，initState 不再执行
         if (snapshot.hasData && snapshot.data != null) {
-          return MainNavScreen(key: ValueKey(snapshot.data!.uid));
+          return DeviceGate(key: ValueKey(snapshot.data!.uid), userId: snapshot.data!.uid);
         }
 
-        // 无登录用户 → 进入登录页
+        // 无登录用户 → 清除设备缓存并进入登录页
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.read<DeviceBindingProvider>().clear();
+          }
+        });
         return const AuthScreen(firebaseAvailable: true);
       },
     );

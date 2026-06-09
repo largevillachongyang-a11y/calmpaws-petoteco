@@ -1,5 +1,5 @@
 // =============================================================================
-// server_api_service.dart — 真实服务器 HTTP 轮询服务
+// server_api_service.dart — 真实服务器 HTTP 轮询服务（Bearer 鉴权）
 // =============================================================================
 
 import 'dart:async';
@@ -11,33 +11,39 @@ import '../config/environment_config.dart';
 import '../models/history_models.dart';
 import '../models/models.dart';
 import '../models/server_alert.dart';
+import 'auth_api_helper.dart';
 
 class ServerApiService {
   static final ServerApiService _instance = ServerApiService._internal();
   factory ServerApiService() => _instance;
   ServerApiService._internal();
 
+  final _auth = AuthApiHelper.instance;
+
   String _baseUrl = EnvironmentConfig.baseUrl;
-  String _deviceId = EnvironmentConfig.testDeviceId;
+  String _deviceId = '';
   static const int _pollIntervalSeconds = 2;
 
   String get baseUrl => _baseUrl;
   String get deviceId => _deviceId;
+  bool get hasDeviceId => _deviceId.isNotEmpty;
 
   bool _isRunning = false;
   bool _deviceOnline = false;
   String _connectionStatus = 'disconnected';
   DateTime? _lastPacketTime;
   int _lastPacketTimestamp = 0;
+  String? _lastErrorMessage;
 
   void Function(int sleepNoRollSec, double? lastRollTime, String sleepState, int continuousCalmSec)? onSleepStateReceived;
-  /// /api/status 返回 204（暂无新缓存）时通知 UI
   void Function()? onStatus204;
+  void Function(int statusCode)? onHttpError;
 
   bool get isRunning => _isRunning;
   bool get deviceOnline => _deviceOnline;
   String get connectionStatus => _connectionStatus;
   DateTime? get lastPacketTime => _lastPacketTime;
+  String? get lastErrorMessage => _lastErrorMessage;
 
   Timer? _pollTimer;
   Timer? _appOnlineTimer;
@@ -45,13 +51,6 @@ class ServerApiService {
       StreamController<BlePacket>.broadcast();
 
   Stream<BlePacket> get stream => _controller.stream;
-
-  Uri _uri(String path, {Map<String, String>? queryParameters}) =>
-      EnvironmentConfig.apiUri(
-        path,
-        baseUrlOverride: _baseUrl,
-        queryParameters: queryParameters,
-      );
 
   Future<void> configure({
     required String baseUrl,
@@ -72,7 +71,7 @@ class ServerApiService {
   Future<void> loadSavedConfig() async {
     final prefs = await SharedPreferences.getInstance();
     _baseUrl = prefs.getString('server_base_url') ?? EnvironmentConfig.baseUrl;
-    _deviceId = prefs.getString('server_device_id') ?? EnvironmentConfig.testDeviceId;
+    _deviceId = prefs.getString('server_device_id') ?? '';
     if (EnvironmentConfig.debugMode && kDebugMode) {
       debugPrint('[ServerAPI] 加载已保存配置：$_baseUrl / $_deviceId');
     }
@@ -80,6 +79,12 @@ class ServerApiService {
 
   Future<void> start() async {
     if (_isRunning) return;
+    if (_deviceId.isEmpty) {
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] 未设置 device_id，跳过启动');
+      }
+      return;
+    }
     _isRunning = true;
     _connectionStatus = 'connecting';
 
@@ -98,7 +103,7 @@ class ServerApiService {
     );
 
     if (EnvironmentConfig.debugMode && kDebugMode) {
-      debugPrint('[ServerAPI] 已启动轮询：$_baseUrl');
+      debugPrint('[ServerAPI] 已启动轮询：$_baseUrl / $_deviceId');
     }
   }
 
@@ -110,6 +115,7 @@ class ServerApiService {
     _isRunning = false;
     _deviceOnline = false;
     _connectionStatus = 'disconnected';
+    _lastErrorMessage = null;
     if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] 已停止');
   }
 
@@ -119,13 +125,12 @@ class ServerApiService {
   }
 
   Future<void> notifyAppOnline() async {
+    if (_deviceId.isEmpty) return;
     try {
-      final resp = await http.post(
-        _uri('/api/app_online'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'device_id': _deviceId}),
-      ).timeout(EnvironmentConfig.requestTimeout);
-
+      final resp = await _auth.post(
+        _auth.uri('/api/app_online', baseUrlOverride: _baseUrl),
+        body: {'device_id': _deviceId},
+      );
       if (resp.statusCode == 200 && EnvironmentConfig.debugMode && kDebugMode) {
         debugPrint('[ServerAPI] APP在线通知成功');
       }
@@ -137,12 +142,14 @@ class ServerApiService {
   }
 
   Future<void> _poll() async {
+    if (_deviceId.isEmpty) return;
     try {
-      final resp = await http.get(
-        _uri('/api/status/$_deviceId'),
-      ).timeout(EnvironmentConfig.requestTimeout);
+      final resp = await _auth.get(
+        _auth.uri('/api/status/$_deviceId', baseUrlOverride: _baseUrl),
+      );
 
       if (resp.statusCode == 200) {
+        _lastErrorMessage = null;
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final ts = (data['timestamp'] as num?)?.toInt() ?? 0;
         if (ts > 0 && ts == _lastPacketTimestamp) {
@@ -162,22 +169,27 @@ class ServerApiService {
           onSleepStateReceived?.call(sleepNoRollSec, lastRollTime, sleepState, continuousCalmSec);
           _controller.add(packet);
           if (EnvironmentConfig.debugMode && kDebugMode) {
-            debugPrint('[ServerAPI] 收到数据包：anxiety=${packet.anxietyScore} strC=${packet.strC} shivD=${packet.shivD} paceD=${packet.paceD} bat=${packet.battery}%');
+            debugPrint('[ServerAPI] 收到数据包：anxiety=${packet.anxietyScore} bat=${packet.battery}%');
           }
         }
       } else if (resp.statusCode == 204) {
         _connectionStatus = 'connected';
+        _lastErrorMessage = null;
         onStatus204?.call();
         if (EnvironmentConfig.debugMode && kDebugMode) {
           debugPrint('[ServerAPI] 204 暂无新数据');
         }
+      } else if (resp.statusCode == 403) {
+        _setError('forbidden', '无权访问此设备');
+        onHttpError?.call(403);
       } else {
-        _setError('HTTP ${resp.statusCode}');
+        _setError('error', 'HTTP ${resp.statusCode}');
+        onHttpError?.call(resp.statusCode);
       }
     } on TimeoutException {
-      _setError('请求超时');
+      _setError('error', '请求超时');
     } catch (e) {
-      _setError('连接失败：$e');
+      _setError('error', '连接失败：$e');
     }
   }
 
@@ -222,29 +234,35 @@ class ServerApiService {
     return null;
   }
 
-  void _setError(String msg) {
+  void _setError(String status, String msg) {
     _deviceOnline = false;
-    _connectionStatus = 'error';
+    _connectionStatus = status;
+    _lastErrorMessage = msg;
     if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] 错误：$msg');
   }
 
-  /// 拉取历史曲线数据（24h / 7d / 30d）。
-  /// /api/history 正常返回 200（含空 points）；网络/解析失败返回带 error 的空响应。
   Future<HistoryResponse> fetchHistory(
     String range, {
     int? from,
     int? to,
   }) async {
     assert(HistoryRange.all.contains(range), 'range must be 24h, 7d or 30d');
+    if (_deviceId.isEmpty) {
+      return HistoryResponse.error('', range, '未选择设备');
+    }
 
     final query = <String, String>{'range': range};
     if (from != null) query['from'] = from.toString();
     if (to != null) query['to'] = to.toString();
 
     try {
-      final resp = await http
-          .get(_uri('/api/history/$_deviceId', queryParameters: query))
-          .timeout(EnvironmentConfig.requestTimeout);
+      final resp = await _auth.get(
+        _auth.uri(
+          '/api/history/$_deviceId',
+          baseUrlOverride: _baseUrl,
+          queryParameters: query,
+        ),
+      );
 
       if (resp.statusCode == 200) {
         if (resp.body.isEmpty) {
@@ -256,14 +274,17 @@ class ServerApiService {
         }
         final parsed = HistoryResponse.fromJson(data, range: range);
         if (EnvironmentConfig.debugMode && kDebugMode) {
-          debugPrint('[ServerAPI] fetchHistory $range：${parsed.points.length} 点 '
-              'online_minutes=${parsed.summary.onlineMinutes}');
+          debugPrint('[ServerAPI] fetchHistory $range：${parsed.points.length} 点');
         }
         return parsed;
       }
 
       if (resp.statusCode == 204) {
         return HistoryResponse.empty(_deviceId, range);
+      }
+
+      if (resp.statusCode == 403) {
+        return HistoryResponse.error(_deviceId, range, '请先绑定此设备');
       }
 
       return HistoryResponse.error(
@@ -281,28 +302,12 @@ class ServerApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchAlerts() async {
-    try {
-      final resp = await http.get(
-        _uri('/api/alerts/$_deviceId'),
-      ).timeout(EnvironmentConfig.requestTimeout);
-      if (resp.statusCode == 200) {
-        return jsonDecode(resp.body) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      if (EnvironmentConfig.debugMode && kDebugMode) {
-        debugPrint('[ServerAPI] fetchAlerts 失败：$e');
-      }
-    }
-    return null;
-  }
-
-  /// 拉取设备告警列表；失败或空响应返回 []。
   Future<List<ServerAlert>> fetchAlertsList() async {
+    if (_deviceId.isEmpty) return [];
     try {
-      final resp = await http
-          .get(_uri('/api/alerts/$_deviceId'))
-          .timeout(EnvironmentConfig.requestTimeout);
+      final resp = await _auth.get(
+        _auth.uri('/api/alerts/$_deviceId', baseUrlOverride: _baseUrl),
+      );
 
       if (resp.statusCode != 200 || resp.body.isEmpty) return [];
 
@@ -327,9 +332,9 @@ class ServerApiService {
 
   Future<bool> healthCheck() async {
     try {
-      final resp = await http.get(
-        _uri('/api/health'),
-      ).timeout(EnvironmentConfig.requestTimeout);
+      final resp = await http
+          .get(_auth.uri('/api/health', baseUrlOverride: _baseUrl))
+          .timeout(EnvironmentConfig.requestTimeout);
       return resp.statusCode == 200;
     } catch (_) {
       return false;
@@ -337,10 +342,12 @@ class ServerApiService {
   }
 
   Future<bool> resetDevice() async {
+    if (_deviceId.isEmpty) return false;
     try {
-      final resp = await http.post(
-        _uri('/api/reset/$_deviceId'),
-      ).timeout(EnvironmentConfig.requestTimeout);
+      final resp = await _auth.post(
+        _auth.uri('/api/reset/$_deviceId', baseUrlOverride: _baseUrl),
+        body: const {},
+      );
       return resp.statusCode == 200;
     } catch (_) {
       return false;
@@ -348,15 +355,15 @@ class ServerApiService {
   }
 
   Future<String?> setSpecies(String species) async {
+    if (_deviceId.isEmpty) return '未选择设备';
     try {
-      final resp = await http.post(
-        _uri('/api/set_species'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final resp = await _auth.post(
+        _auth.uri('/api/set_species', baseUrlOverride: _baseUrl),
+        body: {
           'device_id': _deviceId,
           'species': species,
-        }),
-      ).timeout(EnvironmentConfig.requestTimeout);
+        },
+      );
 
       if (resp.statusCode == 200) {
         if (EnvironmentConfig.debugMode && kDebugMode) {

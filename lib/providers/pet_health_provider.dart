@@ -48,6 +48,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/history_models.dart';
 import '../models/models.dart';
 import '../models/server_alert.dart';
+import '../config/environment_config.dart';
 import '../services/mock_ble_service.dart';
 import '../services/server_api_service.dart';
 import '../services/firestore_service.dart';
@@ -163,6 +164,7 @@ class PetHealthProvider extends ChangeNotifier {
   // 重置宠物数据、喂食历史、日志为 Demo/空状态，清除 currentUserId。
   // 防止退出后下一个用户登录时短暂看到上一个用户的数据。
   void clearUserData() {
+    disconnectDevice();
     _currentUserId = null;
     _pet = PetProfile(
       id: 'pet_001',
@@ -1122,14 +1124,29 @@ class PetHealthProvider extends ChangeNotifier {
 
   PetHealthProvider() {
     if (kDebugMode) _seedDemoJournalEntries();
-    _initAndConnect();
     _startDailySummaryTimer();
   }
 
-  /// 启动时先加载持久化的服务器地址，再连接设备
-  Future<void> _initAndConnect() async {
-    await _serverApi.loadSavedConfig();   // 读取上次保存的 IP
+  /// 绑定设备就绪后由 DeviceGate 调用：配置 device_id 并连接服务器。
+  Future<void> activateBoundDevice(String deviceId) async {
+    if (!_useRealServer) return;
+    final trimmed = deviceId.trim();
+    if (trimmed.isEmpty) return;
+
+    disconnectDevice();
+    await _serverApi.configure(
+      baseUrl: _serverApi.baseUrl.isNotEmpty ? _serverApi.baseUrl : EnvironmentConfig.baseUrl,
+      deviceId: trimmed,
+    );
     connectDevice();
+  }
+
+  /// 切换绑定项圈：重连并刷新历史/告警缓存。
+  Future<void> switchActiveDevice(String deviceId) async {
+    _serverHistory.clear();
+    await activateBoundDevice(deviceId);
+    await loadServerHistory(clearBeforeLoad: true);
+    await loadServerAlerts();
   }
 
   // ── P1-3：每日健康总结定时器 ─────────────────────────────────────────────

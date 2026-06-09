@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../providers/device_binding_provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
@@ -18,13 +19,19 @@ class DeviceStatusBar extends StatelessWidget {
     final syncStatus = provider.syncStatus;
     // 服务器连接状态（connected/connecting/error/disconnected）
     final srvStatus = provider.serverConnectionStatus;
-    final hasError = connected && srvStatus == 'error';
+    final isForbidden = connected && srvStatus == 'forbidden';
+    final hasError = connected && (srvStatus == 'error' || isForbidden);
     final awaitingData = connected && !hasError && provider.statusAwaitingCachedData;
-    // 动态设备名：连接中显示 IP，有错误显示 error，正常显示 CalmPaws 项圈
+    final deviceBinding = context.watch<DeviceBindingProvider>();
+    final activeId = provider.serverDeviceId;
     final deviceDisplayName = () {
       if (!connected) return s.deviceOffline;
+      if (isForbidden) return s.deviceForbidden;
       if (hasError) return s.deviceServerError;
       if (awaitingData) return s.statusNoCachedData;
+      if (activeId.isNotEmpty) {
+        return '${s.deviceSwitchLabel} · $activeId';
+      }
       final url = provider.serverBaseUrl;
       final host = Uri.tryParse(url)?.host ?? url;
       return s.deviceCollarHost(host);
@@ -203,6 +210,37 @@ class DeviceStatusBar extends StatelessWidget {
             ],
           ),
         ),
+        if (deviceBinding.devices.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: deviceBinding.selectedDeviceId,
+                  items: deviceBinding.devices
+                      .map(
+                        (d) => DropdownMenuItem(
+                          value: d.deviceId,
+                          child: Text('${d.speciesEmoji} ${d.deviceId}'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (id) async {
+                    if (id == null || id == deviceBinding.selectedDeviceId) return;
+                    await deviceBinding.selectDevice(id);
+                    await provider.switchActiveDevice(id);
+                  },
+                ),
+              ),
+            ),
+          ),
         // ── 204 暂无缓存数据提示 ───────────────────────────────────────────
         if (awaitingData)
           AnimatedContainer(

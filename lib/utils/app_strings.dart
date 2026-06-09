@@ -544,6 +544,32 @@ class AppStrings {
       _t('Demo only — real data comes from the collar sensor',
          '演示专用 — 正式版由项圈传感器自动检测');
 
+  // ── Device binding（最终对接）────────────────────────────────────────────
+  String get deviceMyDevices => _t('My Devices', '我的设备');
+  String get deviceBindTitle => _t('Bind Collar', '绑定项圈');
+  String get deviceBindSubtitle => _t(
+    'Enter the device ID and key from the product box.',
+    '输入包装盒上的设备 ID 与密钥。',
+  );
+  String get deviceIdLabel => _t('Device ID', '设备 ID');
+  String get deviceKeyLabel => _t('Device Key', '设备密钥');
+  String get deviceBindAction => _t('Bind Device', '绑定设备');
+  String get deviceAddAction => _t('Add Device', '添加设备');
+  String get deviceUnbind => _t('Unbind', '解绑');
+  String get deviceUnbindConfirm => _t('Unbind this collar?', '解绑此项圈？');
+  String get deviceEmptyTitle => _t('No collar bound yet', '尚未绑定项圈');
+  String get deviceEmptyHint => _t(
+    'Bind your CalmPaws collar to view live health data.',
+    '绑定 CalmPaws 项圈后即可查看实时健康数据。',
+  );
+  String get deviceBindSuccess => _t('Device bound successfully', '绑定成功');
+  String get deviceBindNotFound => _t('Device not found', '设备不存在');
+  String get deviceBindWrongKey => _t('Incorrect device key', '设备密钥错误');
+  String get deviceBindConflict => _t('Device already bound to another account', '设备已被其他账号绑定');
+  String get deviceForbidden => _t('Please bind this device first', '请先绑定此设备');
+  String get deviceSwitchLabel => _t('Collar', '项圈');
+  String deviceBoundAt(String when) => _t('Bound $when', '绑定于 $when');
+
   // ── Internal helper ───────────────────────────────────────────────────────
   String _t(String en, String zh) => locale == 'zh' ? zh : en;
 }

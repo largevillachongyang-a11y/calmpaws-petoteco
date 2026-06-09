@@ -1,10 +1,20 @@
 # CalmPaws APP 差距清单（对照《全景对接文档 v2》）
 
-> **更新日期**：2026-06-03（P0 收尾 + P1 + APP 独立收尾完成后）  
-> **对照文档**：`docs/CalmPaws_全景对接文档_给Cursor_v2.md`  
+> **v2 归档日期**：2026-06-03（P0–P1 + APP 独立收尾 **已全部完成**）  
+> **下一阶段主文档**：`docs/CalmPaws_最终对接文档_给Cursor.md`（2026-06-08，服务器 V5.1）  
+> **下一阶段待办**：`docs/APP_待办清单_最终对接.md` ← **当前要看的工作清单**  
+> **对照文档（v2）**：`docs/CalmPaws_全景对接文档_给Cursor_v2.md`  
 > **代码仓库**：`calmpaws-petoteco`（main 分支）  
-> **预览**：https://largevillachongyang-a11y.github.io/calmpaws-petoteco/  
-> **说明**：本清单只评估 **APP 侧**；硬件/服务器以对接文档 §三、§六 为「已就绪」前提。
+> **预览**：https://largevillachongyang-a11y.github.io/calmpaws-petoteco/
+
+---
+
+## ⚠️ 阶段说明
+
+| 阶段 | 状态 | 文档 |
+|------|------|------|
+| **v2 对接** | ✅ 完成 | 本文件 §一–§十三 |
+| **最终对接**（Bearer + 设备绑定 + FCM） | ❌ 未开始 | `APP_待办清单_最终对接.md` |
 
 ---
 
@@ -158,8 +168,10 @@ JournalQuickEntry
 
 | 文件 | 路径 |
 |------|------|
-| 对接文档 v2 | `docs/CalmPaws_全景对接文档_给Cursor_v2.md` |
-| 本差距清单 | `docs/APP_差距清单_对照全景对接v2.md` |
+| 对接文档 v2（归档） | `docs/CalmPaws_全景对接文档_给Cursor_v2.md` |
+| **最终对接文档（当前）** | `docs/CalmPaws_最终对接文档_给Cursor.md` |
+| **最终阶段待办清单** | `docs/APP_待办清单_最终对接.md` |
+| v2 差距清单（归档） | `docs/APP_差距清单_对照全景对接v2.md` |
 
 ---
 
@@ -174,11 +186,11 @@ JournalQuickEntry
 
 > 勿写成「不依赖服务器则不做」——那是笔误，含义相反。
 
-### 产品决策
+### 产品决策（v2 时期，部分已被最终文档取代）
 
 1. **Web 头像 Base64**：本期保留，VPS 头像 API 就绪后再迁（P2）。
-2. **API key**：APP 全量带 key；服务器验证待下版。
-3. **Mock 模式**：保留 `MockBleService` + B 方案 2 包确认，供无服务器调试。
+2. ~~**API key**~~：**最终对接已改为 Firebase Bearer**；`device_key` 仅绑定时用户输入。
+3. **Mock 模式**：保留 `MockBleService`，供无服务器调试（真实模式走 Bearer + 绑定设备）。
 4. **真实模式**：行为/焦虑/睡眠以服务器字段为准，不做 APP 端重算。
 
 ---
@@ -196,11 +208,12 @@ JournalQuickEntry
 7. **i18n**：行为卡焦虑分圆环标签走 `AppStrings.anxietyScoreLabel`。
 8. **部署**：push `main` → GitHub Actions → gh-pages 预览。
 
-### APP 侧待完成（不阻塞服务器）
+### APP 侧待完成（v2 阶段）
 
-| 项 | 优先级 | 说明 |
-|----|--------|------|
-| （暂无） | — | APP 侧 v2 对接项已全部完成；仅剩 P2 与联调 |
+| 项 | 状态 |
+|----|------|
+| v2 全部项 | ✅ 已完成（2026-06-03） |
+| **最终对接阶段** | 见 `docs/APP_待办清单_最终对接.md` |
 
 ### 依赖服务器 / 硬件（请服务器侧推进）
 
@@ -211,9 +224,9 @@ JournalQuickEntry
 | **`anxiety_score`** | 0–100 数值 | 缺失则显示 0 |
 | **`/api/history` points** | 24h 桶 + 7d/30d 日汇总；含 `dominant_state` | 空数组 → 图表空态（已有引导文案） |
 | **summary** | `online_minutes`（24h）、`days_with_data`（7d/30d） | 缺失则 footer 不显示监测时长 |
-| **key 校验** | 非法 key 返回 401/403 | APP 目前按 200/204 处理，需约定错误码 |
-| **头像 API** | P2，文档阶段 2 | APP 仍 Firestore Base64 |
-| **FCM** | P2，文档阶段 3 | 未实现 |
+| **key 校验** | ~~非法 key 返回 401~~ | **已升级**：APP 侧 Bearer + 绑定 device_key（见最终文档） |
+| **头像 API** | P2 | APP 仍 Firestore Base64 |
+| **FCM** | P1（最终文档） | 服务器已就绪，APP 待实现 register_fcm |
 
 ### 建议联调顺序（服务器 ↔ APP）
 
