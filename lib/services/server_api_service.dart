@@ -36,7 +36,8 @@ class ServerApiService {
   int _lastPacketTimestamp = 0;
   String? _lastErrorMessage;
 
-  void Function(int sleepNoRollSec, double? lastRollTime, String sleepState, int continuousCalmSec)? onSleepStateReceived;
+  void Function(int sleepNoRollSec, double? lastRollTime, String sleepState,
+      int continuousCalmSec)? onSleepStateReceived;
   void Function()? onStatus204;
   void Function(int statusCode)? onHttpError;
 
@@ -119,7 +120,9 @@ class ServerApiService {
     _deviceOnline = false;
     _connectionStatus = 'disconnected';
     _lastErrorMessage = null;
-    if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] 已停止');
+    if (EnvironmentConfig.debugMode && kDebugMode) {
+      debugPrint('[ServerAPI] 已停止');
+    }
   }
 
   void dispose() {
@@ -167,14 +170,18 @@ class ServerApiService {
           _connectionStatus = 'connected';
           _lastPacketTime = DateTime.now();
           if (ts > 0) _lastPacketTimestamp = ts;
-          final sleepNoRollSec = (data['sleep_no_roll_sec'] as num?)?.toInt() ?? 0;
+          final sleepNoRollSec =
+              (data['sleep_no_roll_sec'] as num?)?.toInt() ?? 0;
           final lastRollTime = (data['last_roll_time'] as num?)?.toDouble();
           final sleepState = (data['sleep_state'] as String?) ?? 'unknown';
-          final continuousCalmSec = (data['continuous_calm_sec'] as num?)?.toInt() ?? 0;
-          onSleepStateReceived?.call(sleepNoRollSec, lastRollTime, sleepState, continuousCalmSec);
+          final continuousCalmSec =
+              (data['continuous_calm_sec'] as num?)?.toInt() ?? 0;
+          onSleepStateReceived?.call(
+              sleepNoRollSec, lastRollTime, sleepState, continuousCalmSec);
           _controller.add(packet);
           if (EnvironmentConfig.debugMode && kDebugMode) {
-            debugPrint('[ServerAPI] 收到数据包：anxiety=${packet.anxietyScore} bat=${packet.battery}%');
+            debugPrint(
+                '[ServerAPI] 收到数据包：anxiety=${packet.anxietyScore} bat=${packet.battery}%');
           }
         }
       } else if (resp.statusCode == 204) {
@@ -214,7 +221,8 @@ class ServerApiService {
         rollC: _parseInt(data['roll_c']) ?? 0,
         battery: _parseInt(data['battery']) ?? 100,
         rssi: _parseInt(data['rssi']) ?? -70,
-        anxietyScore: (_parseDouble(data['anxiety_score']) ?? 0.0).clamp(0.0, 100.0),
+        anxietyScore:
+            (_parseDouble(data['anxiety_score']) ?? 0.0).clamp(0.0, 100.0),
         serverLabel: data['label'] as String?,
       );
     } catch (e) {
@@ -251,7 +259,9 @@ class ServerApiService {
     _deviceOnline = false;
     _connectionStatus = status;
     _lastErrorMessage = msg;
-    if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] 错误：$msg');
+    if (EnvironmentConfig.debugMode && kDebugMode) {
+      debugPrint('[ServerAPI] 错误：$msg');
+    }
   }
 
   Future<HistoryResponse> fetchHistory(
@@ -288,7 +298,8 @@ class ServerApiService {
         }
         final parsed = HistoryResponse.fromJson(data, range: range);
         if (EnvironmentConfig.debugMode && kDebugMode) {
-          debugPrint('[ServerAPI] fetchHistory $range：${parsed.points.length} 点');
+          debugPrint(
+              '[ServerAPI] fetchHistory $range：${parsed.points.length} 点');
         }
         return parsed;
       }
@@ -302,7 +313,13 @@ class ServerApiService {
       }
 
       if (resp.statusCode == 401) {
-        return HistoryResponse.error(_deviceId, range, '鉴权失败，请重新登录');
+        final legacy = await _fetchHistoryWithLegacyKeyIfNeeded(
+          resp,
+          range,
+          query,
+        );
+        if (legacy != null) return legacy;
+        return HistoryResponse.error(_deviceId, range, '历史接口鉴权失败，请联系服务器检查');
       }
 
       return HistoryResponse.error(
@@ -311,9 +328,8 @@ class ServerApiService {
         'HTTP ${resp.statusCode}',
       );
     } on ApiException catch (e) {
-      final msg = e.kind == ApiErrorKind.unauthorized
-          ? '鉴权失败，请重新登录'
-          : e.message;
+      final msg =
+          e.kind == ApiErrorKind.unauthorized ? '历史接口鉴权失败，请联系服务器检查' : e.message;
       return HistoryResponse.error(_deviceId, range, msg);
     } on TimeoutException {
       return HistoryResponse.error(_deviceId, range, '请求超时');
@@ -323,6 +339,50 @@ class ServerApiService {
       }
       return HistoryResponse.error(_deviceId, range, '连接失败：$e');
     }
+  }
+
+  Future<HistoryResponse?> _fetchHistoryWithLegacyKeyIfNeeded(
+    http.Response bearerResponse,
+    String range,
+    Map<String, String> query,
+  ) async {
+    if (EnvironmentConfig.legacyHistoryDeviceKey.isEmpty) return null;
+    if (!bearerResponse.body.contains('invalid key')) return null;
+
+    final legacyQuery = <String, String>{
+      ...query,
+      'key': EnvironmentConfig.legacyHistoryDeviceKey,
+    };
+
+    try {
+      final resp = await http
+          .get(
+            EnvironmentConfig.apiUri(
+              '/api/history/$_deviceId',
+              baseUrlOverride: _baseUrl,
+              queryParameters: legacyQuery,
+            ),
+          )
+          .timeout(EnvironmentConfig.requestTimeout);
+
+      if (resp.statusCode == 200) {
+        if (resp.body.isEmpty) return HistoryResponse.empty(_deviceId, range);
+        final data = jsonDecode(resp.body);
+        if (data is! Map<String, dynamic>) {
+          return HistoryResponse.error(_deviceId, range, '响应格式无效');
+        }
+        return HistoryResponse.fromJson(data, range: range);
+      }
+      if (resp.statusCode == 204) {
+        return HistoryResponse.empty(_deviceId, range);
+      }
+    } catch (e) {
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] legacy history retry failed: $e');
+      }
+    }
+
+    return null;
   }
 
   Future<List<ServerAlert>> fetchAlertsList() async {
@@ -341,7 +401,8 @@ class ServerApiService {
       final raw = data['alerts'];
       if (raw is! List) return [];
 
-      final alerts = raw.map(ServerAlert.fromJson).where((a) => !a.isEmpty).toList();
+      final alerts =
+          raw.map(ServerAlert.fromJson).where((a) => !a.isEmpty).toList();
       if (EnvironmentConfig.debugMode && kDebugMode) {
         debugPrint('[ServerAPI] fetchAlerts：${alerts.length} 条');
       }
@@ -400,16 +461,22 @@ class ServerApiService {
         return null;
       } else {
         final msg = 'set_species 失败：HTTP ${resp.statusCode}';
-        if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] $msg');
+        if (EnvironmentConfig.debugMode && kDebugMode) {
+          debugPrint('[ServerAPI] $msg');
+        }
         return msg;
       }
     } on TimeoutException {
       const msg = 'set_species 超时';
-      if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] $msg');
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] $msg');
+      }
       return msg;
     } catch (e) {
       final msg = 'set_species 异常：$e';
-      if (EnvironmentConfig.debugMode && kDebugMode) debugPrint('[ServerAPI] $msg');
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[ServerAPI] $msg');
+      }
       return msg;
     }
   }

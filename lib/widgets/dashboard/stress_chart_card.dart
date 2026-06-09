@@ -190,6 +190,9 @@ class _StressChartCardState extends State<StressChartCard> {
     if (response == null) {
       return [Text(s.chartNoData, style: style)];
     }
+    if (response.error != null) {
+      return const [];
+    }
 
     final lines = <Widget>[];
 
@@ -213,7 +216,8 @@ class _StressChartCardState extends State<StressChartCard> {
         return lines;
       }
       final mins = response.summary.onlineMinutes ?? 0;
-      lines.add(Text(s.chartMonitoredToday(mins ~/ 60, mins % 60), style: style));
+      lines.add(
+          Text(s.chartMonitoredToday(mins ~/ 60, mins % 60), style: style));
       return lines;
     }
 
@@ -228,7 +232,8 @@ class _StressChartCardState extends State<StressChartCard> {
     final hours = (response.summary.onlineHoursTotal ??
             (response.summary.onlineMinutesTotal ?? 0) / 60.0)
         .toStringAsFixed(1);
-    lines.add(Text(s.chartMonitoredPeriod(withData, total, hours), style: style));
+    lines.add(
+        Text(s.chartMonitoredPeriod(withData, total, hours), style: style));
     return lines;
   }
 
@@ -255,7 +260,10 @@ class _StressChartCardState extends State<StressChartCard> {
 
       segments.add(
         LineChartBarData(
-          spots: [FlSpot(xOf(a), a.anxietyScore), FlSpot(xOf(b), b.anxietyScore)],
+          spots: [
+            FlSpot(xOf(a), a.anxietyScore),
+            FlSpot(xOf(b), b.anxietyScore)
+          ],
           isCurved: false,
           color: StateColors.colorFor(b.dominantState),
           barWidth: 2.5,
@@ -295,7 +303,8 @@ class _StressChartCardState extends State<StressChartCard> {
       ),
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
@@ -415,7 +424,8 @@ class _StressChartCardState extends State<StressChartCard> {
       ),
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
@@ -439,9 +449,8 @@ class _StressChartCardState extends State<StressChartCard> {
                 return const SizedBox.shrink();
               }
               final d = start.add(Duration(days: i));
-              final label = dayCount <= 7
-                  ? '${d.month}/${d.day}'
-                  : '${d.month}/${d.day}';
+              final label =
+                  dayCount <= 7 ? '${d.month}/${d.day}' : '${d.month}/${d.day}';
               return Text(
                 label,
                 style: AppTextStyles.labelSmall.copyWith(fontSize: 9),
@@ -512,7 +521,8 @@ class _RangeTabs extends StatelessWidget {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: selected ? AppColors.cardBackground : Colors.transparent,
+                  color:
+                      selected ? AppColors.cardBackground : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: selected
                       ? [
@@ -556,7 +566,8 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       children: [
         _Chip(
-          label: '${s.chartAvgAnxiety} ${summary.avgAnxiety.toStringAsFixed(0)}',
+          label:
+              '${s.chartAvgAnxiety} ${summary.avgAnxiety.toStringAsFixed(0)}',
           color: StateColors.colorFor(summary.dominantState),
         ),
         const SizedBox(width: 8),

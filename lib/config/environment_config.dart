@@ -20,6 +20,16 @@ class EnvironmentConfig {
   static const String fcmWebVapidKey =
       'BNzIYc9rSQhlNvld2BxsTCvKb-6mJvYk2mBkGfi9DttLuk27slE1DT-C5JFn7cqoq65gBYrpTiaid8ZlJ_msj9g';
 
+  /// Temporary compatibility for the current VPS history endpoint.
+  ///
+  /// The final contract is Firebase Bearer auth. The deployed test server still
+  /// returns 401 {"error":"invalid key"} for /api/history with Bearer, so the
+  /// web preview can opt into a legacy retry until the server is fixed.
+  static const String legacyHistoryDeviceKey = String.fromEnvironment(
+    'CALMPAWS_HISTORY_LEGACY_KEY',
+    defaultValue: '',
+  );
+
   /// 去掉用户输入 URL 尾部斜杠
   static String normalizeBaseUrl(String url) =>
       url.trim().replaceAll(RegExp(r'/$'), '');
