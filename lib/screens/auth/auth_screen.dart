@@ -32,7 +32,7 @@ enum _AuthMode { login, register, forgotPassword }
 
 class _AuthScreenState extends State<AuthScreen>
     with SingleTickerProviderStateMixin {
-  final _authService = AuthService();
+  AuthService? _authService;
   final _formKey = GlobalKey<FormState>();
 
   final _emailCtrl = TextEditingController();
@@ -53,6 +53,9 @@ class _AuthScreenState extends State<AuthScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.firebaseAvailable) {
+      _authService = AuthService();
+    }
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -112,10 +115,12 @@ class _AuthScreenState extends State<AuthScreen>
     });
 
     AuthResult result;
+    final authService = _authService;
+    if (authService == null) return;
 
     switch (_mode) {
       case _AuthMode.login:
-        result = await _authService.signInWithEmail(
+        result = await authService.signInWithEmail(
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
           isZh: isZh,
@@ -129,7 +134,7 @@ class _AuthScreenState extends State<AuthScreen>
         }
         break;
       case _AuthMode.register:
-        result = await _authService.signUpWithEmail(
+        result = await authService.signUpWithEmail(
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
           displayName: _nameCtrl.text,
@@ -149,7 +154,7 @@ class _AuthScreenState extends State<AuthScreen>
         }
         break;
       case _AuthMode.forgotPassword:
-        result = await _authService.sendPasswordResetEmail(
+        result = await authService.sendPasswordResetEmail(
           _emailCtrl.text,
           isZh: isZh,
         );
@@ -183,10 +188,12 @@ class _AuthScreenState extends State<AuthScreen>
     }
     final isZh = context.read<LocaleProvider>().strings.locale == 'zh';
     setState(() { _loading = true; _errorMsg = null; });
+    final authService = _authService;
+    if (authService == null) return;
     // Popup 模式：等待弹窗结果后继续
     // COOP 警告 "window.closed would be blocked" 是正常现象，不影响登录
     // 登录成功后 _AuthGate 的 StreamBuilder 会自动跳转到主页
-    final result = await _authService.signInWithGoogle(isZh: isZh);
+    final result = await authService.signInWithGoogle(isZh: isZh);
     if (!mounted) return;
     if (!result.isSuccess && result.errorMessage != null) {
       // 只在真正失败时显示错误（取消登录不算错误）
@@ -331,8 +338,9 @@ class _AuthScreenState extends State<AuthScreen>
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty)
+                            if (v == null || v.trim().isEmpty) {
                               return s.authEmailRequired;
+                            }
                             if (!v.contains('@')) return s.authEmailInvalid;
                             return null;
                           },
@@ -347,10 +355,12 @@ class _AuthScreenState extends State<AuthScreen>
                             toggleObscure: () => setState(
                                 () => _obscurePassword = !_obscurePassword),
                             validator: (v) {
-                              if (v == null || v.isEmpty)
+                              if (v == null || v.isEmpty) {
                                 return s.authPasswordRequired;
-                              if (isRegister && v.length < 6)
+                              }
+                              if (isRegister && v.length < 6) {
                                 return s.authPasswordTooShort;
+                              }
                               return null;
                             },
                           ),
@@ -365,8 +375,9 @@ class _AuthScreenState extends State<AuthScreen>
                             toggleObscure: () => setState(
                                 () => _obscureConfirm = !_obscureConfirm),
                             validator: (v) {
-                              if (v != _passwordCtrl.text)
+                              if (v != _passwordCtrl.text) {
                                 return s.authPasswordMismatch;
+                              }
                               return null;
                             },
                           ),

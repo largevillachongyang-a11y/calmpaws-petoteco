@@ -223,7 +223,7 @@ class FirestoreService {
   ///     "appetite_emoji": String,       ← 食欲状态 emoji
   ///     "energy_emoji": String,         ← 精力状态 emoji
   ///     "notes": String | null,         ← 文字备注
-  ///     "negative_flags": List<String>, ← 异常标记，触发商城推荐逻辑
+  ///     "negative_flags": string list,  ← 异常标记，触发商城推荐逻辑
   ///     "created_at": Timestamp
   ///   }
   Future<void> saveJournalEntry(String uid, JournalEntry entry) async {

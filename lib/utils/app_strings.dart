@@ -1,7 +1,8 @@
 /// Centralized localization strings for Petoteco
 /// Supports: English (en) and Chinese Simplified (zh)
 /// Usage: S.of(context).appName
-/// Toggle: context.read<LocaleProvider>().toggle()
+/// Toggle: context.read LocaleProvider and call toggle.
+library;
 
 class AppStrings {
   final String locale;
@@ -176,10 +177,10 @@ class AppStrings {
   // ── Alert ─────────────────────────────────────────────────────────────────
   String alertShiver(String name, int sec) => _t(
     '⚠️ $name has been shivering for over ${sec}s. Check for pain, cold, or fear.',
-    '⚠️ $name 已持续发抖超 ${sec} 秒，请检查是否疼痛、寒冷或恐惧。',
+    '⚠️ $name 已持续发抖超 $sec 秒，请检查是否疼痛、寒冷或恐惧。',
   );
   String alertActivity(String name) => _t(
-    '⚠️ ${name}\'s activity is 30% below normal. Consider a vet check.',
+    '⚠️ $name\'s activity is 30% below normal. Consider a vet check.',
     '⚠️ $name 今日活动量低于均值 30%，建议咨询兽医。',
   );
 

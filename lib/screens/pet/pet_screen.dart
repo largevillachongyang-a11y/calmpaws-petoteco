@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/pet_health_provider.dart';
@@ -712,7 +711,7 @@ class _JournalRow extends StatelessWidget {
     final dateStr = _dateLabel(entry.date, ls);
 
     // 情绪/食欲/精力/粪便对应中英文描述
-    String _moodDesc(String emoji) {
+    String moodDesc(String emoji) {
       const map = {
         '😌': {'en': 'Relaxed', 'zh': '放松'},
         '😊': {'en': 'Happy', 'zh': '开心'},
@@ -725,7 +724,7 @@ class _JournalRow extends StatelessWidget {
       return map[emoji]?[lang] ?? emoji;
     }
 
-    String _appetiteDesc(String emoji) {
+    String appetiteDesc(String emoji) {
       const map = {
         '🍖': {'en': 'Good appetite', 'zh': '食欲良好'},
         '😐': {'en': 'Normal', 'zh': '正常'},
@@ -736,7 +735,7 @@ class _JournalRow extends StatelessWidget {
       return map[emoji]?[lang] ?? emoji;
     }
 
-    String _energyDesc(String emoji) {
+    String energyDesc(String emoji) {
       const map = {
         '⚡': {'en': 'High energy', 'zh': '精力充沛'},
         '😴': {'en': 'Low energy', 'zh': '精力不足'},
@@ -773,17 +772,17 @@ class _JournalRow extends StatelessWidget {
               _DetailRow(
                 emoji: entry.moodEmoji,
                 label: ls.journalMood,
-                desc: _moodDesc(entry.moodEmoji),
+                desc: moodDesc(entry.moodEmoji),
               ),
               _DetailRow(
                 emoji: entry.appetiteEmoji,
                 label: ls.journalAppetite,
-                desc: _appetiteDesc(entry.appetiteEmoji),
+                desc: appetiteDesc(entry.appetiteEmoji),
               ),
               _DetailRow(
                 emoji: entry.energyEmoji,
                 label: ls.journalEnergy,
-                desc: _energyDesc(entry.energyEmoji),
+                desc: energyDesc(entry.energyEmoji),
               ),
               _DetailRow(
                 emoji: entry.stoolEmoji,

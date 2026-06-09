@@ -24,12 +24,11 @@ class WifiConfigService {
   static const String _kServerUrl  = 'server_base_url';
   static const String _kDeviceId   = 'server_device_id';
 
-  // 默认值（与 EnvironmentConfig 保持一致）
+  // 默认服务器地址与 EnvironmentConfig 保持一致；device_id 来自绑定设备。
   static String get kDefaultServerUrl => EnvironmentConfig.baseUrl;
-  static const String kDefaultDeviceId = 'collar_001';
 
   String _serverUrl = EnvironmentConfig.baseUrl;
-  String _deviceId = kDefaultDeviceId;
+  String _deviceId = '';
 
   String get serverUrl => _serverUrl;
   String get deviceId  => _deviceId;
@@ -38,7 +37,7 @@ class WifiConfigService {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _serverUrl = prefs.getString(_kServerUrl) ?? kDefaultServerUrl;
-    _deviceId  = prefs.getString(_kDeviceId)  ?? kDefaultDeviceId;
+    _deviceId  = prefs.getString(_kDeviceId)  ?? '';
     if (kDebugMode) debugPrint('[WifiConfig] 已加载配置：$_serverUrl / $_deviceId');
   }
 
@@ -60,9 +59,11 @@ class WifiConfigService {
     if (ok) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kServerUrl, url);
-      await prefs.setString(_kDeviceId,  id);
+      if (id.isNotEmpty) {
+        await prefs.setString(_kDeviceId, id);
+      }
       _serverUrl = url;
-      _deviceId  = id;
+      if (id.isNotEmpty) _deviceId = id;
       if (kDebugMode) debugPrint('[WifiConfig] 配置已保存：$url / $id');
     } else {
       if (kDebugMode) debugPrint('[WifiConfig] 服务器无法连接：$url');
@@ -77,12 +78,14 @@ class WifiConfigService {
   }) async {
     final url = serverUrl.trim().replaceAll(RegExp(r'/$'), '');
     final id  = deviceId.trim();
-    if (url.isEmpty || id.isEmpty) return;
+    if (url.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kServerUrl, url);
-    await prefs.setString(_kDeviceId,  id);
+    if (id.isNotEmpty) {
+      await prefs.setString(_kDeviceId, id);
+    }
     _serverUrl = url;
-    _deviceId  = id;
+    if (id.isNotEmpty) _deviceId = id;
     if (kDebugMode) debugPrint('[WifiConfig] 强制保存配置：$url / $id');
   }
 
@@ -103,7 +106,7 @@ class WifiConfigService {
     await prefs.remove(_kServerUrl);
     await prefs.remove(_kDeviceId);
     _serverUrl = kDefaultServerUrl;
-    _deviceId  = kDefaultDeviceId;
+    _deviceId  = '';
     final api = ServerApiService();
     await api.configure(baseUrl: _serverUrl, deviceId: _deviceId);
   }

@@ -419,6 +419,13 @@ class PetHealthProvider extends ChangeNotifier {
   void connectDevice() {
     _bleSub?.cancel();
     if (_useRealServer) {
+      if (!_serverApi.hasDeviceId) {
+        _deviceConnected = false;
+        _statusAwaitingCachedData = false;
+        _serverHistoryError = '未选择设备';
+        notifyListeners();
+        return;
+      }
       _statusAwaitingCachedData = true;
       _serverApi.onSleepStateReceived = _onSleepStateFromServer;
       _serverApi.onStatus204 = () {
@@ -498,11 +505,6 @@ class PetHealthProvider extends ChangeNotifier {
   void _onSleepStateFromServer(int sleepNoRollSec, double? lastRollTime, String sleepState, int continuousCalmSec) {
     _continuousCalmSeconds        = continuousCalmSec;
     _continuousSleepNoRollSeconds = sleepNoRollSec;
-    if (lastRollTime != null) {
-      _lastRollDetectedAt = DateTime.fromMillisecondsSinceEpoch(
-        (lastRollTime * 1000).toInt(),
-      );
-    }
     if (sleepState == 'sleepNormal') {
       _sleepState = PetBehaviorState.sleepNormal;
     } else if (sleepState == 'sleepAbnormal') {
@@ -662,8 +664,6 @@ class PetHealthProvider extends ChangeNotifier {
   int _continuousCalmSeconds        = 0;
   // 入睡后连续无翻身秒数（用于判断 E2）
   int _continuousSleepNoRollSeconds = 0;
-  // 最近一次 roll_c 增量的时间
-  DateTime? _lastRollDetectedAt;
   // 已确认的睡眠状态（由 Provider 计算，覆盖 BlePacket 的 calm）
   PetBehaviorState? _sleepState; // null = 不处于睡眠状态（显示 calm）
   bool _sleepAbnormalAlertFired = false;
@@ -751,7 +751,6 @@ class PetHealthProvider extends ChangeNotifier {
         if (packet.rollC > 0) {
           // 检测到翻身 → 正常睡眠，重置昏睡计时
           _continuousSleepNoRollSeconds = 0;
-          _lastRollDetectedAt = now;
           _sleepState = PetBehaviorState.sleepNormal;
           _sleepAbnormalAlertFired = false;
         } else {
@@ -793,8 +792,6 @@ class PetHealthProvider extends ChangeNotifier {
         _todayLethargySeconds      += samplingInterval; // 兼容旧字段
       case PetBehaviorState.calm:
         _todayCalmSeconds          += samplingInterval;
-      default:
-        break;
     }
 
     // 今日应激事件独立计数（用于每日总结，不受1小时窗口影响）
@@ -956,7 +953,7 @@ class PetHealthProvider extends ChangeNotifier {
         _hasAlert = true;
         _alertType = 'activity';
         _activityLowAlertFired = true;
-        _alertMessage = '⚠️ ${_pet.name} 今日玩耍时间仅 ${minActual} 分钟，建议至少 ${minNeeded} 分钟';
+        _alertMessage = '⚠️ ${_pet.name} 今日玩耍时间仅 $minActual 分钟，建议至少 $minNeeded 分钟';
       }
     }
   }

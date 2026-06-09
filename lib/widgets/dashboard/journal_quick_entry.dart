@@ -45,7 +45,7 @@ class JournalQuickEntry extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (isToday && lastEntry != null)
+          if (isToday)
             _TodayEntry(entry: lastEntry, s: s)
           else
             _QuickLogRow(provider: provider, s: s),

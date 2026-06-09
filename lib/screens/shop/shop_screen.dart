@@ -656,8 +656,6 @@ class _Ing {
   final String emoji, nameEn, nameZh, descEn;
   final String descZh;
   const _Ing(this.emoji, this.nameEn, this.nameZh, this.descZh) : descEn = descZh;
-  // ignore: prefer_initializing_formals
-  const _Ing.full(this.emoji, this.nameEn, this.nameZh, this.descEn, this.descZh);
 }
 
 class _IngRow extends StatelessWidget {

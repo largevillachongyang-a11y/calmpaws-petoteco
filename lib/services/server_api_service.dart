@@ -81,6 +81,9 @@ class ServerApiService {
   Future<void> start() async {
     if (_isRunning) return;
     if (_deviceId.isEmpty) {
+      await loadSavedConfig();
+    }
+    if (_deviceId.isEmpty) {
       if (EnvironmentConfig.debugMode && kDebugMode) {
         debugPrint('[ServerAPI] 未设置 device_id，跳过启动');
       }
@@ -89,7 +92,6 @@ class ServerApiService {
     _isRunning = true;
     _connectionStatus = 'connecting';
 
-    await loadSavedConfig();
     await notifyAppOnline();
     await _poll();
 
@@ -201,7 +203,7 @@ class ServerApiService {
   BlePacket? _parsePacket(Map<String, dynamic> data) {
     try {
       return BlePacket(
-        timestamp: _parseInt(data['timestamp']) ??
+        timestamp: _parseUnixSeconds(data['timestamp']) ??
             (DateTime.now().millisecondsSinceEpoch ~/ 1000),
         strC: _parseInt(data['str_c']) ?? 0,
         strD: _parseDouble(data['str_d']) ?? 0.0,
@@ -237,6 +239,12 @@ class ServerApiService {
     if (v is int) return v.toDouble();
     if (v is String) return double.tryParse(v);
     return null;
+  }
+
+  int? _parseUnixSeconds(dynamic v) {
+    final ts = _parseInt(v);
+    if (ts == null) return null;
+    return ts > 100000000000 ? ts ~/ 1000 : ts;
   }
 
   void _setError(String status, String msg) {

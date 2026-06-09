@@ -45,8 +45,6 @@ class ProvisioningService {
   factory ProvisioningService() => _instance;
   ProvisioningService._internal();
 
-  static const String kDefaultDeviceId = 'collar_001';
-
   ProvisionStep _step = ProvisionStep.idle;
   String _statusMessage = '';
   ProvisionStep get step => _step;

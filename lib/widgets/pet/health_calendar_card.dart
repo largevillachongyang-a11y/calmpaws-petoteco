@@ -415,7 +415,7 @@ class _SensorLayer extends StatelessWidget {
                 const SizedBox(width: 8),
                 _SensorStat(
                   label: s.calendarTtc,
-                  value: '${(summary!.timeToCalmSecs! / 60).toStringAsFixed(1)}',
+                  value: (summary!.timeToCalmSecs! / 60).toStringAsFixed(1),
                   unit: s.ttcMin,
                   color: AppColors.sageGreen,
                 ),

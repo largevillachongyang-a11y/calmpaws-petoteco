@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../models/models.dart';
-import '../../theme/app_theme.dart';
 import '../setup/wifi_provision_screen.dart';
 
 /// 长按版本号弹出调试面板入口

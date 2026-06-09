@@ -8,13 +8,10 @@
 //   E2 - 模型训练说明：引导用户将 CSV 上传到 Edge Impulse，完成训练、
 //        部署并拿到 .tflite 文件返回嵌入固件
 // =============================================================================
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/pet_health_provider.dart';
-import '../../providers/locale_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/models.dart';
 
@@ -176,7 +173,7 @@ class _EdgeImpulseScreenState extends State<EdgeImpulseScreen>
           width: double.maxFinite,
           child: SingleChildScrollView(
             child: Text(
-              '${_csvHeader}\n${_samples.take(10).map((s) => s.toCsvRow()).join('\n')}',
+              '$_csvHeader\n${_samples.take(10).map((s) => s.toCsvRow()).join('\n')}',
               style: const TextStyle(
                   fontFamily: 'monospace', fontSize: 11, height: 1.6),
             ),
@@ -231,7 +228,6 @@ class _EdgeImpulseScreenState extends State<EdgeImpulseScreen>
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PetHealthProvider>();
-    final isZh = context.watch<LocaleProvider>().isZh;
 
     return Scaffold(
       backgroundColor: AppColors.cream,

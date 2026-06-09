@@ -27,8 +27,6 @@ class StressChartCard extends StatefulWidget {
 class _StressChartCardState extends State<StressChartCard> {
   int _tabIndex = 0;
 
-  static const _ranges = [HistoryRange.h24, HistoryRange.d7, HistoryRange.d30];
-
   HistoryResponse? get _currentResponse {
     switch (_tabIndex) {
       case 0:
@@ -41,8 +39,6 @@ class _StressChartCardState extends State<StressChartCard> {
         return widget.provider.history24h;
     }
   }
-
-  String get _currentRange => _ranges[_tabIndex];
 
   @override
   Widget build(BuildContext context) {

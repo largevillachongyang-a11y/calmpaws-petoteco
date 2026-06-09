@@ -9,8 +9,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../providers/device_binding_provider.dart';
 import '../../providers/pet_health_provider.dart';
-import '../../providers/locale_provider.dart';
 import '../../services/provisioning_service.dart';
 import '../../services/wifi_config_service.dart';
 import '../../theme/app_theme.dart';
@@ -32,7 +32,6 @@ class _WifiProvisionScreenState extends State<WifiProvisionScreen>
   // Step 2 表单
   final _serverUrlCtrl = TextEditingController();
   final _deviceIdCtrl  = TextEditingController();
-  bool _obscurePass    = true;
   bool _isLoading      = false;
   String? _errorMsg;
   bool _corsLikely     = false; // 是否需要显示"强制保存"按钮
@@ -103,21 +102,29 @@ class _WifiProvisionScreenState extends State<WifiProvisionScreen>
   }
 
   Future<void> _saveAndConnect(String url) async {
-    final deviceId = _deviceIdCtrl.text.trim().isEmpty
-        ? ProvisioningService.kDefaultDeviceId
-        : _deviceIdCtrl.text.trim();
+    final provider = context.read<PetHealthProvider>();
+    final selectedId = context.read<DeviceBindingProvider>().selectedDeviceId;
+    final deviceId = _deviceIdCtrl.text.trim().isNotEmpty
+        ? _deviceIdCtrl.text.trim()
+        : (provider.serverDeviceId.isNotEmpty
+            ? provider.serverDeviceId
+            : (selectedId ?? ''));
+
+    if (deviceId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMsg = '请先绑定设备，或手动输入设备 ID';
+      });
+      return;
+    }
 
     // 保存到 SharedPreferences + 更新 ServerApiService
     await _wifiCfg.forceSave(serverUrl: url, deviceId: deviceId);
 
     // 通知 Provider 重连
     if (mounted) {
-      final provider = context.read<PetHealthProvider>();
-      if (provider.deviceConnected) {
-        provider.disconnectDevice();
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-      provider.connectDevice();
+      await provider.configureServer(url, deviceId);
     }
 
     if (!mounted) return;

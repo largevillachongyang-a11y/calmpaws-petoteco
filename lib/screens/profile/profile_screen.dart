@@ -25,7 +25,6 @@
 //   StatefulWidget 配合 build() 中的 watch 确保语言切换后整页重建。
 // =============================================================================
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/device_binding_provider.dart';
@@ -37,7 +36,6 @@ import '../../services/auth_service.dart';
 import '../device/device_management_screen.dart';
 import '../dev/edge_impulse_screen.dart';
 import '../dev/ota_screen.dart';
-import '../onboarding/onboarding_screen.dart';
 import '../../services/wifi_config_service.dart';
 import '../../services/server_api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -99,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _userPhotoUploading = true);
     final result = await _pickAndSaveUserPhoto(s);
     if (mounted) setState(() => _userPhotoUploading = false);
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (result == 'ok') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1021,18 +1019,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () async {
                 final url = controller.text.trim();
                 if (url.isEmpty) return;
+                final provider = context.read<PetHealthProvider>();
+                final activeDeviceId = provider.serverDeviceId;
                 // 直接保存，不依赖 healthCheck
                 await wifiService.forceSave(
                   serverUrl: url,
-                  deviceId: wifiService.deviceId,
+                  deviceId: activeDeviceId,
                 );
                 final api = ServerApiService();
-                await api.configure(baseUrl: url, deviceId: wifiService.deviceId);
+                if (activeDeviceId.isNotEmpty) {
+                  await api.configure(baseUrl: url, deviceId: activeDeviceId);
+                }
                 if (!ctx.mounted) return;
                 // 重连设备，让 provider 用新地址拉数据
-                final provider = context.read<PetHealthProvider>();
-                provider.disconnectDevice();
-                provider.connectDevice();
+                if (activeDeviceId.isNotEmpty) {
+                  provider.disconnectDevice();
+                  provider.connectDevice();
+                }
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

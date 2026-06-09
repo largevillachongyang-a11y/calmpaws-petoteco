@@ -31,7 +31,7 @@ typedef FcmPushHandler = void Function({
 void _fcmLog(String message) {
   if (!EnvironmentConfig.debugMode) return;
   // release Web 预览也输出，便于 DevTools 联调
-  print('[FCM] $message');
+  debugPrint('[FCM] $message');
 }
 
 class FcmService {

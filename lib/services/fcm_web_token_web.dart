@@ -1,5 +1,8 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+
 import 'dart:js' as js;
 import 'dart:js_util' as js_util;
+import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
 
 /// 通过 index.html 中的 calmPawsGetFcmToken 在子路径下获取 token。
@@ -17,7 +20,7 @@ Future<String?> fetchWebFcmToken(String vapidKey) async {
   try {
     final fn = js.context['calmPawsGetFcmToken'];
     if (fn == null) {
-      print('[FCM] calmPawsGetFcmToken 未加载');
+      debugPrint('[FCM] calmPawsGetFcmToken 未加载');
       return null;
     }
     final promise = js_util.callMethod(fn, 'call', [
@@ -29,7 +32,7 @@ Future<String?> fetchWebFcmToken(String vapidKey) async {
     if (token == null) return null;
     return token.toString();
   } catch (e) {
-    print('[FCM] fetchWebFcmToken: $e');
+    debugPrint('[FCM] fetchWebFcmToken: $e');
     return null;
   }
 }

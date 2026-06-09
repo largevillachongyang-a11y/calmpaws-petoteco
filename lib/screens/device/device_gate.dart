@@ -28,14 +28,14 @@ class _DeviceGateState extends State<DeviceGate> {
 
   Future<void> _bootstrap() async {
     try {
+      final deviceProvider = context.read<DeviceBindingProvider>();
+      final petProvider = context.read<PetHealthProvider>();
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         // 登录刚完成时先刷新 token，避免首请求 401 被误判登出
         await user.getIdToken(true);
       }
 
-      final deviceProvider = context.read<DeviceBindingProvider>();
-      final petProvider = context.read<PetHealthProvider>();
       await deviceProvider.loadDevices();
       if (!mounted) return;
 
