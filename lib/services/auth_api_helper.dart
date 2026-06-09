@@ -52,7 +52,7 @@ class AuthApiHelper {
   Future<http.Response> get(
     Uri url, {
     bool retryOn401 = true,
-    bool signOutOn401 = true,
+    bool signOutOn401 = false,
   }) async {
     return _send(
       () async => http.get(url, headers: await authHeaders()).timeout(
@@ -70,7 +70,7 @@ class AuthApiHelper {
     Uri url, {
     Object? body,
     bool retryOn401 = true,
-    bool signOutOn401 = true,
+    bool signOutOn401 = false,
   }) async {
     final encoded = body is String ? body : jsonEncode(body);
     return _send(

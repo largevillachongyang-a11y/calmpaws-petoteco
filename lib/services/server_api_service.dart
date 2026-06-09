@@ -11,6 +11,7 @@ import '../config/environment_config.dart';
 import '../models/history_models.dart';
 import '../models/models.dart';
 import '../models/server_alert.dart';
+import 'api_exception.dart';
 import 'auth_api_helper.dart';
 
 class ServerApiService {
@@ -130,6 +131,7 @@ class ServerApiService {
       final resp = await _auth.post(
         _auth.uri('/api/app_online', baseUrlOverride: _baseUrl),
         body: {'device_id': _deviceId},
+        signOutOn401: false,
       );
       if (resp.statusCode == 200 && EnvironmentConfig.debugMode && kDebugMode) {
         debugPrint('[ServerAPI] APP在线通知成功');
@@ -146,6 +148,7 @@ class ServerApiService {
     try {
       final resp = await _auth.get(
         _auth.uri('/api/status/$_deviceId', baseUrlOverride: _baseUrl),
+        signOutOn401: false,
       );
 
       if (resp.statusCode == 200) {
@@ -188,6 +191,8 @@ class ServerApiService {
       }
     } on TimeoutException {
       _setError('error', '请求超时');
+    } on ApiException catch (e) {
+      _setError('error', e.message);
     } catch (e) {
       _setError('error', '连接失败：$e');
     }
@@ -262,6 +267,7 @@ class ServerApiService {
           baseUrlOverride: _baseUrl,
           queryParameters: query,
         ),
+        signOutOn401: false,
       );
 
       if (resp.statusCode == 200) {
@@ -287,11 +293,20 @@ class ServerApiService {
         return HistoryResponse.error(_deviceId, range, '请先绑定此设备');
       }
 
+      if (resp.statusCode == 401) {
+        return HistoryResponse.error(_deviceId, range, '鉴权失败，请重新登录');
+      }
+
       return HistoryResponse.error(
         _deviceId,
         range,
         'HTTP ${resp.statusCode}',
       );
+    } on ApiException catch (e) {
+      final msg = e.kind == ApiErrorKind.unauthorized
+          ? '鉴权失败，请重新登录'
+          : e.message;
+      return HistoryResponse.error(_deviceId, range, msg);
     } on TimeoutException {
       return HistoryResponse.error(_deviceId, range, '请求超时');
     } catch (e) {
@@ -307,6 +322,7 @@ class ServerApiService {
     try {
       final resp = await _auth.get(
         _auth.uri('/api/alerts/$_deviceId', baseUrlOverride: _baseUrl),
+        signOutOn401: false,
       );
 
       if (resp.statusCode != 200 || resp.body.isEmpty) return [];
@@ -347,6 +363,7 @@ class ServerApiService {
       final resp = await _auth.post(
         _auth.uri('/api/reset/$_deviceId', baseUrlOverride: _baseUrl),
         body: const {},
+        signOutOn401: false,
       );
       return resp.statusCode == 200;
     } catch (_) {
@@ -363,6 +380,7 @@ class ServerApiService {
           'device_id': _deviceId,
           'species': species,
         },
+        signOutOn401: false,
       );
 
       if (resp.statusCode == 200) {
