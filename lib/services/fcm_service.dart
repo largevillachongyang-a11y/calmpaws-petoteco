@@ -107,12 +107,12 @@ class FcmService {
 
   Future<void> registerTokenIfLoggedIn({String? forcedToken}) async {
     if (FirebaseAuth.instance.currentUser == null) return;
-    if (!_initialized) await init();
-    if (kIsWeb && !_webSupported) return;
+    // Web 预览：FCM 子路径 + compat SDK 仍不稳定，先跳过以免闪退；移动端不受影响
     if (kIsWeb) {
-      // 等待 index.html 完成 SW 注册
-      await Future<void>.delayed(const Duration(milliseconds: 800));
+      _fcmLog('Web 预览暂跳过 FCM（不影响登录与 Dashboard）');
+      return;
     }
+    if (!_initialized) await init();
 
     try {
       String? token = forcedToken;

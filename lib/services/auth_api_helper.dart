@@ -99,8 +99,9 @@ class AuthApiHelper {
       if (resp.statusCode == 401) {
         if (signOutOn401) {
           await onSessionInvalid?.call();
+          throw ApiException.fromStatus(401, body: resp.body);
         }
-        throw ApiException.fromStatus(401, body: resp.body);
+        return resp;
       }
       return resp;
     } on TimeoutException {

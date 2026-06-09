@@ -154,7 +154,7 @@ class _StressChartCardState extends State<StressChartCard> {
       );
     }
     if (response?.error != null) {
-      return _CenterMessage(response!.error!);
+      return _CenterMessage(response?.error ?? '加载失败');
     }
     if (response == null || !_hasChartData(response)) {
       if (_tabIndex == 0) {
@@ -202,8 +202,8 @@ class _StressChartCardState extends State<StressChartCard> {
         lines.add(Text(s.chartNoData24hFooter, style: style));
         final week = widget.provider.history7d;
         final withData = week?.summary.daysWithData ?? 0;
-        if (withData > 0) {
-          final hours = (week!.summary.onlineHoursTotal ??
+        if (withData > 0 && week != null) {
+          final hours = (week.summary.onlineHoursTotal ??
                   (week.summary.onlineMinutesTotal ?? 0) / 60.0)
               .toStringAsFixed(1);
           lines.add(const SizedBox(height: 4));

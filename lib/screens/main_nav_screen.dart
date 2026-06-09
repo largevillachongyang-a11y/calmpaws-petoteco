@@ -25,6 +25,7 @@
 //   整个流程无需手动 Navigator.pop，由 StreamBuilder 自动完成。
 // =============================================================================
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/pet_health_provider.dart';
@@ -96,7 +97,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
 
   void _attachFcmHandler() {
     FcmService.instance.onPushReceived = _onFcmPush;
-    // 延迟注册 FCM，避免与登录/首屏 API 争抢，防止 Web 闪退回登录页
+    if (kIsWeb) return;
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         FcmService.instance.registerTokenIfLoggedIn();
