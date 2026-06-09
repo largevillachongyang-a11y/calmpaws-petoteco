@@ -23,20 +23,19 @@
   <link rel="manifest" href="manifest.json">
 
   <script>
-    // 强制清除旧 Service Worker 缓存，解决白屏/灰屏问题
+    // 清除旧 Flutter Service Worker，保留 FCM 专用 SW
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for (let registration of registrations) {
+          const url = registration.active?.scriptURL || '';
+          if (url.includes('firebase-messaging-sw')) continue;
           registration.unregister();
-          console.log('SW unregistered:', registration.scope);
         }
       });
-      // 清除所有缓存
       if ('caches' in window) {
         caches.keys().then(function(cacheNames) {
           cacheNames.forEach(function(cacheName) {
             caches.delete(cacheName);
-            console.log('Cache deleted:', cacheName);
           });
         });
       }

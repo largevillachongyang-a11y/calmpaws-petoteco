@@ -16,6 +16,10 @@ class EnvironmentConfig {
   /// 是否启用调试日志
   static const bool debugMode = true;
 
+  /// Web 端 FCM VAPID Key（Firebase Console → Cloud Messaging → Web Push certificates）
+  /// 留空则 Web 预览跳过 token 注册；Android/iOS 不受影响。
+  static const String fcmWebVapidKey = '';
+
   /// 去掉用户输入 URL 尾部斜杠
   static String normalizeBaseUrl(String url) =>
       url.trim().replaceAll(RegExp(r'/$'), '');

@@ -4,6 +4,7 @@ import '../../providers/device_binding_provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../screens/device/bind_device_screen.dart';
 import '../../screens/main_nav_screen.dart';
+import '../../services/fcm_service.dart';
 import '../../theme/app_theme.dart';
 
 /// 登录后：拉取绑定设备 → 有设备进主页 / 无设备进绑定页。
@@ -38,6 +39,7 @@ class _DeviceGateState extends State<DeviceGate> {
     } else {
       setState(() => _activated = false);
     }
+    await FcmService.instance.registerTokenIfLoggedIn();
   }
 
   Future<void> _onBound() async {
@@ -49,6 +51,7 @@ class _DeviceGateState extends State<DeviceGate> {
       await petProvider.activateBoundDevice(id);
     }
     if (mounted) setState(() => _activated = deviceProvider.hasDevices);
+    await FcmService.instance.registerTokenIfLoggedIn();
   }
 
   @override

@@ -40,6 +40,7 @@ import 'providers/device_binding_provider.dart';
 import 'screens/device/device_gate.dart';
 import 'services/auth_api_helper.dart';
 import 'services/auth_service.dart';
+import 'services/fcm_service.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/local_notification_service.dart';
@@ -59,6 +60,7 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     _firebaseReady = true;
+    await FcmService.instance.init();
   } catch (_) {
     // Firebase 初始化失败时，App 进入纯 UI 模式（适合开发期无网络环境调试）
     _firebaseReady = false;

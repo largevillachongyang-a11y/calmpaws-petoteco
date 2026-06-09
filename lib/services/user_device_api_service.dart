@@ -67,4 +67,34 @@ class UserDeviceApiService {
     }
     throw ApiException.fromStatus(resp.statusCode, body: resp.body);
   }
+
+  /// 注册 FCM 推送 token（登录后 / token 刷新时调用）。
+  Future<void> registerFcmToken(String fcmToken) async {
+    final resp = await _auth.post(
+      _auth.uri('/api/user/register_fcm'),
+      body: {
+        'fcm_token': fcmToken,
+        'device_type': _deviceType(),
+      },
+    );
+    if (resp.statusCode == 200) {
+      if (EnvironmentConfig.debugMode && kDebugMode) {
+        debugPrint('[UserDeviceAPI] FCM token 已注册');
+      }
+      return;
+    }
+    throw ApiException.fromStatus(resp.statusCode, body: resp.body);
+  }
+
+  String _deviceType() {
+    if (kIsWeb) return 'web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.android:
+        return 'android';
+      default:
+        return 'web';
+    }
+  }
 }

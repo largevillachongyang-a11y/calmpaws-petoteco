@@ -1,6 +1,6 @@
 # CalmPaws APP 待办清单（最终对接阶段）
 
-> **更新日期**：2026-06-08  
+> **更新日期**：2026-06-03  
 > **依据文档**：`docs/CalmPaws_最终对接文档_给Cursor.md`（服务器 V5.1 回应，**替代 v2 作为下一阶段主文档**）  
 > **上一阶段**：v2 对接 14/14 已完成 → 见 `docs/APP_差距清单_对照全景对接v2.md`  
 > **预览**：https://largevillachongyang-a11y.github.io/calmpaws-petoteco/  
@@ -13,7 +13,8 @@
 | 阶段 | 范围 | 状态 |
 |------|------|------|
 | **v2（P0–P1 + 收尾）** | 历史图、焦虑分、label、204、alerts 横幅等 | ✅ **已完成** |
-| **最终对接（本文档）** | Bearer 鉴权、设备绑定、启动流程、FCM | ❌ **未开始** |
+| **最终对接 P0** | Bearer 鉴权、设备绑定、启动流程 | ✅ **已完成** |
+| **最终对接 P1** | FCM 注册 + 推送接收 | ✅ **已完成**（Web 需 VAPID 才可拿 token） |
 | **可选 P2** | 二维码绑定、头像迁 VPS | ⏸️ 按需 |
 
 **核心变化**：从「全局 `?key=` + 写死 `collar_001`」→「Firebase 登录 + 用户绑定设备 + Bearer Token」。
@@ -27,7 +28,7 @@
 | 1 | 鉴权迁移：`?key=` → `Authorization: Bearer <firebase_id_token>` | P0 | [x] |
 | 2 | 新增「我的设备」页：`GET /api/user/devices` | P0 | [x] |
 | 3 | 新增「绑定设备」流程：`POST /api/user/bind_device` | P0 | [x] |
-| 4 | 注册 FCM Token：`POST /api/user/register_fcm` | P1 | [ ] |
+| 4 | 注册 FCM Token：`POST /api/user/register_fcm` | P1 | [x] |
 | 5 | 改造启动流程：登录 → 查设备 → Dashboard / 绑定页 | P0 | [x] |
 
 ---
@@ -36,20 +37,18 @@
 
 | # | 待办 | 状态 | 代码/备注 |
 |---|------|------|-----------|
-| 1 | 封装 `getIdToken()` + `_authHeaders()` | [ ] | 建议放 `lib/services/auth_api_helper.dart` 或扩展现有 auth 服务 |
-| 2 | `GET /api/status/<id>` 改 Bearer，去掉 `?key=` | [ ] | `server_api_service.dart` |
-| 3 | `GET /api/history/<id>` 改 Bearer | [ ] | 同上 |
-| 4 | `GET /api/alerts/<id>` 改 Bearer | [ ] | 同上 |
-| 5 | `POST /api/app_online` 改 Bearer | [ ] | 同上 |
-| 6 | `POST /api/set_species` 改 Bearer | [ ] | 同上 |
-| 7 | `POST /api/reset/<id>` 改 Bearer | [ ] | 同上 |
-| 8 | **401**：`getIdToken(true)` 重试一次，仍失败 → 登出跳登录 | [ ] | 全 API 统一 |
-| 9 | **403**：提示「请先绑定此设备」 | [ ] | status/history/alerts 等 |
-| 10 | **404 / 409**：绑定页专用提示 | [ ] | 见 §5.3 |
-| 11 | 删除 `EnvironmentConfig.deviceKey` 及 `apiUri` 自动带 key | [ ] | 绑定时用户输入 key，不写死配置 |
-| 12 | 全文搜索确认无残留 `?key=calmpaws_secret` | [ ] | 联调验收项 |
-
-**过渡期**：服务器仍支持旧 `?key=`，可单 API 验证后再批量改。
+| 1 | 封装 `getIdToken()` + `_authHeaders()` | [x] | `lib/services/auth_api_helper.dart` |
+| 2 | `GET /api/status/<id>` 改 Bearer，去掉 `?key=` | [x] | `server_api_service.dart` |
+| 3 | `GET /api/history/<id>` 改 Bearer | [x] | 同上 |
+| 4 | `GET /api/alerts/<id>` 改 Bearer | [x] | 同上 |
+| 5 | `POST /api/app_online` 改 Bearer | [x] | 同上 |
+| 6 | `POST /api/set_species` 改 Bearer | [x] | 同上 |
+| 7 | `POST /api/reset/<id>` 改 Bearer | [x] | 同上 |
+| 8 | **401**：`getIdToken(true)` 重试一次，仍失败 → 登出跳登录 | [x] | 全 API 统一 |
+| 9 | **403**：提示「请先绑定此设备」 | [x] | status/history/alerts 等 |
+| 10 | **404 / 409**：绑定页专用提示 | [x] | 见 §5.3 |
+| 11 | 删除 `EnvironmentConfig.deviceKey` 及 `apiUri` 自动带 key | [x] | 绑定时用户输入 key |
+| 12 | 全文搜索确认无残留 `?key=calmpaws_secret` | [x] | 联调验收项 |
 
 **不需要改鉴权**：`GET /api/health`
 
@@ -59,12 +58,12 @@
 
 | # | 待办 | 状态 |
 |---|------|------|
-| 1 | 新建 `device_management_screen.dart` | [ ] |
-| 2 | 调用 `GET /api/user/devices` 展示列表 | [ ] |
-| 3 | 列表项：device_id + 物种图标 + bound_at | [ ] |
-| 4 | 空列表引导 +「添加设备」按钮 | [ ] |
-| 5 | 每项「解绑」+ 确认弹窗 → `POST /api/user/unbind_device` | [ ] |
-| 6 | 从 Dashboard 或「我的」页可进入 | [ ] |
+| 1 | 新建 `device_management_screen.dart` | [x] |
+| 2 | 调用 `GET /api/user/devices` 展示列表 | [x] |
+| 3 | 列表项：device_id + 物种图标 + bound_at | [x] |
+| 4 | 空列表引导 +「添加设备」按钮 | [x] |
+| 5 | 每项「解绑」+ 确认弹窗 → `POST /api/user/unbind_device` | [x] |
+| 6 | 从 Dashboard 或「我的」页可进入 | [x] |
 
 ---
 
@@ -72,13 +71,13 @@
 
 | # | 待办 | 状态 |
 |---|------|------|
-| 1 | 新建 `bind_device_screen.dart` | [ ] |
-| 2 | 输入框：device_id + device_key（包装盒 key） | [ ] |
-| 3 | `POST /api/user/bind_device` | [ ] |
-| 4 | **404** → 设备不存在 | [ ] |
-| 5 | **401** → device_key 错误 | [ ] |
-| 6 | **409** → 已被其他用户绑定 | [ ] |
-| 7 | 成功 → 设备列表或 Dashboard | [ ] |
+| 1 | 新建 `bind_device_screen.dart` | [x] |
+| 2 | 输入框：device_id + device_key（包装盒 key） | [x] |
+| 3 | `POST /api/user/bind_device` | [x] |
+| 4 | **404** → 设备不存在 | [x] |
+| 5 | **401** → device_key 错误 | [x] |
+| 6 | **409** → 已被其他用户绑定 | [x] |
+| 7 | 成功 → 设备列表或 Dashboard | [x] |
 | 8 | （P2）扫码绑定 JSON `{"d":"...","k":"..."}` | [ ] 可选 |
 
 ---
@@ -96,9 +95,9 @@ APP 启动
 
 | # | 待办 | 状态 |
 |---|------|------|
-| 1 | 改造 `_AuthGate` 或中间层：登录后先拉设备列表 | [ ] | `main.dart` |
-| 2 | 无设备时不自动 `connectDevice()` 写死 ID | [ ] | `pet_health_provider.dart` |
-| 3 | 有设备时注册 FCM（P1 可后补） | [ ] | |
+| 1 | 改造 `_AuthGate` 或中间层：登录后先拉设备列表 | [x] | `device_gate.dart` |
+| 2 | 无设备时不自动 `connectDevice()` 写死 ID | [x] | `pet_health_provider.dart` |
+| 3 | 有设备时注册 FCM（P1） | [x] | `fcm_service.dart` |
 
 ---
 
@@ -106,9 +105,9 @@ APP 启动
 
 | # | 待办 | 状态 |
 |---|------|------|
-| 1 | `device_id` 从当前绑定设备取，禁止硬编码 `collar_001` | [ ] |
-| 2 | 多设备时顶部设备切换器（下拉） | [ ] |
-| 3 | 切换设备后重连轮询 + 清 history 缓存 | [ ] |
+| 1 | `device_id` 从当前绑定设备取，禁止硬编码 `collar_001` | [x] |
+| 2 | 多设备时顶部设备切换器（下拉） | [x] |
+| 3 | 切换设备后重连轮询 + 清 history 缓存 | [x] |
 | 4 | v2 已有 UI（行为卡、历史图、204、alerts 横幅）**保持不变** | ✅ |
 
 ---
@@ -117,12 +116,12 @@ APP 启动
 
 | # | 待办 | 状态 |
 |---|------|------|
-| 1 | `pubspec.yaml` 添加 `firebase_messaging` | [ ] |
-| 2 | 启动 / 登录后 `registerFCMToken()` | [ ] |
-| 3 | 监听 `onTokenRefresh` 重新注册 | [ ] |
-| 4 | 前台 in-app 横幅 | [ ] |
-| 5 | 后台系统通知栏 | [ ] |
-| 6 | Web 预览是否支持 FCM 需评估（可能仅 Android/iOS） | [ ] |
+| 1 | `pubspec.yaml` 添加 `firebase_messaging` | [x] |
+| 2 | 启动 / 登录后 `registerFCMToken()` | [x] | `user_device_api_service.dart` |
+| 3 | 监听 `onTokenRefresh` 重新注册 | [x] | `fcm_service.dart` |
+| 4 | 前台 in-app 通知中心 | [x] | `main_nav_screen.dart` |
+| 5 | 后台系统通知栏 | [x] | Android/iOS 本地通知；Web 靠 SW |
+| 6 | Web 预览 FCM | [x] | 需配置 `fcmWebVapidKey`，否则跳过 token |
 
 ---
 
@@ -131,9 +130,10 @@ APP 启动
 | 项 | v2（当前） | 目标 |
 |----|-----------|------|
 | `baseUrl` | ✅ 保留 | 保留 |
-| `testDeviceId` / 写死 ID | `collar_001` | **删除或仅 dev fallback** |
-| `deviceKey` | `calmpaws_secret` | **删除**（绑定时输入） |
-| `apiUri` 自动带 key | ✅ 有 | **改为 Bearer，不带 key** |
+| `testDeviceId` / 写死 ID | 已删除 | ✅ |
+| `deviceKey` | 已删除 | ✅（绑定时输入） |
+| `apiUri` 自动带 key | 已删除 | ✅ Bearer |
+| `fcmWebVapidKey` | — | 新增，Web 可选 |
 
 ---
 
@@ -141,28 +141,11 @@ APP 启动
 
 | # | 铁律 | 状态 |
 |---|------|------|
-| 5 | 每次 API 前 `getIdToken()`，401 时 `getIdToken(true)` | [ ] |
-| 6 | 所有 `device_id` 从当前设备对象取，禁止硬编码 | [ ] |
-| 7 | FCM token：每次启动 + 刷新时注册 | [ ] |
+| 5 | 每次 API 前 `getIdToken()`，401 时 `getIdToken(true)` | [x] |
+| 6 | 所有 `device_id` 从当前设备对象取，禁止硬编码 | [x] |
+| 7 | FCM token：每次启动 + 刷新时注册 | [x] |
 
 v2 铁律 1–4（时区、EnvironmentConfig、204、StateColors）：✅ 已实现，迁移时**不要破坏**。
-
----
-
-## 建议执行顺序（与服务器文档 §七 一致）
-
-```
-① 封装 getIdToken + _authHeaders
-② 只改 /api/status，Bearer 联调通过
-③ 批量改 history / alerts / app_online / set_species / reset
-④ GET /api/user/devices → 设备列表页
-⑤ POST bind_device → 绑定页
-⑥ 启动流程：登录 → 查设备 → Dashboard 或绑定
-⑦ Dashboard 动态 device_id + 多设备切换
-⑧ 解绑 unbind_device
-⑨ FCM 注册 + 接收推送
-⑩ 全文验收（§联调检查表）
-```
 
 ---
 
@@ -181,6 +164,15 @@ v2 铁律 1–4（时区、EnvironmentConfig、204、StateColors）：✅ 已实
 - [ ] FCM 注册成功（P1）
 - [ ] 服务器推送 APP 能收到（P1）
 - [ ] 多设备切换正常
+
+---
+
+## 验收文档
+
+| 文件 | 内容 |
+|------|------|
+| `docs/最终对接_P0_验收说明.md` | Bearer + 设备绑定 |
+| `docs/最终对接_P1_验收说明.md` | FCM 注册与推送 |
 
 ---
 
@@ -213,4 +205,4 @@ v2 铁律 1–4（时区、EnvironmentConfig、204、StateColors）：✅ 已实
 
 ---
 
-*进度更新：每完成一步在此文件打勾，并随 commit 提交。*
+*进度更新：P0 + P1 代码已完成，联调检查表待与用户一起勾选。*

@@ -38,6 +38,7 @@ import 'profile/profile_screen.dart';
 import '../widgets/common/alert_banner.dart';
 import 'onboarding/onboarding_screen.dart';
 import '../services/local_notification_service.dart';
+import '../services/fcm_service.dart';
 
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
@@ -71,6 +72,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
       context.read<PetHealthProvider>().addListener(_onPetHealthChanged);
       // 注册喂食完成回调
       _registerPetHealthCallbacks();
+      _attachFcmHandler();
       // 首次登录时展示设备配对引导（检测 SharedPreferences 中的 onboarding_shown 标志）
       // 若标志不存在则弹出，写入后不再重复显示
       OnboardingScreen.showIfNeeded(context);
@@ -88,7 +90,42 @@ class _MainNavScreenState extends State<MainNavScreen> {
     petProvider.removeListener(_onPetHealthChanged);
     petProvider.onAlertNotification = null;
     petProvider.onDailySummaryReady = null;
+    FcmService.instance.onPushReceived = null;
     super.dispose();
+  }
+
+  void _attachFcmHandler() {
+    FcmService.instance.onPushReceived = _onFcmPush;
+    FcmService.instance.registerTokenIfLoggedIn();
+  }
+
+  void _onFcmPush({
+    required String title,
+    required String body,
+    String? type,
+  }) {
+    if (!mounted) return;
+    context.read<NotificationProvider>().addNotification(
+          type: _mapFcmType(type),
+          title: title,
+          body: body,
+          actionRoute: 'dashboard',
+        );
+  }
+
+  NotificationType _mapFcmType(String? type) {
+    switch (type) {
+      case 'alert':
+      case 'shiver':
+      case 'stress':
+        return NotificationType.alert;
+      case 'feeding':
+        return NotificationType.feeding;
+      case 'journal':
+        return NotificationType.journal;
+      default:
+        return NotificationType.system;
+    }
   }
 
   // ── 请求系统通知权限 ──────────────────────────────────────────────────────
