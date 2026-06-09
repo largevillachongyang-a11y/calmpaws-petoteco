@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import '../config/environment_config.dart';
 import '../firebase_options.dart';
 import 'fcm_sw_register.dart';
+import 'fcm_web_token.dart';
 import 'user_device_api_service.dart';
 
 @pragma('vm:entry-point')
@@ -161,20 +162,9 @@ class FcmService {
 
       await registerFcmServiceWorkerIfNeeded();
 
-      for (var attempt = 1; attempt <= 3; attempt++) {
-        try {
-          final token = await messaging.getToken(vapidKey: vapid);
-          if (token != null && token.isNotEmpty) return token;
-          _fcmLog('getToken 第 $attempt 次返回空');
-        } catch (e) {
-          _lastRegisterError = 'getToken: $e';
-          _fcmLog('getToken 第 $attempt 次失败：$e');
-        }
-        if (attempt < 3) {
-          await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
-          await registerFcmServiceWorkerIfNeeded();
-        }
-      }
+      final token = await fetchWebFcmToken(vapid);
+      if (token != null && token.isNotEmpty) return token;
+      _lastRegisterError = 'Web getToken 返回空';
       return null;
     }
     return messaging.getToken();

@@ -75,6 +75,44 @@ class _DeviceGateState extends State<DeviceGate> {
       return BindDeviceScreen(onBound: _onBound);
     }
 
+    return _DeviceActivatedMain(
+      key: ValueKey('${widget.userId}-${deviceProvider.selectedDeviceId}'),
+      userId: widget.userId,
+      deviceId: deviceProvider.selectedDeviceId,
+    );
+  }
+}
+
+/// 进入主页前确保 ServerAPI 已配置当前绑定设备。
+class _DeviceActivatedMain extends StatefulWidget {
+  final String userId;
+  final String? deviceId;
+
+  const _DeviceActivatedMain({
+    super.key,
+    required this.userId,
+    this.deviceId,
+  });
+
+  @override
+  State<_DeviceActivatedMain> createState() => _DeviceActivatedMainState();
+}
+
+class _DeviceActivatedMainState extends State<_DeviceActivatedMain> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncDevice());
+  }
+
+  Future<void> _syncDevice() async {
+    final id = widget.deviceId;
+    if (id == null || id.isEmpty) return;
+    await context.read<PetHealthProvider>().activateBoundDevice(id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MainNavScreen(key: ValueKey(widget.userId));
   }
 }
