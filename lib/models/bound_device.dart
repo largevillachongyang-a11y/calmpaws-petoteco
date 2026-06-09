@@ -26,5 +26,5 @@ class BoundDevice {
     );
   }
 
-  String speciesEmoji => species == 'cat' ? '🐱' : '🐕';
+  String get speciesEmoji => species == 'cat' ? '🐱' : '🐕';
 }

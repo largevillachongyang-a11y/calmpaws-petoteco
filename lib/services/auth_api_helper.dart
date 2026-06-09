@@ -58,7 +58,7 @@ class AuthApiHelper {
             EnvironmentConfig.requestTimeout,
           ),
       retryOn401: retryOn401,
-      retry: () => http.get(url, headers: await authHeaders(forceRefresh: true)).timeout(
+      retry: () async => http.get(url, headers: await authHeaders(forceRefresh: true)).timeout(
             EnvironmentConfig.requestTimeout,
           ),
     );
@@ -75,7 +75,7 @@ class AuthApiHelper {
           .post(url, headers: await authHeaders(), body: encoded)
           .timeout(EnvironmentConfig.requestTimeout),
       retryOn401: retryOn401,
-      retry: () => http
+      retry: () async => http
           .post(url, headers: await authHeaders(forceRefresh: true), body: encoded)
           .timeout(EnvironmentConfig.requestTimeout),
     );

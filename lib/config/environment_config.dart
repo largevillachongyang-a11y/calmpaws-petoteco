@@ -20,9 +20,6 @@ class EnvironmentConfig {
   static const String fcmWebVapidKey =
       'BNzIYc9rSQhlNvld2BxsTCvKb-6mJvYk2mBkGfi9DttLuk27slE1DT-C5JFn7cqoq65gBYrpTiaid8ZlJ_msj9g';
 
-  /// gh-pages 预览子路径（与 `flutter build web --base-href` 一致；本地 dev 用 Uri.base 动态解析）
-  static const String webDeployBasePath = '/calmpaws-petoteco/';
-
   /// 去掉用户输入 URL 尾部斜杠
   static String normalizeBaseUrl(String url) =>
       url.trim().replaceAll(RegExp(r'/$'), '');
