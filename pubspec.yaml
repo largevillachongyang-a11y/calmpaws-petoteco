@@ -37,7 +37,7 @@ dependencies:
   google_sign_in: 6.2.1
   image_picker: ^1.0.7
   firebase_storage: 12.3.2
-  firebase_messaging: 15.1.3
+  firebase_messaging: ^15.2.10
   url_launcher: ^6.3.0
 
   # Local Push Notifications (系统通知栏推送)

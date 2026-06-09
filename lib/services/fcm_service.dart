@@ -9,7 +9,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../config/environment_config.dart';
 import '../firebase_options.dart';
-import 'fcm_sw_register.dart';
 import 'user_device_api_service.dart';
 
 @pragma('vm:entry-point')
@@ -17,9 +16,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  if (kDebugMode) {
-    debugPrint('[FCM] 后台消息：${message.notification?.title}');
-  }
+  _fcmLog('后台消息：${message.notification?.title}');
 }
 
 typedef FcmPushHandler = void Function({
@@ -28,12 +25,19 @@ typedef FcmPushHandler = void Function({
   String? type,
 });
 
+void _fcmLog(String message) {
+  if (!EnvironmentConfig.debugMode) return;
+  // release Web 预览也输出，便于 DevTools 联调
+  print('[FCM] $message');
+}
+
 class FcmService {
   FcmService._();
   static final FcmService instance = FcmService._();
 
   final _userApi = UserDeviceApiService();
   bool _initialized = false;
+  bool _webSupported = true;
   String? _lastRegisteredToken;
   String? _lastRegisterError;
   DateTime? _lastRegisterAt;
@@ -48,9 +52,17 @@ class FcmService {
   Future<void> init() async {
     if (_initialized) return;
     try {
-      if (!kIsWeb) {
+      if (kIsWeb) {
+        _webSupported = await FirebaseMessaging.instance.isSupported();
+        if (!_webSupported) {
+          _lastRegisterError = '当前浏览器不支持 FCM';
+          _fcmLog('浏览器不支持 FCM');
+          return;
+        }
+      } else {
         FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       }
+
       final messaging = FirebaseMessaging.instance;
 
       if (!kIsWeb) {
@@ -61,60 +73,63 @@ class FcmService {
         );
       }
 
-      if (kIsWeb) {
-        await registerFcmServiceWorkerIfNeeded();
+      try {
+        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      } catch (e) {
+        _fcmLog('onMessage 监听失败：$e');
       }
 
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedApp);
+      if (!kIsWeb) {
+        try {
+          FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedApp);
+          final initial = await messaging.getInitialMessage();
+          if (initial != null) _dispatchMessage(initial);
+        } catch (e) {
+          _fcmLog('onMessageOpenedApp/getInitialMessage 失败：$e');
+        }
 
-      final initial = await messaging.getInitialMessage();
-      if (initial != null) {
-        _dispatchMessage(initial);
+        messaging.onTokenRefresh.listen((token) {
+          unawaited(registerTokenIfLoggedIn(forcedToken: token));
+        });
       }
-
-      messaging.onTokenRefresh.listen((token) {
-        unawaited(registerTokenIfLoggedIn(forcedToken: token));
-      });
 
       _initialized = true;
-      if (EnvironmentConfig.debugMode && kDebugMode) {
-        debugPrint('[FCM] 初始化完成');
-      }
+      _fcmLog('初始化完成');
     } catch (e) {
       _lastRegisterError = 'FCM init: $e';
-      if (EnvironmentConfig.debugMode && kDebugMode) {
-        debugPrint('[FCM] 初始化失败：$e');
-      }
+      _fcmLog('初始化失败：$e');
     }
   }
 
   Future<void> registerTokenIfLoggedIn({String? forcedToken}) async {
     if (FirebaseAuth.instance.currentUser == null) return;
     if (!_initialized) await init();
+    if (kIsWeb && !_webSupported) return;
+    if (kIsWeb) {
+      // 等待 index.html 完成 SW 注册
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+    }
 
     try {
       String? token = forcedToken;
       token ??= await _fetchToken();
       if (token == null || token.isEmpty) {
-        _lastRegisterError = kIsWeb
-            ? 'Web 端需配置 fcmWebVapidKey 才能获取 FCM token'
+        _lastRegisterError ??= kIsWeb
+            ? 'Web 无法获取 FCM token（检查 SW / 通知权限）'
             : '无法获取 FCM token';
+        _fcmLog('跳过 register_fcm：$_lastRegisterError');
         return;
       }
 
+      _fcmLog('正在 POST register_fcm…');
       await _userApi.registerFcmToken(token);
       _lastRegisteredToken = token;
       _lastRegisterError = null;
       _lastRegisterAt = DateTime.now();
-      if (EnvironmentConfig.debugMode && kDebugMode) {
-        debugPrint('[FCM] 已注册 token（${token.substring(0, 12)}…）');
-      }
+      _fcmLog('已注册 token（${token.substring(0, 12)}…）');
     } catch (e) {
       _lastRegisterError = e.toString();
-      if (EnvironmentConfig.debugMode && kDebugMode) {
-        debugPrint('[FCM] register 失败：$e');
-      }
+      _fcmLog('register 失败：$e');
     }
   }
 
@@ -122,13 +137,18 @@ class FcmService {
     final messaging = FirebaseMessaging.instance;
     if (kIsWeb) {
       final vapid = EnvironmentConfig.fcmWebVapidKey;
-      if (vapid.isEmpty) return null;
+      if (vapid.isEmpty) {
+        _lastRegisterError = '未配置 fcmWebVapidKey';
+        return null;
+      }
 
       final settings = await messaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
+      _fcmLog('通知权限：${settings.authorizationStatus}');
+
       final allowed = settings.authorizationStatus ==
               AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
@@ -137,15 +157,21 @@ class FcmService {
         return null;
       }
 
-      await registerFcmServiceWorkerIfNeeded();
+      final swPath = Uri.base.resolve('firebase-messaging-sw.js').path;
+      _fcmLog('SW 路径：$swPath');
 
       try {
-        return await messaging.getToken(vapidKey: vapid);
+        final token = await messaging.getToken(
+          vapidKey: vapid,
+          serviceWorkerScriptPath: swPath,
+        );
+        if (token == null || token.isEmpty) {
+          _lastRegisterError = 'getToken 返回空';
+        }
+        return token;
       } catch (e) {
         _lastRegisterError = 'getToken: $e';
-        if (EnvironmentConfig.debugMode && kDebugMode) {
-          debugPrint('[FCM] Web getToken 失败：$e');
-        }
+        _fcmLog('Web getToken 失败：$e');
         return null;
       }
     }
@@ -170,9 +196,6 @@ class FcmService {
     final type = message.data['type'] as String?;
 
     onPushReceived?.call(title: title, body: body, type: type);
-
-    if (EnvironmentConfig.debugMode && kDebugMode) {
-      debugPrint('[FCM] 收到推送：$title — $body');
-    }
+    _fcmLog('收到推送：$title — $body');
   }
 }

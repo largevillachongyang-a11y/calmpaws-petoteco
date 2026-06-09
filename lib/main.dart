@@ -60,7 +60,10 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     _firebaseReady = true;
-    await FcmService.instance.init();
+    // Web：登录后再 init FCM，避免启动阶段 SW 未就绪
+    if (!kIsWeb) {
+      await FcmService.instance.init();
+    }
   } catch (_) {
     // Firebase 初始化失败时，App 进入纯 UI 模式（适合开发期无网络环境调试）
     _firebaseReady = false;
