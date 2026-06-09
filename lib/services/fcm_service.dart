@@ -10,7 +10,8 @@ import 'package:flutter/foundation.dart';
 import '../config/environment_config.dart';
 import '../firebase_options.dart';
 import 'fcm_sw_register.dart';
-import 'fcm_web_token.dart';
+import 'fcm_web_token_stub.dart'
+    if (dart.library.html) 'fcm_web_token_web.dart';
 import 'user_device_api_service.dart';
 
 @pragma('vm:entry-point')
