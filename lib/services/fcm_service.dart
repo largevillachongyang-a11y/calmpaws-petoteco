@@ -58,6 +58,10 @@ class FcmService {
         );
       }
 
+      if (kIsWeb) {
+        await _ensureWebServiceWorker();
+      }
+
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
       FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedApp);
 
@@ -116,9 +120,53 @@ class FcmService {
     if (kIsWeb) {
       final vapid = EnvironmentConfig.fcmWebVapidKey;
       if (vapid.isEmpty) return null;
-      return messaging.getToken(vapidKey: vapid);
+
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      final allowed = settings.authorizationStatus ==
+              AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+      if (!allowed) {
+        _lastRegisterError = '浏览器未授权通知权限';
+        return null;
+      }
+
+      await _ensureWebServiceWorker();
+
+      final swPath = _webMessagingSwPath();
+      try {
+        return await messaging.getToken(
+          vapidKey: vapid,
+          serviceWorkerScriptPath: swPath,
+        );
+      } catch (e) {
+        _lastRegisterError = 'getToken: $e';
+        if (EnvironmentConfig.debugMode && kDebugMode) {
+          debugPrint('[FCM] Web getToken 失败（sw=$swPath）：$e');
+        }
+        return null;
+      }
     }
     return messaging.getToken();
+  }
+
+  /// gh-pages 子路径部署时，FCM 默认会去域名根目录找 SW，需显式指定脚本路径。
+  String _webMessagingSwPath() {
+    final resolved = Uri.base.resolve('firebase-messaging-sw.js').path;
+    if (resolved.contains('firebase-messaging-sw.js')) return resolved;
+    final base = EnvironmentConfig.webDeployBasePath;
+    return base.endsWith('/')
+        ? '${base}firebase-messaging-sw.js'
+        : '$base/firebase-messaging-sw.js';
+  }
+
+  Future<void> _ensureWebServiceWorker() async {
+    if (!kIsWeb) return;
+    // index.html 也会注册；此处短等 + getToken 的 serviceWorkerScriptPath 双保险。
+    await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
   void _handleForegroundMessage(RemoteMessage message) {

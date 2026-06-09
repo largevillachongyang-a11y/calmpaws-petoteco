@@ -27,7 +27,7 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for (let registration of registrations) {
-          const url = registration.active?.scriptURL || '';
+          const url = registration.active?.scriptURL || registration.installing?.scriptURL || '';
           if (url.includes('firebase-messaging-sw')) continue;
           registration.unregister();
         }
@@ -39,6 +39,11 @@
           });
         });
       }
+      // gh-pages 子路径：相对 base href 注册 FCM SW（否则 getToken 404）
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './' })
+          .catch(function (err) { console.warn('[FCM SW] register failed:', err); });
+      });
     }
   </script>
 </head>

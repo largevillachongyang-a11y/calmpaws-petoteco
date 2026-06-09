@@ -18,6 +18,6 @@ messaging.onBackgroundMessage(function (payload) {
   const body = payload.notification?.body || '';
   return self.registration.showNotification(title, {
     body: body,
-    icon: '/favicon.png',
+    icon: 'favicon.png',
   });
 });

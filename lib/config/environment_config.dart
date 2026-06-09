@@ -17,9 +17,11 @@ class EnvironmentConfig {
   static const bool debugMode = true;
 
   /// Web 端 FCM VAPID Key（Firebase Console → Cloud Messaging → Web Push certificates）
-  /// 留空则 Web 预览跳过 token 注册；Android/iOS 不受影响。
   static const String fcmWebVapidKey =
       'BNzIYc9rSQhlNvld2BxsTCvKb-6mJvYk2mBkGfi9DttLuk27slE1DT-C5JFn7cqoq65gBYrpTiaid8ZlJ_msj9g';
+
+  /// gh-pages 预览子路径（与 `flutter build web --base-href` 一致；本地 dev 用 Uri.base 动态解析）
+  static const String webDeployBasePath = '/calmpaws-petoteco/';
 
   /// 去掉用户输入 URL 尾部斜杠
   static String normalizeBaseUrl(String url) =>
