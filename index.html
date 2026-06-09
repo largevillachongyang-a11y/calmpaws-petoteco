@@ -22,32 +22,10 @@
   <title>Petoteco</title>
   <link rel="manifest" href="manifest.json">
 
-  <script>
-    // gh-pages 子路径：先清旧 SW，再注册 FCM SW（相对 base href）
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.getRegistrations()
-          .then(function (regs) {
-            return Promise.all(regs.map(function (r) {
-              var url = (r.active && r.active.scriptURL) ||
-                        (r.installing && r.installing.scriptURL) ||
-                        (r.waiting && r.waiting.scriptURL) || '';
-              if (url.indexOf('firebase-messaging-sw') >= 0) return Promise.resolve();
-              return r.unregister();
-            }));
-          })
-          .then(function () {
-            return navigator.serviceWorker.register('firebase-messaging-sw.js');
-          })
-          .then(function (reg) {
-            console.log('[FCM SW] registered:', reg.scope);
-          })
-          .catch(function (err) {
-            console.error('[FCM SW] register failed:', err);
-          });
-      });
-    }
-  </script>
+  <!-- FCM Web：compat SDK + 子路径 token 助手（须在 Flutter 前加载） -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+  <script src="fcm_token_helper.js"></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
