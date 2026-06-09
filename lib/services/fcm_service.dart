@@ -9,6 +9,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../config/environment_config.dart';
 import '../firebase_options.dart';
+import 'fcm_sw_register.dart';
 import 'user_device_api_service.dart';
 
 @pragma('vm:entry-point')
@@ -59,6 +60,7 @@ class FcmService {
           _fcmLog('浏览器不支持 FCM');
           return;
         }
+        await registerFcmServiceWorkerIfNeeded();
       } else {
         FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       }
@@ -157,23 +159,23 @@ class FcmService {
         return null;
       }
 
-      final swPath = Uri.base.resolve('firebase-messaging-sw.js').path;
-      _fcmLog('SW 路径：$swPath');
+      await registerFcmServiceWorkerIfNeeded();
 
-      try {
-        final token = await messaging.getToken(
-          vapidKey: vapid,
-          serviceWorkerScriptPath: swPath,
-        );
-        if (token == null || token.isEmpty) {
-          _lastRegisterError = 'getToken 返回空';
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        try {
+          final token = await messaging.getToken(vapidKey: vapid);
+          if (token != null && token.isNotEmpty) return token;
+          _fcmLog('getToken 第 $attempt 次返回空');
+        } catch (e) {
+          _lastRegisterError = 'getToken: $e';
+          _fcmLog('getToken 第 $attempt 次失败：$e');
         }
-        return token;
-      } catch (e) {
-        _lastRegisterError = 'getToken: $e';
-        _fcmLog('Web getToken 失败：$e');
-        return null;
+        if (attempt < 3) {
+          await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+          await registerFcmServiceWorkerIfNeeded();
+        }
       }
+      return null;
     }
     return messaging.getToken();
   }
