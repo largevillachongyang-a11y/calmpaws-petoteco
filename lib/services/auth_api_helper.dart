@@ -52,12 +52,14 @@ class AuthApiHelper {
   Future<http.Response> get(
     Uri url, {
     bool retryOn401 = true,
+    bool signOutOn401 = true,
   }) async {
     return _send(
       () async => http.get(url, headers: await authHeaders()).timeout(
             EnvironmentConfig.requestTimeout,
           ),
       retryOn401: retryOn401,
+      signOutOn401: signOutOn401,
       retry: () async => http.get(url, headers: await authHeaders(forceRefresh: true)).timeout(
             EnvironmentConfig.requestTimeout,
           ),
@@ -68,6 +70,7 @@ class AuthApiHelper {
     Uri url, {
     Object? body,
     bool retryOn401 = true,
+    bool signOutOn401 = true,
   }) async {
     final encoded = body is String ? body : jsonEncode(body);
     return _send(
@@ -75,6 +78,7 @@ class AuthApiHelper {
           .post(url, headers: await authHeaders(), body: encoded)
           .timeout(EnvironmentConfig.requestTimeout),
       retryOn401: retryOn401,
+      signOutOn401: signOutOn401,
       retry: () async => http
           .post(url, headers: await authHeaders(forceRefresh: true), body: encoded)
           .timeout(EnvironmentConfig.requestTimeout),
@@ -84,6 +88,7 @@ class AuthApiHelper {
   Future<http.Response> _send(
     Future<http.Response> Function() request, {
     required bool retryOn401,
+    required bool signOutOn401,
     required Future<http.Response> Function() retry,
   }) async {
     try {
@@ -92,7 +97,9 @@ class AuthApiHelper {
         resp = await retry();
       }
       if (resp.statusCode == 401) {
-        await onSessionInvalid?.call();
+        if (signOutOn401) {
+          await onSessionInvalid?.call();
+        }
         throw ApiException.fromStatus(401, body: resp.body);
       }
       return resp;

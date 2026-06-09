@@ -17,7 +17,10 @@ class UserDeviceApiService {
   final _auth = AuthApiHelper.instance;
 
   Future<List<BoundDevice>> fetchDevices() async {
-    final resp = await _auth.get(_auth.uri('/api/user/devices'));
+    final resp = await _auth.get(
+      _auth.uri('/api/user/devices'),
+      signOutOn401: false,
+    );
     if (resp.statusCode != 200) {
       throw ApiException.fromStatus(resp.statusCode, body: resp.body);
     }

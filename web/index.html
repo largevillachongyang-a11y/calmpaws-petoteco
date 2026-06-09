@@ -22,9 +22,7 @@
   <title>Petoteco</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- FCM Web：compat SDK + 子路径 token 助手（须在 Flutter 前加载） -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+  <!-- FCM 助手：不在此加载 Firebase SDK，避免干扰 Google 登录 -->
   <script src="fcm_token_helper.js"></script>
 </head>
 <body>

@@ -96,7 +96,12 @@ class _MainNavScreenState extends State<MainNavScreen> {
 
   void _attachFcmHandler() {
     FcmService.instance.onPushReceived = _onFcmPush;
-    FcmService.instance.registerTokenIfLoggedIn();
+    // 延迟注册 FCM，避免与登录/首屏 API 争抢，防止 Web 闪退回登录页
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        FcmService.instance.registerTokenIfLoggedIn();
+      }
+    });
   }
 
   void _onFcmPush({

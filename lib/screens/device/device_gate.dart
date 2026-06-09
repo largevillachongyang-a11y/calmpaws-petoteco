@@ -1,10 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/device_binding_provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../screens/device/bind_device_screen.dart';
 import '../../screens/main_nav_screen.dart';
-import '../../services/fcm_service.dart';
 import '../../theme/app_theme.dart';
 
 /// 登录后：拉取绑定设备 → 有设备进主页 / 无设备进绑定页。
@@ -27,31 +27,44 @@ class _DeviceGateState extends State<DeviceGate> {
   }
 
   Future<void> _bootstrap() async {
-    final deviceProvider = context.read<DeviceBindingProvider>();
-    final petProvider = context.read<PetHealthProvider>();
-    await deviceProvider.loadDevices();
-    if (!mounted) return;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // 登录刚完成时先刷新 token，避免首请求 401 被误判登出
+        await user.getIdToken(true);
+      }
 
-    final id = deviceProvider.selectedDeviceId;
-    if (id != null && id.isNotEmpty) {
-      await petProvider.activateBoundDevice(id);
-      if (mounted) setState(() => _activated = true);
-    } else {
-      setState(() => _activated = false);
+      final deviceProvider = context.read<DeviceBindingProvider>();
+      final petProvider = context.read<PetHealthProvider>();
+      await deviceProvider.loadDevices();
+      if (!mounted) return;
+
+      final id = deviceProvider.selectedDeviceId;
+      if (id != null && id.isNotEmpty) {
+        await petProvider.activateBoundDevice(id);
+        if (mounted) setState(() => _activated = true);
+      } else {
+        setState(() => _activated = false);
+      }
+    } catch (e) {
+      debugPrint('[DeviceGate] bootstrap: $e');
+      if (mounted) setState(() => _activated = false);
     }
-    await FcmService.instance.registerTokenIfLoggedIn();
   }
 
   Future<void> _onBound() async {
-    final deviceProvider = context.read<DeviceBindingProvider>();
-    final petProvider = context.read<PetHealthProvider>();
-    await deviceProvider.loadDevices();
-    final id = deviceProvider.selectedDeviceId;
-    if (id != null) {
-      await petProvider.activateBoundDevice(id);
+    try {
+      final deviceProvider = context.read<DeviceBindingProvider>();
+      final petProvider = context.read<PetHealthProvider>();
+      await deviceProvider.loadDevices();
+      final id = deviceProvider.selectedDeviceId;
+      if (id != null) {
+        await petProvider.activateBoundDevice(id);
+      }
+      if (mounted) setState(() => _activated = deviceProvider.hasDevices);
+    } catch (e) {
+      debugPrint('[DeviceGate] onBound: $e');
     }
-    if (mounted) setState(() => _activated = deviceProvider.hasDevices);
-    await FcmService.instance.registerTokenIfLoggedIn();
   }
 
   @override
@@ -75,44 +88,6 @@ class _DeviceGateState extends State<DeviceGate> {
       return BindDeviceScreen(onBound: _onBound);
     }
 
-    return _DeviceActivatedMain(
-      key: ValueKey('${widget.userId}-${deviceProvider.selectedDeviceId}'),
-      userId: widget.userId,
-      deviceId: deviceProvider.selectedDeviceId,
-    );
-  }
-}
-
-/// 进入主页前确保 ServerAPI 已配置当前绑定设备。
-class _DeviceActivatedMain extends StatefulWidget {
-  final String userId;
-  final String? deviceId;
-
-  const _DeviceActivatedMain({
-    super.key,
-    required this.userId,
-    this.deviceId,
-  });
-
-  @override
-  State<_DeviceActivatedMain> createState() => _DeviceActivatedMainState();
-}
-
-class _DeviceActivatedMainState extends State<_DeviceActivatedMain> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncDevice());
-  }
-
-  Future<void> _syncDevice() async {
-    final id = widget.deviceId;
-    if (id == null || id.isEmpty) return;
-    await context.read<PetHealthProvider>().activateBoundDevice(id);
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return MainNavScreen(key: ValueKey(widget.userId));
   }
 }
