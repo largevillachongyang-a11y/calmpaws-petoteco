@@ -109445,14 +109445,38 @@ l=A.b6(A.cg(q,A.aa(q,A.d4(A.l(n?"\u7ba1\u7406":"Manage",q,q,q,q,B.a3h,q,q),q,q),
 s=B.l.aT(0.2)
 r=A.U(12)
 return A.aa(q,A.an(A.b([k,B.aL,m,B.aa,A.ag(A.b([l,B.aJ,A.b6(A.cg(q,A.aa(q,A.d4(A.l(n?"\u7eed\u8ba2":"Reorder",q,q,q,q,B.a5G,q,q),q,q),B.j,q,q,new A.a0(s,q,q,r,q,q,B.p),q,q,q,q,B.rm,q,q,q),B.w,!1,q,q,q,q,q,q,q,q,q,q,q,q,q,q,new A.aN6(this,a,b),q,q,q,q,q,q),1)],j),B.m,B.e,B.f,0)],j),B.v,B.e,B.f),B.j,q,q,new A.a0(q,q,q,p,o,B.QB,B.p),q,q,q,B.dJ,B.b9,q,q,q)},
-agi(a1,a2,a3){var s,r,q=this,p=null,o=A.U(20),n=A.b([new A.b3(0,B.C,B.au,B.bM,12)],t.V),m=a3.a==="zh",l=m?"\u8ba2\u5355\u5386\u53f2":"Order History",k=m?"\u5ba2\u670d\u652f\u6301":"Customer Support",j=m?"\u5728\u7ebf":"Chat",i=m?"\u8bbe\u5907\u4f7f\u7528\u6307\u5357":"Device Setup Guide",h=m?"\u56fa\u4ef6\u5347\u7ea7 (OTA)":"Firmware Update (OTA)",g=m?"AI \u6570\u636e\u5de5\u5177":"AI Data Lab",f=m?"\u5065\u5eb7\u62a5\u544a":"Health Reports",e=m?"\u6211\u7684\u8bbe\u5907":"My Devices",d=m?"\u6d88\u606f\u901a\u77e5":"Notifications",c=m?"\u8d26\u53f7\u5b89\u5168":"Account Security",b=m?"\u9690\u79c1\u4e0e\u6570\u636e":"Privacy & Data",a=$.bd,a0=(a==null?$.bd=$.cF():a).cn("[DEFAULT]")
-A.bu(a0,$.cV(),!0)
-if(A.f8(new A.cf(a0)).gcH()==null)a="\u9000\u51fa\u6f14\u793a"
-else a=m?"\u9000\u51fa\u767b\u5f55":"Sign Out"
-s=B.H.aT(0.7)
-m=m?"\u5220\u9664\u8d26\u53f7":"Delete Account"
-r=t.p
-return A.aa(p,A.an(A.b([new A.hE(B.n9,B.k,l,p,new A.aMS(q,a1,a3),p),B.ci,new A.hE(B.OJ,B.at,k,j,new A.aMT(q,a1,a3),p),B.ci,new A.hE(B.Os,B.k,i,p,new A.aMU(q,a1,a3),p),B.ci,new A.hE(B.tt,B.bd,h,p,new A.aMY(a1),p),B.ci,new A.hE(B.tm,B.aE,g,p,new A.aMZ(a1),p),B.ci,new A.hE(B.Oa,B.bd,f,p,new A.aN_(q,a1,a2,a3),p),B.ci,new A.hE(B.Oo,B.k,e,p,new A.aN0(a1),p),B.ci,new A.hE(B.jI,B.j2,"\u670d\u52a1\u5668\u8bbe\u7f6e",p,new A.aN1(q,a1),p),B.ci,new A.hE(B.n8,B.at,d,p,new A.aN2(q,a1),p),B.ci,new A.hE(B.to,B.bd,c,p,new A.aN3(q,a1,a3),p),B.ci,new A.hE(B.O4,B.G,b,p,new A.aN4(q,a1),p),B.ci,new A.hE(B.Ow,B.H,a,p,new A.aMV(q,a1,a3),p),B.ci,new A.hE(B.Ol,s,m,p,new A.aMW(q,a1,a3,a2),p),B.ci,A.cg(p,new A.aD(B.cn,A.an(A.b([A.l("CalmPaws  v1.4.0 (build 13)  \xb7  2026-05-10",p,p,p,p,A.bs(p,p,B.cN,p,p,p,p,p,p,p,p,12,p,p,p,p,p,!0,p,0.3,p,p,p,p,p,p),B.am,p),B.d0,A.l("\u957f\u6309\u6b64\u5904\u8fdb\u5165\u8c03\u8bd5\u9762\u677f",p,p,p,p,A.bs(p,p,B.lT,p,p,p,p,p,p,p,p,10,p,p,p,p,p,!0,p,p,p,p,p,p,p,p),B.am,p)],r),B.m,B.e,B.f),p),B.w,!1,p,p,p,p,p,p,p,new A.aMX(a1),p,p,p,p,p,p,p,p,p,p,p,p,p)],r),B.m,B.e,B.f),B.j,p,p,new A.a0(B.l,p,p,o,n,p,B.p),p,p,p,B.dJ,p,p,p,p)},
+agi(a,b,c){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=null,f=$.bd,e=(f==null?$.bd=$.cF():f).cn("[DEFAULT]")
+A.bu(e,$.cV(),!0)
+s=A.f8(new A.cf(e)).gcH()==null
+f=A.U(20)
+r=A.b([new A.b3(0,B.C,B.au,B.bM,12)],t.V)
+q=c.a==="zh"
+p=q?"\u8ba2\u5355\u5386\u53f2":"Order History"
+o=q?"\u5ba2\u670d\u652f\u6301":"Customer Support"
+n=q?"\u5728\u7ebf":"Chat"
+m=q?"\u8bbe\u5907\u4f7f\u7528\u6307\u5357":"Device Setup Guide"
+l=q?"\u56fa\u4ef6\u5347\u7ea7 (OTA)":"Firmware Update (OTA)"
+k=q?"AI \u6570\u636e\u5de5\u5177":"AI Data Lab"
+j=q?"\u5065\u5eb7\u62a5\u544a":"Health Reports"
+i=t.p
+j=A.b([new A.hE(B.n9,B.k,p,g,new A.aMS(h,a,c),g),B.ci,new A.hE(B.OJ,B.at,o,n,new A.aMT(h,a,c),g),B.ci,new A.hE(B.Os,B.k,m,g,new A.aMU(h,a,c),g),B.ci,new A.hE(B.tt,B.bd,l,g,new A.aMY(a),g),B.ci,new A.hE(B.tm,B.aE,k,g,new A.aMZ(a),g),B.ci,new A.hE(B.Oa,B.bd,j,g,new A.aN_(h,a,b,c),g),B.ci],i)
+p=!s
+if(p){o=q?"\u6211\u7684\u8bbe\u5907":"My Devices"
+B.b.K(j,A.b([new A.hE(B.Oo,B.k,o,g,new A.aN0(a),g),B.ci,new A.hE(B.jI,B.j2,"\u670d\u52a1\u5668\u8bbe\u7f6e",g,new A.aN1(h,a),g),B.ci],i))}o=q?"\u6d88\u606f\u901a\u77e5":"Notifications"
+j.push(new A.hE(B.n8,B.at,o,g,new A.aN2(h,a),g))
+j.push(B.ci)
+if(p){o=q?"\u8d26\u53f7\u5b89\u5168":"Account Security"
+B.b.K(j,A.b([new A.hE(B.to,B.bd,o,g,new A.aN3(h,a,c),g),B.ci],i))}o=q?"\u9690\u79c1\u4e0e\u6570\u636e":"Privacy & Data"
+j.push(new A.hE(B.O4,B.G,o,g,new A.aN4(h,a),g))
+j.push(B.ci)
+if(s)o=q?"\u9000\u51fa\u6f14\u793a":"Exit Demo"
+else o=q?"\u9000\u51fa\u767b\u5f55":"Sign Out"
+j.push(new A.hE(B.Ow,B.H,o,g,new A.aMV(h,a,c),g))
+if(p){p=B.H.aT(0.7)
+q=q?"\u5220\u9664\u8d26\u53f7":"Delete Account"
+B.b.K(j,A.b([B.ci,new A.hE(B.Ol,p,q,g,new A.aMW(h,a,c,b),g)],i))}j.push(B.ci)
+j.push(A.cg(g,new A.aD(B.cn,A.an(A.b([A.l("CalmPaws  v1.4.0 (build 13)  \xb7  2026-05-10",g,g,g,g,A.bs(g,g,B.cN,g,g,g,g,g,g,g,g,12,g,g,g,g,g,!0,g,0.3,g,g,g,g,g,g),B.am,g),B.d0,A.l("\u957f\u6309\u6b64\u5904\u8fdb\u5165\u8c03\u8bd5\u9762\u677f",g,g,g,g,A.bs(g,g,B.lT,g,g,g,g,g,g,g,g,10,g,g,g,g,g,!0,g,g,g,g,g,g,g,g),B.am,g)],i),B.m,B.e,B.f),g),B.w,!1,g,g,g,g,g,g,g,new A.aMX(a),g,g,g,g,g,g,g,g,g,g,g,g,g))
+return A.aa(g,A.an(j,B.m,B.e,B.f),B.j,g,g,new A.a0(B.l,g,g,f,r,g,B.p),g,g,g,B.dJ,g,g,g,g)},
 aun(a){var s,r,q,p,o={},n=$.bd,m=(n==null?$.bd=$.cF():n).cn("[DEFAULT]")
 A.bu(m,$.cV(),!0)
 s=A.f8(new A.cf(m)).gcH()
@@ -110004,20 +110028,26 @@ $0(){A.bt(this.a,!1).c_(null)
 return null},
 $S:0}
 A.aOa.prototype={
-$1(a){var s,r,q,p,o,n=this,m=null,l="Sign Out",k=A.U(20),j=n.a
-if(j)s="\u9000\u51fa\u6f14\u793a"
-else s=n.b.a==="zh"?"\u9000\u51fa\u767b\u5f55":l
-s=A.l(s,m,m,m,m,m,m,m)
-if(j)r="\u786e\u5b9a\u8981\u9000\u51fa\u6f14\u793a\u6a21\u5f0f\u5e76\u8fd4\u56de\u767b\u5f55\u9875\u5417\uff1f"
-else r=n.b.a==="zh"?"\u786e\u5b9a\u8981\u9000\u51fa\u767b\u5f55\u5417\uff1f":"Are you sure you want to sign out?"
-r=A.l(r,m,m,m,m,B.b6,m,m)
-q=A.kC(m,m,m,m,m,m,m,m,m,B.k,m,m,B.t,m,m,m,m,m,m,m,m)
-p=n.b.a==="zh"
-q=A.dZ(A.l(p?"\u53d6\u6d88":"Cancel",m,m,m,m,m,m,m),new A.aO8(a),q)
-o=A.kC(m,m,m,m,m,m,m,m,m,m,m,m,B.t,m,m,m,m,m,m,m,m)
-if(j)p="\u9000\u51fa\u6f14\u793a"
-else p=p?"\u9000\u51fa":l
-return A.hm(A.b([q,A.dZ(A.l(p,m,m,m,m,B.kG,m,m),new A.aO9(a,j,n.c),o)],t.p),m,r,new A.b7(k,B.q),s)},
+$1(a){var s,r,q,p,o,n=null,m="Exit Demo",l="Sign Out",k=A.U(20),j=this.a,i=this.b
+if(j){i=i.a
+s=i==="zh"?"\u9000\u51fa\u6f14\u793a":m
+r=s
+s=i
+i=r}else{i=i.a
+s=i==="zh"?"\u9000\u51fa\u767b\u5f55":l
+r=s
+s=i
+i=r}i=A.l(i,n,n,n,n,n,n,n)
+if(j)q=s==="zh"?"\u786e\u5b9a\u8981\u9000\u51fa\u6f14\u793a\u6a21\u5f0f\u5e76\u8fd4\u56de\u767b\u5f55\u9875\u5417\uff1f":"Exit demo mode and return to sign in?"
+else q=s==="zh"?"\u786e\u5b9a\u8981\u9000\u51fa\u767b\u5f55\u5417\uff1f":"Are you sure you want to sign out?"
+q=A.l(q,n,n,n,n,B.b6,n,n)
+p=A.kC(n,n,n,n,n,n,n,n,n,B.k,n,n,B.t,n,n,n,n,n,n,n,n)
+s=s==="zh"
+p=A.dZ(A.l(s?"\u53d6\u6d88":"Cancel",n,n,n,n,n,n,n),new A.aO8(a),p)
+o=A.kC(n,n,n,n,n,n,n,n,n,n,n,n,B.t,n,n,n,n,n,n,n,n)
+if(j)s=s?"\u9000\u51fa\u6f14\u793a":m
+else s=s?"\u9000\u51fa":l
+return A.hm(A.b([p,A.dZ(A.l(s,n,n,n,n,B.kG,n,n),new A.aO9(a,j,this.c),o)],t.p),n,q,new A.b7(k,B.q),i)},
 $S:31}
 A.aO8.prototype={
 $0(){A.bt(this.a,!1).c_(null)
