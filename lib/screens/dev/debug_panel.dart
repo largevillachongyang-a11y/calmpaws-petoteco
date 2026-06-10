@@ -60,18 +60,24 @@ class _DebugPanelState extends State<_DebugPanel> {
               ),
               // 标题栏
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.bug_report_rounded, color: Color(0xFFCBA6F7), size: 20),
+                    const Icon(Icons.bug_report_rounded,
+                        color: Color(0xFFCBA6F7), size: 20),
                     const SizedBox(width: 8),
                     const Text(
                       '🔧 CalmPaws 调试面板',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16),
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white54, size: 20),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -84,7 +90,6 @@ class _DebugPanelState extends State<_DebugPanel> {
                   controller: scrollCtrl,
                   padding: const EdgeInsets.all(20),
                   children: [
-
                     // ── 当前状态显示 ─────────────────────────────────────────
                     _SectionTitle('当前状态'),
                     _StatusRow(provider: provider),
@@ -102,13 +107,38 @@ class _DebugPanelState extends State<_DebugPanel> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _StateChip(label: '😌 平静', state: PetBehaviorState.calm, provider: provider),
-                        _StateChip(label: '🎾 玩耍', state: PetBehaviorState.playing, provider: provider),
-                        _StateChip(label: '😰 踱步', state: PetBehaviorState.pacing, provider: provider),
-                        _StateChip(label: '⚠️ 应激', state: PetBehaviorState.stressed, provider: provider),
-                        _StateChip(label: '🆘 发抖', state: PetBehaviorState.shivering, provider: provider),
-                        _StateChip(label: '💤 睡眠', state: PetBehaviorState.sleepNormal, provider: provider),
-                        _StateChip(label: '⛔ 昏睡', state: PetBehaviorState.sleepAbnormal, provider: provider),
+                        _StateChip(
+                            label: '😌 平静',
+                            state: PetBehaviorState.calm,
+                            provider: provider),
+                        _StateChip(
+                            label: '🎾 玩耍',
+                            state: PetBehaviorState.playing,
+                            provider: provider),
+                        _StateChip(
+                            label: '😰 踱步',
+                            state: PetBehaviorState.pacing,
+                            provider: provider),
+                        _StateChip(
+                            label: '⚠️ 应激',
+                            state: PetBehaviorState.stressed,
+                            provider: provider),
+                        _StateChip(
+                            label: '🆘 发抖',
+                            state: PetBehaviorState.shivering,
+                            provider: provider),
+                        _StateChip(
+                            label: '💤 睡眠',
+                            state: PetBehaviorState.sleepNormal,
+                            provider: provider),
+                        _StateChip(
+                            label: '⛔ 昏睡',
+                            state: PetBehaviorState.sleepAbnormal,
+                            provider: provider),
+                        _StateChip(
+                            label: '📿 未佩戴',
+                            state: PetBehaviorState.notWorn,
+                            provider: provider),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -118,11 +148,13 @@ class _DebugPanelState extends State<_DebugPanel> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.psychology_rounded, color: Color(0xFFFAB387), size: 16),
+                        const Icon(Icons.psychology_rounded,
+                            color: Color(0xFFFAB387), size: 16),
                         const SizedBox(width: 6),
                         Text(
                           '当前焦虑分：${(provider.anxietyLevel * 100).round()}%',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13),
                         ),
                       ],
                     ),
@@ -150,7 +182,8 @@ class _DebugPanelState extends State<_DebugPanel> {
                       color: const Color(0xFFED8796),
                       onTap: () => provider.injectAlertForTest(
                         type: 'shiver',
-                        message: '⚠️ ${provider.petName} 已持续发抖超3分钟，请检查是否疼痛、寒冷或恐惧。',
+                        message:
+                            '⚠️ ${provider.petName} 已持续发抖超3分钟，请检查是否疼痛、寒冷或恐惧。',
                       ),
                     ),
                     _NotifButton(
@@ -177,7 +210,8 @@ class _DebugPanelState extends State<_DebugPanel> {
                       color: const Color(0xFFA6E3A1),
                       onTap: () => provider.injectAlertForTest(
                         type: 'activity',
-                        message: '⚠️ ${provider.petName} 今日玩耍时间仅 5 分钟，建议至少 30 分钟。',
+                        message:
+                            '⚠️ ${provider.petName} 今日玩耍时间仅 5 分钟，建议至少 30 分钟。',
                       ),
                     ),
                     _NotifButton(
@@ -187,7 +221,9 @@ class _DebugPanelState extends State<_DebugPanel> {
                       onTap: () {
                         provider.triggerDailySummaryForTest();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('每日总结已触发'), backgroundColor: Color(0xFF89DCEB)),
+                          const SnackBar(
+                              content: Text('每日总结已触发'),
+                              backgroundColor: Color(0xFF89DCEB)),
                         );
                       },
                     ),
@@ -205,7 +241,8 @@ class _DebugPanelState extends State<_DebugPanel> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.dns_rounded, color: Colors.white38, size: 16),
+                          const Icon(Icons.dns_rounded,
+                              color: Colors.white38, size: 16),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -221,10 +258,13 @@ class _DebugPanelState extends State<_DebugPanel> {
                             onPressed: () async {
                               Navigator.pop(context);
                               await Navigator.of(context).push<bool>(
-                                MaterialPageRoute(builder: (_) => const WifiProvisionScreen()),
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const WifiProvisionScreen()),
                               );
                             },
-                            child: const Text('修改', style: TextStyle(color: Color(0xFF89B4FA))),
+                            child: const Text('修改',
+                                style: TextStyle(color: Color(0xFF89B4FA))),
                           ),
                         ],
                       ),
@@ -233,22 +273,27 @@ class _DebugPanelState extends State<_DebugPanel> {
                     // 数据源切换
                     Row(
                       children: [
-                        const Icon(Icons.swap_horiz_rounded, color: Colors.white38, size: 16),
+                        const Icon(Icons.swap_horiz_rounded,
+                            color: Colors.white38, size: 16),
                         const SizedBox(width: 8),
-                        const Text('数据源：', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                        const Text('数据源：',
+                            style:
+                                TextStyle(color: Colors.white54, fontSize: 13)),
                         const SizedBox(width: 8),
                         _ToggleChip(
                           label: '真实服务器',
                           active: provider.useRealServer,
                           activeColor: const Color(0xFFA6E3A1),
-                          onTap: () => provider.setDataSource(useRealServer: true),
+                          onTap: () =>
+                              provider.setDataSource(useRealServer: true),
                         ),
                         const SizedBox(width: 8),
                         _ToggleChip(
                           label: 'Mock模拟',
                           active: !provider.useRealServer,
                           activeColor: const Color(0xFFFAB387),
-                          onTap: () => provider.setDataSource(useRealServer: false),
+                          onTap: () =>
+                              provider.setDataSource(useRealServer: false),
                         ),
                       ],
                     ),
@@ -292,13 +337,14 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = provider.currentBehaviorState;
     final stateLabel = switch (state) {
-      PetBehaviorState.calm         => '😌 平静',
-      PetBehaviorState.playing      => '🎾 玩耍',
-      PetBehaviorState.pacing       => '😰 踱步',
-      PetBehaviorState.stressed     => '⚠️ 应激',
-      PetBehaviorState.shivering    => '🆘 发抖',
-      PetBehaviorState.sleepNormal  => '💤 正常睡眠',
-      PetBehaviorState.sleepAbnormal=> '⛔ 异常昏睡',
+      PetBehaviorState.calm => '😌 平静',
+      PetBehaviorState.playing => '🎾 玩耍',
+      PetBehaviorState.pacing => '😰 踱步',
+      PetBehaviorState.stressed => '⚠️ 应激',
+      PetBehaviorState.shivering => '🆘 发抖',
+      PetBehaviorState.sleepNormal => '💤 正常睡眠',
+      PetBehaviorState.sleepAbnormal => '⛔ 异常昏睡',
+      PetBehaviorState.notWorn => '📿 未佩戴',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -309,16 +355,23 @@ class _StatusRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(stateLabel, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(stateLabel,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600)),
           const Spacer(),
           Text(
             provider.deviceConnected
-                ? (provider.serverConnectionStatus == 'connected' ? '🟢 在线' : '🟡 ${provider.serverConnectionStatus}')
+                ? (provider.serverConnectionStatus == 'connected'
+                    ? '🟢 在线'
+                    : '🟡 ${provider.serverConnectionStatus}')
                 : '⚪ 离线',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(width: 8),
-          Text('🔋 ${provider.battery}%', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          Text('🔋 ${provider.battery}%',
+              style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ],
       ),
     );
@@ -329,7 +382,8 @@ class _StateChip extends StatelessWidget {
   final String label;
   final PetBehaviorState state;
   final PetHealthProvider provider;
-  const _StateChip({required this.label, required this.state, required this.provider});
+  const _StateChip(
+      {required this.label, required this.state, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +394,9 @@ class _StateChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF89B4FA).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.07),
+          color: isActive
+              ? const Color(0xFF89B4FA).withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isActive ? const Color(0xFF89B4FA) : Colors.white24,
@@ -365,7 +421,11 @@ class _NotifButton extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const _NotifButton({required this.icon, required this.label, required this.color, required this.onTap});
+  const _NotifButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -385,8 +445,14 @@ class _NotifButton extends StatelessWidget {
             children: [
               Text(icon, style: const TextStyle(fontSize: 16)),
               const SizedBox(width: 10),
-              Expanded(child: Text(label, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600))),
-              Icon(Icons.play_arrow_rounded, color: color.withValues(alpha: 0.7), size: 18),
+              Expanded(
+                  child: Text(label,
+                      style: TextStyle(
+                          color: color,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600))),
+              Icon(Icons.play_arrow_rounded,
+                  color: color.withValues(alpha: 0.7), size: 18),
             ],
           ),
         ),
@@ -400,7 +466,11 @@ class _ToggleChip extends StatelessWidget {
   final bool active;
   final Color activeColor;
   final VoidCallback onTap;
-  const _ToggleChip({required this.label, required this.active, required this.activeColor, required this.onTap});
+  const _ToggleChip(
+      {required this.label,
+      required this.active,
+      required this.activeColor,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -410,7 +480,8 @@ class _ToggleChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? activeColor.withValues(alpha: 0.2) : Colors.transparent,
+          color:
+              active ? activeColor.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: active ? activeColor : Colors.white24),
         ),

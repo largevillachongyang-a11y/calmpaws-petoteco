@@ -42,7 +42,8 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
 
     final (bgColor, accentColor, _, _) = _stateColors(behavior);
     final conclusion = _buildConclusion(behavior, score, petName, isZh);
-    final drivers = packet != null ? _topDrivers(packet, isZh) : <_Driver>[];
+    final drivers =
+        packet != null ? _topDrivers(behavior, packet, isZh) : <_Driver>[];
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -50,7 +51,8 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.5),
+        border:
+            Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +96,8 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
 
           // ── 第二层：本5秒驱动因素 Pills ──────────────────────────────
           if (drivers.isNotEmpty) ...[
-            _DriverPillRow(drivers: drivers.take(2).toList(), accentColor: accentColor),
+            _DriverPillRow(
+                drivers: drivers.take(2).toList(), accentColor: accentColor),
             const SizedBox(height: 10),
           ],
 
@@ -128,7 +131,10 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
               const SizedBox(height: 10),
               Text(
                 isZh ? '本5秒传感器原始数据：' : 'Latest 5s sensor data:',
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               _DetailGrid(packet: packet, isZh: isZh),
@@ -157,6 +163,9 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
       case PetBehaviorState.sleepAbnormal:
         // E2：异常昏睡 — 橙色警示，需要关注
         return (const Color(0xFFFFF3E0), const Color(0xFFE67E22), '', '');
+      case PetBehaviorState.notWorn:
+        // G：未佩戴 — 中性灰蓝，强调数据不可用于判断宠物状态
+        return (const Color(0xFFF2F6F7), const Color(0xFF607D8B), '', '');
     }
   }
 
@@ -173,56 +182,111 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
     if (isZh) {
       switch (state) {
         case PetBehaviorState.calm:
-          return _Conclusion(headline: '$name 现在很平静 😌', subtext: '焦虑分 $score / 100，状态$level');
+          return _Conclusion(
+              headline: '$name 现在很平静 😌', subtext: '焦虑分 $score / 100，状态$level');
         case PetBehaviorState.playing:
-          return _Conclusion(headline: '$name 正在健康玩耍 🎾', subtext: '焦虑分 $score / 100，活力充沛');
+          return _Conclusion(
+              headline: '$name 正在健康玩耍 🎾', subtext: '焦虑分 $score / 100，活力充沛');
         case PetBehaviorState.pacing:
-          return _Conclusion(headline: '$name 有些焦虑，在来回踱步 😰', subtext: '焦虑分 $score / 100，建议安抚');
+          return _Conclusion(
+              headline: '$name 有些焦虑，在来回踱步 😰',
+              subtext: '焦虑分 $score / 100，建议安抚');
         case PetBehaviorState.stressed:
-          return _Conclusion(headline: '$name 出现应激反应 ⚠️', subtext: '焦虑分 $score / 100，请留意触发源');
+          return _Conclusion(
+              headline: '$name 出现应激反应 ⚠️', subtext: '焦虑分 $score / 100，请留意触发源');
         case PetBehaviorState.shivering:
-          return _Conclusion(headline: '$name 正在发抖，需要检查 🆘', subtext: '焦虑分 $score / 100，可能疼痛/寒冷/恐惧');
+          return _Conclusion(
+              headline: '$name 正在发抖，需要检查 🆘',
+              subtext: '焦虑分 $score / 100，可能疼痛/寒冷/恐惧');
         case PetBehaviorState.sleepNormal:
-          return _Conclusion(headline: '$name 在安心休息 😴', subtext: '焦虑分 $score / 100，睡眠正常');
+          return _Conclusion(
+              headline: '$name 在安心休息 😴', subtext: '焦虑分 $score / 100，睡眠正常');
         case PetBehaviorState.sleepAbnormal:
-          return _Conclusion(headline: '$name 长时间没有翻身 ⚠️', subtext: '焦虑分 $score / 100，建议查看状态');
+          return _Conclusion(
+              headline: '$name 长时间没有翻身 ⚠️', subtext: '焦虑分 $score / 100，建议查看状态');
+        case PetBehaviorState.notWorn:
+          return _Conclusion(
+              headline: '项圈未佩戴，请检查 📿', subtext: '检测到长时间绝对静止，当前数据不代表$name 的状态');
       }
     } else {
       switch (state) {
         case PetBehaviorState.calm:
-          return _Conclusion(headline: '$name is calm & relaxed 😌', subtext: 'Anxiety $score/100 · $level');
+          return _Conclusion(
+              headline: '$name is calm & relaxed 😌',
+              subtext: 'Anxiety $score/100 · $level');
         case PetBehaviorState.playing:
-          return _Conclusion(headline: '$name is playing happily 🎾', subtext: 'Anxiety $score/100 · active & healthy');
+          return _Conclusion(
+              headline: '$name is playing happily 🎾',
+              subtext: 'Anxiety $score/100 · active & healthy');
         case PetBehaviorState.pacing:
-          return _Conclusion(headline: '$name seems anxious, pacing 😰', subtext: 'Anxiety $score/100 · try calming');
+          return _Conclusion(
+              headline: '$name seems anxious, pacing 😰',
+              subtext: 'Anxiety $score/100 · try calming');
         case PetBehaviorState.stressed:
-          return _Conclusion(headline: '$name is showing stress ⚠️', subtext: 'Anxiety $score/100 · check triggers');
+          return _Conclusion(
+              headline: '$name is showing stress ⚠️',
+              subtext: 'Anxiety $score/100 · check triggers');
         case PetBehaviorState.shivering:
-          return _Conclusion(headline: '$name is shivering — check now 🆘', subtext: 'Anxiety $score/100 · pain/cold/fear?');
+          return _Conclusion(
+              headline: '$name is shivering — check now 🆘',
+              subtext: 'Anxiety $score/100 · pain/cold/fear?');
         case PetBehaviorState.sleepNormal:
-          return _Conclusion(headline: '$name is resting peacefully 😴', subtext: 'Anxiety $score/100 · normal sleep');
+          return _Conclusion(
+              headline: '$name is resting peacefully 😴',
+              subtext: 'Anxiety $score/100 · normal sleep');
         case PetBehaviorState.sleepAbnormal:
-          return _Conclusion(headline: '$name hasn\'t moved for a while ⚠️', subtext: 'Anxiety $score/100 · check on pet');
+          return _Conclusion(
+              headline: '$name hasn\'t moved for a while ⚠️',
+              subtext: 'Anxiety $score/100 · check on pet');
+        case PetBehaviorState.notWorn:
+          return _Conclusion(
+              headline: 'Collar not worn, please check 📿',
+              subtext:
+                  'Long absolute stillness detected · data may not reflect $name');
       }
     }
   }
 
-  List<_Driver> _topDrivers(BlePacket p, bool isZh) {
+  List<_Driver> _topDrivers(PetBehaviorState behavior, BlePacket p, bool isZh) {
+    if (behavior == PetBehaviorState.notWorn) {
+      return [
+        _Driver(
+          emoji: '📿',
+          label: isZh ? '项圈未佩戴' : 'Collar not worn',
+          isAlert: true,
+        ),
+      ];
+    }
     final drivers = <_Driver>[];
     if (p.shivD > 0) {
-      drivers.add(_Driver(emoji: '🫨', label: isZh ? '发抖 ${p.shivD}s' : 'Shivering ${p.shivD}s', isAlert: true));
+      drivers.add(_Driver(
+          emoji: '🫨',
+          label: isZh ? '发抖 ${p.shivD}s' : 'Shivering ${p.shivD}s',
+          isAlert: true));
     }
     if (p.strC > 0) {
-      drivers.add(_Driver(emoji: '😣', label: isZh ? '应激 ${p.strC}次' : 'Stress ×${p.strC}', isAlert: p.strC >= 3));
+      drivers.add(_Driver(
+          emoji: '😣',
+          label: isZh ? '应激 ${p.strC}次' : 'Stress ×${p.strC}',
+          isAlert: p.strC >= 3));
     }
     if (p.paceD > 10) {
-      drivers.add(_Driver(emoji: '🚶', label: isZh ? '踱步 ${p.paceD}s' : 'Pacing ${p.paceD}s', isAlert: p.paceD > 30));
+      drivers.add(_Driver(
+          emoji: '🚶',
+          label: isZh ? '踱步 ${p.paceD}s' : 'Pacing ${p.paceD}s',
+          isAlert: p.paceD > 30));
     }
     if (p.playD > 10) {
-      drivers.add(_Driver(emoji: '🎾', label: isZh ? '玩耍 ${p.playD}s' : 'Play ${p.playD}s', isAlert: false));
+      drivers.add(_Driver(
+          emoji: '🎾',
+          label: isZh ? '玩耍 ${p.playD}s' : 'Play ${p.playD}s',
+          isAlert: false));
     }
     if (drivers.isEmpty) {
-      drivers.add(_Driver(emoji: '✅', label: isZh ? '无异常信号' : 'No stress signals', isAlert: false));
+      drivers.add(_Driver(
+          emoji: '✅',
+          label: isZh ? '无异常信号' : 'No stress signals',
+          isAlert: false));
     }
     return drivers;
   }
@@ -244,13 +308,22 @@ class _TodayStatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      _DetailItem('😌', isZh ? '平静' : 'Calm',       _fmtSecs(provider.todayCalmSeconds)),
-      _DetailItem('😰', isZh ? '踱步' : 'Pacing',     _fmtSecs(provider.todayPacingSeconds)),
-      _DetailItem('😣', isZh ? '应激' : 'Stress',     _fmtSecs(provider.todayStressSeconds)),
-      _DetailItem('🫨', isZh ? '发抖' : 'Shiver',     _fmtSecs(provider.todayShiverSeconds)),
-      _DetailItem('🎾', isZh ? '玩耍' : 'Play',       _fmtSecs(provider.todayPlaySeconds)),
-      _DetailItem('😴', isZh ? '正常睡眠' : 'Sleep',   _fmtSecs(provider.todaySleepNormalSeconds)),
-      _DetailItem('⚠️', isZh ? '异常昏睡' : 'Lethargy', _fmtSecs(provider.todaySleepAbnormalSeconds)),
+      _DetailItem(
+          '😌', isZh ? '平静' : 'Calm', _fmtSecs(provider.todayCalmSeconds)),
+      _DetailItem(
+          '😰', isZh ? '踱步' : 'Pacing', _fmtSecs(provider.todayPacingSeconds)),
+      _DetailItem(
+          '😣', isZh ? '应激' : 'Stress', _fmtSecs(provider.todayStressSeconds)),
+      _DetailItem(
+          '🫨', isZh ? '发抖' : 'Shiver', _fmtSecs(provider.todayShiverSeconds)),
+      _DetailItem(
+          '🎾', isZh ? '玩耍' : 'Play', _fmtSecs(provider.todayPlaySeconds)),
+      _DetailItem('😴', isZh ? '正常睡眠' : 'Sleep',
+          _fmtSecs(provider.todaySleepNormalSeconds)),
+      _DetailItem('⚠️', isZh ? '异常昏睡' : 'Lethargy',
+          _fmtSecs(provider.todaySleepAbnormalSeconds)),
+      _DetailItem('📿', isZh ? '未佩戴' : 'Not worn',
+          _fmtSecs(provider.todayNotWornSeconds)),
     ];
 
     return Column(
@@ -258,7 +331,10 @@ class _TodayStatsGrid extends StatelessWidget {
       children: [
         Text(
           isZh ? '今日累计时长：' : 'Today\'s totals:',
-          style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         GridView.count(
@@ -418,7 +494,9 @@ class _DetailCell extends StatelessWidget {
           Text(
             item.value,
             style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary),
           ),
           Text(
             item.label,
@@ -443,7 +521,8 @@ class _Driver {
   final String emoji;
   final String label;
   final bool isAlert;
-  const _Driver({required this.emoji, required this.label, required this.isAlert});
+  const _Driver(
+      {required this.emoji, required this.label, required this.isAlert});
 }
 
 class _DetailItem {

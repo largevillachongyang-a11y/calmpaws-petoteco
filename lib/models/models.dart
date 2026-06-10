@@ -29,28 +29,29 @@
 ///     "pace_d":10, "play_d":5, "roll_c":1, "battery":82, "rssi":-65 }
 class BlePacket {
   final int timestamp;
-  final int strC;       // stress count (应激次数)
-  final double strD;    // stress duration seconds (应激持续秒，服务器返回float如4.5)
-  final int shivC;      // shiver count (发抖次数)
-  final double shivD;   // shiver duration seconds (发抖持续秒，服务器返回float)
-  final double paceD;   // pacing duration seconds (踱步持续秒，服务器返回float如3.5)
-  final double playD;   // play duration seconds (玩耍持续秒，服务器返回float)
-  final int rollC;      // roll count (打滚次数)
+  final int strC; // stress count (应激次数)
+  final double strD; // stress duration seconds (应激持续秒，服务器返回float如4.5)
+  final int shivC; // shiver count (发抖次数)
+  final double shivD; // shiver duration seconds (发抖持续秒，服务器返回float)
+  final double paceD; // pacing duration seconds (踱步持续秒，服务器返回float如3.5)
+  final double playD; // play duration seconds (玩耍持续秒，服务器返回float)
+  final int rollC; // roll count (打滚次数)
   final int battery; // battery percentage
-  final int rssi;    // BLE signal strength
+  final int rssi; // BLE signal strength
   /// 服务器计算的焦虑分 0–100（/api/status 字段 anxiety_score，非 APP 端重算）
   final double anxietyScore;
+
   /// 服务器行为标签（/api/status 字段 label，如 calm / sleep_normal）
   final String? serverLabel;
 
   const BlePacket({
     required this.timestamp,
     required this.strC,
-    required this.strD,    // double
+    required this.strD, // double
     required this.shivC,
-    required this.shivD,   // double
-    required this.paceD,   // double
-    required this.playD,   // double
+    required this.shivD, // double
+    required this.paceD, // double
+    required this.playD, // double
     required this.rollC,
     required this.battery,
     required this.rssi,
@@ -81,8 +82,8 @@ class BlePacket {
   factory BlePacket.deltaFrom(BlePacket current, BlePacket previous) {
     return BlePacket(
       timestamp: current.timestamp,
-      strC:  (current.strC  - previous.strC ).clamp(0, 999),
-      strD:  (current.strD  - previous.strD ).clamp(0.0, 999.0),
+      strC: (current.strC - previous.strC).clamp(0, 999),
+      strD: (current.strD - previous.strD).clamp(0.0, 999.0),
       shivC: (current.shivC - previous.shivC).clamp(0, 999),
       shivD: (current.shivD - previous.shivD).clamp(0.0, 999.0),
       paceD: (current.paceD - previous.paceD).clamp(0.0, 999.0),
@@ -96,18 +97,18 @@ class BlePacket {
   }
 
   Map<String, dynamic> toJson() => {
-    'timestamp': timestamp,
-    'str_c': strC,
-    'str_d': strD,
-    'shiv_c': shivC,
-    'shiv_d': shivD,
-    'pace_d': paceD,
-    'play_d': playD,
-    'roll_c': rollC,
-    'battery': battery,
-    'rssi': rssi,
-    'anxiety_score': anxietyScore,
-  };
+        'timestamp': timestamp,
+        'str_c': strC,
+        'str_d': strD,
+        'shiv_c': shivC,
+        'shiv_d': shivD,
+        'pace_d': paceD,
+        'play_d': playD,
+        'roll_c': rollC,
+        'battery': battery,
+        'rssi': rssi,
+        'anxiety_score': anxietyScore,
+      };
 
   /// 根据本包（差值包）计算行为状态——优先级：颤抖 > 应激 > 踱步 > 玩耍 > 平静
   /// ⚠️ 必须传入差值包（BlePacket.deltaFrom），而非原始累计包
@@ -120,10 +121,18 @@ class BlePacket {
   /// 注意：sleepNormal / sleepAbnormal 由 App 层（PetHealthProvider）根据 roll_c
   /// 计时窗口判断，此处不返回（BlePacket 层级信息不足以做睡眠判断）。
   PetBehaviorState get behaviorState {
-    if (shivD > 2) return PetBehaviorState.shivering;
-    if (strC >= 2 || strD > 3) return PetBehaviorState.stressed; // strC>=2 减少单次噪声误报
-    if (paceD > 3) return PetBehaviorState.pacing;
-    if (playD > 3) return PetBehaviorState.playing;
+    if (shivD > 2) {
+      return PetBehaviorState.shivering;
+    }
+    if (strC >= 2 || strD > 3) {
+      return PetBehaviorState.stressed; // strC>=2 减少单次噪声误报
+    }
+    if (paceD > 3) {
+      return PetBehaviorState.pacing;
+    }
+    if (playD > 3) {
+      return PetBehaviorState.playing;
+    }
     // 没有活跃行为信号 → 静止（由上层根据 roll_c 判断是正常睡眠还是异常昏睡）
     return PetBehaviorState.calm;
   }
@@ -132,9 +141,9 @@ class BlePacket {
   /// ⚠️ 必须传入差值包
   int get activityScore {
     int score = 0;
-    score += (playD * 10).clamp(0.0, 60.0).toInt();  // 玩耍每秒 +10分，上限60
-    score += (rollC * 10).clamp(0, 30);               // 打滚每次 +10分，上限30
-    score += (strC * 3).clamp(0, 10);                 // 轻微应激也算活跃
+    score += (playD * 10).clamp(0.0, 60.0).toInt(); // 玩耍每秒 +10分，上限60
+    score += (rollC * 10).clamp(0, 30); // 打滚每次 +10分，上限30
+    score += (strC * 3).clamp(0, 10); // 轻微应激也算活跃
     return score.clamp(0, 100);
   }
 }
@@ -148,6 +157,7 @@ class BlePacket {
 ///   B  playing      → BlePacket: playD > 3
 ///   E1 sleepNormal  → Provider: calm 基础 + 2h 内有 roll_c 增量（正常翻身/微动）
 ///   E2 sleepAbnormal→ Provider: calm 基础 + 连续 kSleepAbnormalThreshold 秒无 roll_c/str_c
+///   G  notWorn      → Server: 30 分钟绝对静止，判断为项圈未佩戴
 ///   F  calm         → BlePacket: 兜底状态（Provider 层若无睡眠条件成立时保持）
 ///
 /// UI 展示用：
@@ -158,43 +168,71 @@ enum PetBehaviorState {
   stressed,
   playing,
   shivering,
-  sleepNormal,    // E1：正常睡眠（有翻身/微动信号）
-  sleepAbnormal;  // E2：异常昏睡（连续2小时零翻身+零应激）
+  sleepNormal, // E1：正常睡眠（有翻身/微动信号）
+  sleepAbnormal, // E2：异常昏睡（连续2小时零翻身+零应激）
+  notWorn; // G：项圈未佩戴（服务器 30 分钟绝对静止判定）
 
   String get label {
     switch (this) {
-      case calm: return 'Calm';
-      case pacing: return 'Pacing';
-      case stressed: return 'Stressed';
-      case playing: return 'Playing';
-      case shivering: return 'Shivering';
-      case sleepNormal: return 'Sleeping';
-      case sleepAbnormal: return 'Lethargic';
+      case calm:
+        return 'Calm';
+      case pacing:
+        return 'Pacing';
+      case stressed:
+        return 'Stressed';
+      case playing:
+        return 'Playing';
+      case shivering:
+        return 'Shivering';
+      case sleepNormal:
+        return 'Sleeping';
+      case sleepAbnormal:
+        return 'Lethargic';
+      case notWorn:
+        return 'Not worn';
     }
   }
 
   /// 中文标签（供中文 UI 使用）
   String get labelZh {
     switch (this) {
-      case calm: return '平静';
-      case pacing: return '踱步';
-      case stressed: return '应激';
-      case playing: return '玩耍';
-      case shivering: return '发抖';
-      case sleepNormal: return '正常睡眠';
-      case sleepAbnormal: return '异常昏睡';
+      case calm:
+        return '平静';
+      case pacing:
+        return '踱步';
+      case stressed:
+        return '应激';
+      case playing:
+        return '玩耍';
+      case shivering:
+        return '发抖';
+      case sleepNormal:
+        return '正常睡眠';
+      case sleepAbnormal:
+        return '异常昏睡';
+      case notWorn:
+        return '未佩戴';
     }
   }
 
   String get emoji {
     switch (this) {
-      case calm: return '😌';
-      case pacing: return '😰';
-      case stressed: return '😣';
-      case playing: return '🎾';
-      case shivering: return '🥶';
-      case sleepNormal: return '😴';
-      case sleepAbnormal: return '⚠️';
+      case calm:
+        return '😌';
+      case pacing:
+        return '😰';
+      case stressed:
+        return '😣';
+      case playing:
+        return '🎾';
+      case shivering:
+        return '🥶';
+      case sleepNormal:
+        return '😴';
+      case sleepAbnormal:
+        return '⚠️';
+      case notWorn:
+        return '📿';
     }
   }
 }
@@ -361,10 +399,10 @@ class HourlyStressPoint {
 class JournalEntry {
   final String id;
   final DateTime date;
-  final String stoolEmoji;    // 💩 color/consistency
-  final String moodEmoji;     // 😊😰😣
+  final String stoolEmoji; // 💩 color/consistency
+  final String moodEmoji; // 😊😰😣
   final String appetiteEmoji; // 🍖😐🚫
-  final String energyEmoji;   // ⚡😴
+  final String energyEmoji; // ⚡😴
   final String? notes;
   final List<String> negativeFlags; // triggers smart shop recommendation
 
@@ -390,7 +428,7 @@ class JournalEntry {
 class DailyRecord {
   final DateTime date;
   final SensorDaySummary? sensorSummary; // 传感器层（可为 null = 设备离线）
-  final JournalEntry?     journalEntry;  // 主人记录层（可为 null = 未填写）
+  final JournalEntry? journalEntry; // 主人记录层（可为 null = 未填写）
 
   const DailyRecord({
     required this.date,
@@ -413,13 +451,13 @@ class DailyRecord {
 
 /// 传感器每日汇总 — 只存展示所需字段，不与主人记录混合
 class SensorDaySummary {
-  final double avgStressScore;   // 0–100，当天平均应激分
-  final int    stressEventCount; // 应激事件次数
-  final int    pacingMinutes;    // 踱步分钟数
-  final int    playMinutes;      // 玩耍分钟数
-  final int    activityScore;    // 0–100 活动评分
-  final bool   hasFeeding;       // 当天是否有喂食记录
-  final int?   timeToCalmSecs;   // 喂食后平静用时（秒），null=无喂食
+  final double avgStressScore; // 0–100，当天平均应激分
+  final int stressEventCount; // 应激事件次数
+  final int pacingMinutes; // 踱步分钟数
+  final int playMinutes; // 玩耍分钟数
+  final int activityScore; // 0–100 活动评分
+  final bool hasFeeding; // 当天是否有喂食记录
+  final int? timeToCalmSecs; // 喂食后平静用时（秒），null=无喂食
 
   const SensorDaySummary({
     required this.avgStressScore,
