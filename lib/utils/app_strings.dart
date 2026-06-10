@@ -391,6 +391,12 @@ class AppStrings {
   String get signOutConfirm =>
       _t('Are you sure you want to sign out?', '确定要退出登录吗？');
   String get signOutBtn => _t('Sign Out', '退出');
+  String get demoExitTitle => _t('Exit Demo', '退出演示');
+  String get demoExitConfirm => _t(
+        'Exit demo mode and return to sign in?',
+        '确定要退出演示模式并返回登录页吗？',
+      );
+  String get demoExitBtn => _t('Exit Demo', '退出演示');
   // Reorder dialog
   String get reorderBody => _t(
         'In the live app, this will open the store to reorder ZenBelly supplies with your subscription discount applied.',

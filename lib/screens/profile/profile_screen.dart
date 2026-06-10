@@ -586,6 +586,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── 菜单列表 ──────────────────────────────────────────────────────────────
   Widget _buildMenuSection(
       BuildContext context, PetHealthProvider provider, dynamic s) {
+    final isDemoMode = FirebaseAuth.instance.currentUser == null;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       decoration: BoxDecoration(
@@ -649,23 +650,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => _showHealthReports(context, provider, s),
           ),
           const _Divider(),
-          _MenuItem(
-            icon: Icons.devices_rounded,
-            iconColor: AppColors.sageGreen,
-            label: s.deviceMyDevices,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const DeviceManagementScreen()),
+          if (!isDemoMode) ...[
+            _MenuItem(
+              icon: Icons.devices_rounded,
+              iconColor: AppColors.sageGreen,
+              label: s.deviceMyDevices,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const DeviceManagementScreen()),
+              ),
             ),
-          ),
-          const _Divider(),
-          _MenuItem(
-            icon: Icons.wifi_rounded,
-            iconColor: const Color(0xFF4A90D9),
-            label: '服务器设置',
-            onTap: () => _showServerSettingsDialog(context),
-          ),
-          const _Divider(),
+            const _Divider(),
+            _MenuItem(
+              icon: Icons.wifi_rounded,
+              iconColor: const Color(0xFF4A90D9),
+              label: '服务器设置',
+              onTap: () => _showServerSettingsDialog(context),
+            ),
+            const _Divider(),
+          ],
           _MenuItem(
             icon: Icons.notifications_none_rounded,
             iconColor: AppColors.warmOrange,
@@ -673,13 +677,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => _showNotifDialog(context),
           ),
           const _Divider(),
-          _MenuItem(
-            icon: Icons.security_rounded,
-            iconColor: const Color(0xFF6B7FD4),
-            label: s.profileAccountSecurity,
-            onTap: () => _showAccountSecurity(context, s),
-          ),
-          const _Divider(),
+          if (!isDemoMode) ...[
+            _MenuItem(
+              icon: Icons.security_rounded,
+              iconColor: const Color(0xFF6B7FD4),
+              label: s.profileAccountSecurity,
+              onTap: () => _showAccountSecurity(context, s),
+            ),
+            const _Divider(),
+          ],
           _MenuItem(
             icon: Icons.privacy_tip_outlined,
             iconColor: AppColors.textMuted,
@@ -690,19 +696,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _MenuItem(
             icon: Icons.logout_rounded,
             iconColor: AppColors.alertRed,
-            label: FirebaseAuth.instance.currentUser == null
-                ? '退出演示'
-                : s.profileSignOut,
+            label: isDemoMode ? s.demoExitBtn : s.profileSignOut,
             onTap: () => _showSignOut(context, s),
           ),
-          const _Divider(),
-          // ── 删除账号（App Store / Google Play 强制要求）────────────────────
-          _MenuItem(
-            icon: Icons.delete_forever_rounded,
-            iconColor: AppColors.alertRed.withValues(alpha: 0.7),
-            label: s.profileDeleteAccount,
-            onTap: () => _showDeleteAccount(context, s, provider),
-          ),
+          if (!isDemoMode) ...[
+            const _Divider(),
+            // ── 删除账号（App Store / Google Play 强制要求）────────────────────
+            _MenuItem(
+              icon: Icons.delete_forever_rounded,
+              iconColor: AppColors.alertRed.withValues(alpha: 0.7),
+              label: s.profileDeleteAccount,
+              onTap: () => _showDeleteAccount(context, s, provider),
+            ),
+          ],
           // ── APP 版本号（长按进入调试面板）────────────────────────────────
           const _Divider(),
           GestureDetector(
@@ -1607,9 +1613,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Text(isDemoMode ? '退出演示' : s.signOutTitle),
+        title: Text(isDemoMode ? s.demoExitTitle : s.signOutTitle),
         content: Text(
-          isDemoMode ? '确定要退出演示模式并返回登录页吗？' : s.signOutConfirm,
+          isDemoMode ? s.demoExitConfirm : s.signOutConfirm,
           style: AppTextStyles.bodyMedium,
         ),
         actions: [
@@ -1641,7 +1647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
               // 正常登录用户由 AuthGate 监听 Firebase 状态变化，自动跳转回登录页
             },
-            child: Text(isDemoMode ? '退出演示' : s.signOutBtn,
+            child: Text(isDemoMode ? s.demoExitBtn : s.signOutBtn,
                 style: const TextStyle(color: AppColors.alertRed)),
           ),
         ],
