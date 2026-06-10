@@ -42,6 +42,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/common/circle_photo.dart';
+import '../auth/auth_screen.dart';
 import '../dev/debug_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -689,7 +690,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _MenuItem(
             icon: Icons.logout_rounded,
             iconColor: AppColors.alertRed,
-            label: s.profileSignOut,
+            label: FirebaseAuth.instance.currentUser == null
+                ? '退出演示'
+                : s.profileSignOut,
             onTap: () => _showSignOut(context, s),
           ),
           const _Divider(),
@@ -1597,14 +1600,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSignOut(BuildContext context, dynamic s) {
+    final isDemoMode = FirebaseAuth.instance.currentUser == null;
     showDialog(
       barrierColor: Colors.black54,
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Text(s.signOutTitle),
-        content: Text(s.signOutConfirm, style: AppTextStyles.bodyMedium),
+        title: Text(isDemoMode ? '退出演示' : s.signOutTitle),
+        content: Text(
+          isDemoMode ? '确定要退出演示模式并返回登录页吗？' : s.signOutConfirm,
+          style: AppTextStyles.bodyMedium,
+        ),
         actions: [
           TextButton(
             style: TextButton.styleFrom(
@@ -1624,9 +1631,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ctx.read<DeviceBindingProvider>().clear();
               }
               await AuthService().signOut(); // 真正退出登录
-              // AuthGate 监听 Firebase 状态变化，会自动跳转回登录页
+              if (isDemoMode && context.mounted) {
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => const AuthScreen(firebaseAvailable: true),
+                  ),
+                  (_) => false,
+                );
+              }
+              // 正常登录用户由 AuthGate 监听 Firebase 状态变化，自动跳转回登录页
             },
-            child: Text(s.signOutBtn,
+            child: Text(isDemoMode ? '退出演示' : s.signOutBtn,
                 style: const TextStyle(color: AppColors.alertRed)),
           ),
         ],
