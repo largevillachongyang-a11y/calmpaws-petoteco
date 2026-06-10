@@ -20,15 +20,6 @@ class EnvironmentConfig {
   static const String fcmWebVapidKey =
       'BNzIYc9rSQhlNvld2BxsTCvKb-6mJvYk2mBkGfi9DttLuk27slE1DT-C5JFn7cqoq65gBYrpTiaid8ZlJ_msj9g';
 
-  /// Optional emergency compatibility for old history endpoints.
-  ///
-  /// Normal builds leave this empty so history uses Firebase Bearer only. Pass
-  /// CALMPAWS_HISTORY_LEGACY_KEY only when intentionally testing an old server.
-  static const String legacyHistoryDeviceKey = String.fromEnvironment(
-    'CALMPAWS_HISTORY_LEGACY_KEY',
-    defaultValue: '',
-  );
-
   /// 去掉用户输入 URL 尾部斜杠
   static String normalizeBaseUrl(String url) =>
       url.trim().replaceAll(RegExp(r'/$'), '');

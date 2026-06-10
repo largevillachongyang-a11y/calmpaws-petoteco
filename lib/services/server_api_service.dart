@@ -313,12 +313,6 @@ class ServerApiService {
       }
 
       if (resp.statusCode == 401) {
-        final legacy = await _fetchHistoryWithLegacyKeyIfNeeded(
-          resp,
-          range,
-          query,
-        );
-        if (legacy != null) return legacy;
         return HistoryResponse.error(_deviceId, range, '历史接口鉴权失败，请联系服务器检查');
       }
 
@@ -339,50 +333,6 @@ class ServerApiService {
       }
       return HistoryResponse.error(_deviceId, range, '连接失败：$e');
     }
-  }
-
-  Future<HistoryResponse?> _fetchHistoryWithLegacyKeyIfNeeded(
-    http.Response bearerResponse,
-    String range,
-    Map<String, String> query,
-  ) async {
-    if (EnvironmentConfig.legacyHistoryDeviceKey.isEmpty) return null;
-    if (!bearerResponse.body.contains('invalid key')) return null;
-
-    final legacyQuery = <String, String>{
-      ...query,
-      'key': EnvironmentConfig.legacyHistoryDeviceKey,
-    };
-
-    try {
-      final resp = await http
-          .get(
-            EnvironmentConfig.apiUri(
-              '/api/history/$_deviceId',
-              baseUrlOverride: _baseUrl,
-              queryParameters: legacyQuery,
-            ),
-          )
-          .timeout(EnvironmentConfig.requestTimeout);
-
-      if (resp.statusCode == 200) {
-        if (resp.body.isEmpty) return HistoryResponse.empty(_deviceId, range);
-        final data = jsonDecode(resp.body);
-        if (data is! Map<String, dynamic>) {
-          return HistoryResponse.error(_deviceId, range, '响应格式无效');
-        }
-        return HistoryResponse.fromJson(data, range: range);
-      }
-      if (resp.statusCode == 204) {
-        return HistoryResponse.empty(_deviceId, range);
-      }
-    } catch (e) {
-      if (EnvironmentConfig.debugMode && kDebugMode) {
-        debugPrint('[ServerAPI] legacy history retry failed: $e');
-      }
-    }
-
-    return null;
   }
 
   Future<List<ServerAlert>> fetchAlertsList() async {
