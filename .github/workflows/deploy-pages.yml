@@ -29,7 +29,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web
-        run: flutter build web --release --base-href "/calmpaws-petoteco/" --dart-define=CALMPAWS_HISTORY_LEGACY_KEY=calmpaws_secret
+        run: flutter build web --release --base-href "/calmpaws-petoteco/"
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
