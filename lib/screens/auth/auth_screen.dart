@@ -187,7 +187,10 @@ class _AuthScreenState extends State<AuthScreen>
       return;
     }
     final isZh = context.read<LocaleProvider>().strings.locale == 'zh';
-    setState(() { _loading = true; _errorMsg = null; });
+    setState(() {
+      _loading = true;
+      _errorMsg = null;
+    });
     final authService = _authService;
     if (authService == null) return;
     // Popup 模式：等待弹窗结果后继续
@@ -199,7 +202,10 @@ class _AuthScreenState extends State<AuthScreen>
       // 只在真正失败时显示错误（取消登录不算错误）
       final msg = result.errorMessage!;
       if (!msg.contains('取消') && !msg.contains('cancelled')) {
-        setState(() { _loading = false; _errorMsg = msg; });
+        setState(() {
+          _loading = false;
+          _errorMsg = msg;
+        });
       } else {
         setState(() => _loading = false);
       }
@@ -227,7 +233,8 @@ class _AuthScreenState extends State<AuthScreen>
               child: GestureDetector(
                 onTap: () => context.read<LocaleProvider>().toggle(),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(20),
@@ -255,257 +262,260 @@ class _AuthScreenState extends State<AuthScreen>
             // ── 主内容区 ────────────────────────────────────────────────────
             Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
                 child: FadeTransition(
                   opacity: _fadeAnim,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                  // ── Logo ──────────────────────────────────────────────────
-                  _buildLogo(),
-                  const SizedBox(height: 32),
+                      // ── Logo ──────────────────────────────────────────────────
+                      _buildLogo(),
+                      const SizedBox(height: 32),
 
-                  // Web预览提示条
-                  if (!widget.firebaseAvailable)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.warningAmberMuted,
-                        borderRadius: BorderRadius.circular(10),
-                        border:
-                            Border.all(color: AppColors.warningAmber, width: 1),
+                      // Web预览提示条
+                      if (!widget.firebaseAvailable)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.warningAmberMuted,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: AppColors.warningAmber, width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded,
+                                  color: AppColors.warningAmber, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Web 预览模式 · 点击任意按钮可直接进入主页',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.warningAmber,
+                                      fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // ── 标题 ──────────────────────────────────────────────────
+                      Text(
+                        isForgot
+                            ? s.authForgotTitle
+                            : isRegister
+                                ? s.authRegisterTitle
+                                : s.authLoginTitle,
+                        style: AppTextStyles.headlineLarge,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline_rounded,
-                              color: AppColors.warningAmber, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
+                      const SizedBox(height: 6),
+                      Text(
+                        isForgot
+                            ? s.authForgotSubtitle
+                            : isRegister
+                                ? s.authRegisterSubtitle
+                                : s.authLoginSubtitle,
+                        style: AppTextStyles.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 28),
+
+                      // ── 表单 ──────────────────────────────────────────────────
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            if (isRegister) ...[
+                              _buildTextField(
+                                controller: _nameCtrl,
+                                label: s.authName,
+                                icon: Icons.person_outline_rounded,
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty)
+                                        ? s.authNameRequired
+                                        : null,
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+                            _buildTextField(
+                              controller: _emailCtrl,
+                              label: s.authEmail,
+                              icon: Icons.email_outlined,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return s.authEmailRequired;
+                                }
+                                if (!v.contains('@')) return s.authEmailInvalid;
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            if (!isForgot) ...[
+                              _buildTextField(
+                                controller: _passwordCtrl,
+                                label: s.authPassword,
+                                icon: Icons.lock_outline_rounded,
+                                obscure: _obscurePassword,
+                                toggleObscure: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) {
+                                    return s.authPasswordRequired;
+                                  }
+                                  if (isRegister && v.length < 6) {
+                                    return s.authPasswordTooShort;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+                            if (isRegister) ...[
+                              _buildTextField(
+                                controller: _confirmPasswordCtrl,
+                                label: s.authConfirmPassword,
+                                icon: Icons.lock_outline_rounded,
+                                obscure: _obscureConfirm,
+                                toggleObscure: () => setState(
+                                    () => _obscureConfirm = !_obscureConfirm),
+                                validator: (v) {
+                                  if (v != _passwordCtrl.text) {
+                                    return s.authPasswordMismatch;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      if (isLogin)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () => _switchMode(_AuthMode.forgotPassword),
                             child: Text(
-                              'Web 预览模式 · 点击任意按钮可直接进入主页',
+                              s.authForgotLink,
                               style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.warningAmber,
-                                  fontSize: 12),
+                                color: AppColors.sageGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-
-                  // ── 标题 ──────────────────────────────────────────────────
-                  Text(
-                    isForgot
-                        ? s.authForgotTitle
-                        : isRegister
-                            ? s.authRegisterTitle
-                            : s.authLoginTitle,
-                    style: AppTextStyles.headlineLarge,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isForgot
-                        ? s.authForgotSubtitle
-                        : isRegister
-                            ? s.authRegisterSubtitle
-                            : s.authLoginSubtitle,
-                    style: AppTextStyles.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 28),
-
-                  // ── 表单 ──────────────────────────────────────────────────
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        if (isRegister) ...[
-                          _buildTextField(
-                            controller: _nameCtrl,
-                            label: s.authName,
-                            icon: Icons.person_outline_rounded,
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? s.authNameRequired
-                                : null,
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        _buildTextField(
-                          controller: _emailCtrl,
-                          label: s.authEmail,
-                          icon: Icons.email_outlined,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return s.authEmailRequired;
-                            }
-                            if (!v.contains('@')) return s.authEmailInvalid;
-                            return null;
-                          },
                         ),
-                        const SizedBox(height: 14),
-                        if (!isForgot) ...[
-                          _buildTextField(
-                            controller: _passwordCtrl,
-                            label: s.authPassword,
-                            icon: Icons.lock_outline_rounded,
-                            obscure: _obscurePassword,
-                            toggleObscure: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return s.authPasswordRequired;
-                              }
-                              if (isRegister && v.length < 6) {
-                                return s.authPasswordTooShort;
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        if (isRegister) ...[
-                          _buildTextField(
-                            controller: _confirmPasswordCtrl,
-                            label: s.authConfirmPassword,
-                            icon: Icons.lock_outline_rounded,
-                            obscure: _obscureConfirm,
-                            toggleObscure: () => setState(
-                                () => _obscureConfirm = !_obscureConfirm),
-                            validator: (v) {
-                              if (v != _passwordCtrl.text) {
-                                return s.authPasswordMismatch;
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                      ],
-                    ),
-                  ),
 
-                  if (isLogin)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: () => _switchMode(_AuthMode.forgotPassword),
-                        child: Text(
-                          s.authForgotLink,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.sageGreen,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(height: 20),
+
+                      if (_errorMsg != null)
+                        _buildMessage(_errorMsg!, isError: true),
+                      if (_successMsg != null)
+                        _buildMessage(_successMsg!, isError: false),
+
+                      const SizedBox(height: 8),
+
+                      // ── 主按钮 ────────────────────────────────────────────────
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            overlayColor: Colors.transparent,
+                            backgroundColor: AppColors.sageGreen,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
                           ),
+                          child: _loading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(
+                                  isForgot
+                                      ? s.authSendReset
+                                      : isRegister
+                                          ? s.authRegisterBtn
+                                          : s.authLoginBtn,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white),
+                                ),
                         ),
                       ),
-                    ),
 
-                  const SizedBox(height: 20),
-
-                  if (_errorMsg != null)
-                    _buildMessage(_errorMsg!, isError: true),
-                  if (_successMsg != null)
-                    _buildMessage(_successMsg!, isError: false),
-
-                  const SizedBox(height: 8),
-
-                  // ── 主按钮 ────────────────────────────────────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        overlayColor: Colors.transparent,
-                        backgroundColor: AppColors.sageGreen,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                      child: _loading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(
-                              isForgot
-                                  ? s.authSendReset
-                                  : isRegister
-                                      ? s.authRegisterBtn
-                                      : s.authLoginBtn,
-                              style: const TextStyle(
-                                  fontSize: 16,
+                      // ── 注册/登录切换（紧靠主按钮下方，最显眼）─────────────────
+                      if (!isForgot) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              isLogin ? s.authNoAccount : s.authHasAccount,
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => _switchMode(isLogin
+                                  ? _AuthMode.register
+                                  : _AuthMode.login),
+                              child: Text(
+                                isLogin ? s.authRegisterLink : s.authLoginLink,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.sageGreen,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white),
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColors.sageGreen,
+                                ),
+                              ),
                             ),
-                    ),
-                  ),
-
-                  // ── 注册/登录切换（紧靠主按钮下方，最显眼）─────────────────
-                  if (!isForgot) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          isLogin ? s.authNoAccount : s.authHasAccount,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textMuted,
-                          ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
+                      ],
+
+                      // ── Google 登录 ───────────────────────────────────────────
+                      if (!isForgot) ...[
+                        const SizedBox(height: 20),
+                        _buildDivider(s.authOr),
+                        const SizedBox(height: 14),
+                        _buildGoogleButton(s),
+                        const SizedBox(height: 12),
+                        _buildDemoButton(s),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      if (isForgot)
                         GestureDetector(
-                          onTap: () => _switchMode(
-                              isLogin ? _AuthMode.register : _AuthMode.login),
+                          onTap: () => _switchMode(_AuthMode.login),
                           child: Text(
-                            isLogin ? s.authRegisterLink : s.authLoginLink,
+                            s.authBackToLogin,
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.sageGreen,
-                              fontWeight: FontWeight.w700,
-                              decoration: TextDecoration.underline,
-                              decorationColor: AppColors.sageGreen,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-
-                  // ── Google 登录 ───────────────────────────────────────────
-                  if (!isForgot) ...[
-                    const SizedBox(height: 20),
-                    _buildDivider(s.authOr),
-                    const SizedBox(height: 14),
-                    _buildGoogleButton(s),
-                    const SizedBox(height: 12),
-                    _buildDemoButton(),
-                  ],
-
-                  const SizedBox(height: 20),
-
-                  if (isForgot)
-                    GestureDetector(
-                      onTap: () => _switchMode(_AuthMode.login),
-                      child: Text(
-                        s.authBackToLogin,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.sageGreen,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-          ],  // Stack children 结束
-        ),    // Stack 结束
-      ),      // SafeArea 结束
+          ], // Stack children 结束
+        ), // Stack 结束
+      ), // SafeArea 结束
     );
   }
 
@@ -594,8 +604,7 @@ class _AuthScreenState extends State<AuthScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: AppColors.sageGreen, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.sageGreen, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -603,8 +612,7 @@ class _AuthScreenState extends State<AuthScreen>
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: AppColors.alertRed, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.alertRed, width: 1.5),
         ),
       ),
     );
@@ -704,15 +712,15 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ── 演示模式按钮 ──────────────────────────────────────────────────────────
-  Widget _buildDemoButton() {
+  Widget _buildDemoButton(dynamic s) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: _loading ? null : _enterDemoMode,
         icon: const Text('🐾', style: TextStyle(fontSize: 16)),
-        label: const Text(
-          '演示模式  无需登录',
-          style: TextStyle(
+        label: Text(
+          s.demoEnterBtn,
+          style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
             color: AppColors.sageGreen,

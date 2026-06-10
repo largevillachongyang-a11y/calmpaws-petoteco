@@ -314,6 +314,7 @@ class AppStrings {
   String get profileNotifications => _t('Notifications', '消息通知');
   String get profilePrivacy => _t('Privacy & Data', '隐私与数据');
   String get profileSignOut => _t('Sign Out', '退出登录');
+  String get profileServerSettings => _t('Server Settings', '服务器设置');
   String get profileLanguage => _t('Language / 语言', 'Language / 语言');
   String get profileAccountSecurity => _t('Account Security', '账号安全');
   String get profileEditTitle => _t('Edit Profile', '编辑资料');
@@ -397,6 +398,7 @@ class AppStrings {
         '确定要退出演示模式并返回登录页吗？',
       );
   String get demoExitBtn => _t('Exit Demo', '退出演示');
+  String get demoEnterBtn => _t('Demo Mode · No Sign In', '演示模式  无需登录');
   // Reorder dialog
   String get reorderBody => _t(
         'In the live app, this will open the store to reorder ZenBelly supplies with your subscription discount applied.',

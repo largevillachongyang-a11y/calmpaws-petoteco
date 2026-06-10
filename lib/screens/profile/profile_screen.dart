@@ -665,7 +665,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _MenuItem(
               icon: Icons.wifi_rounded,
               iconColor: const Color(0xFF4A90D9),
-              label: '服务器设置',
+              label: s.profileServerSettings,
               onTap: () => _showServerSettingsDialog(context),
             ),
             const _Divider(),
