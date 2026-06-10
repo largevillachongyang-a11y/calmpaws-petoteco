@@ -147,8 +147,7 @@ class AuthService {
               errStr.contains('fetch') ||
               errStr.contains('Failed to fetch') ||
               errStr.contains('internal-error') ||
-              (popupError is Exception &&
-                  errStr.contains('FirebaseError'))) {
+              (popupError is Exception && errStr.contains('FirebaseError'))) {
             // 降级到 redirect 模式
             await _auth.signInWithRedirect(provider);
             // signInWithRedirect 是整页跳转，不会执行到这里
@@ -201,8 +200,9 @@ class AuthService {
         return AuthResult.failure(
             isZh ? '已取消 Google 登录' : 'Google sign-in cancelled');
       }
-      return AuthResult.failure(
-          isZh ? 'Google 登录失败，请稍后重试' : 'Google sign-in failed, please try again');
+      return AuthResult.failure(isZh
+          ? 'Google 登录失败，请稍后重试'
+          : 'Google sign-in failed, please try again');
     }
   }
 
@@ -252,6 +252,68 @@ class AuthService {
     }
   }
 
+  bool get currentUserCanChangePassword {
+    final user = _auth.currentUser;
+    return user?.providerData
+            .any((provider) => provider.providerId == 'password') ??
+        false;
+  }
+
+  List<String> get currentUserProviderIds =>
+      _auth.currentUser?.providerData
+          .map((provider) => provider.providerId)
+          .toList() ??
+      const [];
+
+  Future<AuthResult> sendPasswordResetForCurrentUser(
+      {bool isZh = false}) async {
+    final email = _auth.currentUser?.email;
+    if (email == null || email.trim().isEmpty) {
+      return AuthResult.failure(
+          isZh ? '当前账号没有邮箱' : 'This account has no email address');
+    }
+    return sendPasswordResetEmail(email, isZh: isZh);
+  }
+
+  Future<AuthResult> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    bool isZh = false,
+  }) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null || email.trim().isEmpty) {
+      return AuthResult.failure(isZh ? '当前未登录' : 'Not logged in');
+    }
+    if (!currentUserCanChangePassword) {
+      return AuthResult.failure(
+        isZh
+            ? '当前账号使用第三方登录，请在对应账号服务中修改密码'
+            : 'This account uses a third-party sign-in provider. Change the password there.',
+      );
+    }
+    if (newPassword.trim().length < 6) {
+      return AuthResult.failure(
+          isZh ? '新密码至少需要 6 位' : 'New password must be at least 6 characters');
+    }
+
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: email.trim(),
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword.trim());
+      return AuthResult.success(user);
+    } on FirebaseAuthException catch (e) {
+      return AuthResult.failure(_mapError(e.code, isZh: isZh));
+    } catch (e) {
+      return AuthResult.failure(
+        isZh ? '修改密码失败，请稍后重试' : 'Failed to change password, please try again',
+      );
+    }
+  }
+
   // ── 删除账号 ──────────────────────────────────────────────────────────────
   // ⚠️ 不可逆操作：删除 Firebase Auth 账号。
   // 注意事项：
@@ -274,7 +336,9 @@ class AuthService {
       await user.delete();
       // 删除成功后同步退出 Google Sign-In 缓存（移动端）
       if (!kIsWeb) {
-        try { await _googleSignIn.signOut(); } catch (_) {}
+        try {
+          await _googleSignIn.signOut();
+        } catch (_) {}
       }
       return null; // null 表示成功
     } on FirebaseAuthException catch (e) {

@@ -11,8 +11,7 @@ class AppStrings {
   static const AppStrings en = AppStrings._('en');
   static const AppStrings zh = AppStrings._('zh');
 
-  factory AppStrings.of(String locale) =>
-      locale == 'zh' ? zh : en;
+  factory AppStrings.of(String locale) => locale == 'zh' ? zh : en;
 
   // ── App ──────────────────────────────────────────────────────────────────
   String get appName => _t('Petoteco', 'Petoteco');
@@ -33,19 +32,20 @@ class AppStrings {
   String get deviceOffline => _t('No Device Connected', '设备未连接');
   String get deviceConnect => _t('Connect', '连接');
   String get deviceBle => _t('BLE', '蓝牙');
-  String get deviceServerError => _t('⚠️ Server connection failed', '⚠️ 服务器连接失败');
+  String get deviceServerError =>
+      _t('⚠️ Server connection failed', '⚠️ 服务器连接失败');
   String get statusNoCachedData => _t('Waiting for collar data…', '等待项圈上报数据…');
   String get statusNoCachedDataHint => _t(
-    'Server connected — no cached readings yet. Data will appear when the collar uploads.',
-    '已连接服务器，暂无项圈缓存数据。项圈上报后将自动显示。',
-  );
+        'Server connected — no cached readings yet. Data will appear when the collar uploads.',
+        '已连接服务器，暂无项圈缓存数据。项圈上报后将自动显示。',
+      );
   String get serverAlertsTitle => _t('Device alert', '设备告警');
   String serverAlertLowBattery(int pct) =>
       _t('Collar battery low ($pct%)', '项圈电量低（$pct%）');
-  String get serverAlertLowBatteryGeneric =>
-      _t('Collar battery low', '项圈电量低');
+  String get serverAlertLowBatteryGeneric => _t('Collar battery low', '项圈电量低');
   String get anxietyScoreLabel => _t('Anxiety', '焦虑分');
-  String deviceCollarHost(String host) => _t('CalmPaws Collar · $host', 'CalmPaws 项圈 · $host');
+  String deviceCollarHost(String host) =>
+      _t('CalmPaws Collar · $host', 'CalmPaws 项圈 · $host');
   String get deviceRetry => _t('Retry', '重试');
   String get syncInProgress => _t('Syncing', '同步中');
   String get syncStatusRequesting => _t('Requesting sync...', '正在请求同步...');
@@ -61,9 +61,9 @@ class AppStrings {
   String get timerTitle => _t('ZenBelly Tracker', 'ZenBelly 追踪器');
   String get timerSubtitle => _t('Calm Response Timer', '平静响应计时器');
   String get timerDesc => _t(
-    'Tap after giving ZenBelly to start tracking how quickly your pup returns to calm.',
-    '喂食 ZenBelly 后点击，记录爱宠恢复平静所需的时间。',
-  );
+        'Tap after giving ZenBelly to start tracking how quickly your pup returns to calm.',
+        '喂食 ZenBelly 后点击，记录爱宠恢复平静所需的时间。',
+      );
   String get timerStart => _t('Fed ZenBelly — Start Timer', '已喂食 — 开始计时');
   String get timerActive => _t('Calm Tracker Active', '平静追踪中');
   String get timerCancel => _t('Cancel', '取消');
@@ -74,9 +74,9 @@ class AppStrings {
   String get timerToCalm => _t('to calm', '恢复平静');
   String get timerNoSession => _t('No sessions yet', '暂无记录');
   String get timerNoSessionDesc => _t(
-    'Tap "Fed ZenBelly" above to start tracking how fast your pet calms down.',
-    '点击上方"已喂食"按钮，开始记录爱宠平静时间。',
-  );
+        'Tap "Fed ZenBelly" above to start tracking how fast your pet calms down.',
+        '点击上方"已喂食"按钮，开始记录爱宠平静时间。',
+      );
   // Milestone labels
   String get milestoneJustGiven => _t('Just given', '刚服用');
   String get milestoneAbsorbing => _t('Absorbing', '吸收中');
@@ -93,11 +93,13 @@ class AppStrings {
   String get statePacing => _t('Anxious Pacing', '焦虑踱步');
   String get statePacingDesc => _t('Repetitive movement detected', '检测到重复性踱步');
   String get stateStressed => _t('Stressed', '应激状态');
-  String get stateStressedDesc => _t('High stress behavior detected', '检测到高压应激行为');
+  String get stateStressedDesc =>
+      _t('High stress behavior detected', '检测到高压应激行为');
   String get statePlaying => _t('Playing', '玩耍中');
   String get statePlayingDesc => _t('Active, healthy movement!', '活力四射，健康玩耍！');
   String get stateShivering => _t('Shivering ⚠️', '发抖 ⚠️');
-  String get stateSiveringDesc => _t('Possible pain, fear, or cold', '可能疼痛、恐惧或寒冷');
+  String get stateSiveringDesc =>
+      _t('Possible pain, fear, or cold', '可能疼痛、恐惧或寒冷');
   String get stateSleeping => _t('Sleeping', '睡眠中');
   String get stateSleepingDesc => _t('Resting peacefully', '安静休眠中');
   String get rightNow => _t('Right Now: ', '当前状态：');
@@ -122,38 +124,38 @@ class AppStrings {
   // ── Stress Chart（P0-4：/api/history 三档图表）────────────────────────────
   String get chartTitle => _t('Anxiety History', '焦虑历史');
   String get chartSubtitle => _t(
-    'From server · colored by behavior state',
-    '服务器数据 · 按行为状态染色',
-  );
+        'From server · colored by behavior state',
+        '服务器数据 · 按行为状态染色',
+      );
   String get chartTab24h => _t('24h', '24小时');
   String get chartTab7d => _t('7d', '7天');
   String get chartTab30d => _t('30d', '30天');
   String get chartNoData => _t('No data yet', '暂无数据');
   String get chartNoData24h => _t(
-    'No data in the last 24 hours',
-    '近24小时暂无曲线数据',
-  );
+        'No data in the last 24 hours',
+        '近24小时暂无曲线数据',
+      );
   String get chartNoData24hHint => _t(
-    'Collar has records on other days — switch to 7d or 30d',
-    '项圈曾在其他日期有记录，请切换至7天/30天查看',
-  );
+        'Collar has records on other days — switch to 7d or 30d',
+        '项圈曾在其他日期有记录，请切换至7天/30天查看',
+      );
   String get chartNoData24hFooter => _t(
-    'No monitoring in the last 24h',
-    '近24小时无监测记录',
-  );
+        'No monitoring in the last 24h',
+        '近24小时无监测记录',
+      );
   String get chartLoading => _t('Loading history…', '加载历史中…');
   String get chartMockHint => _t(
-    'Connect to server to view history',
-    '请连接服务器查看历史曲线',
-  );
+        'Connect to server to view history',
+        '请连接服务器查看历史曲线',
+      );
   String chartMonitoredToday(int hours, int minutes) => _t(
-    'Monitored today · $hours h $minutes m',
-    '今日已监测 $hours 小时 $minutes 分钟',
-  );
+        'Monitored today · $hours h $minutes m',
+        '今日已监测 $hours 小时 $minutes 分钟',
+      );
   String chartMonitoredPeriod(int withData, int total, String hours) => _t(
-    'Monitored $withData/$total days · $hours h total',
-    '监测 $withData/$total 天 · 累计 $hours 小时',
-  );
+        'Monitored $withData/$total days · $hours h total',
+        '监测 $withData/$total 天 · 累计 $hours 小时',
+      );
   String get chartAvgAnxiety => _t('Avg', '均值');
   String get chartPeakAnxiety => _t('Peak', '峰值');
 
@@ -176,18 +178,19 @@ class AppStrings {
 
   // ── Alert ─────────────────────────────────────────────────────────────────
   String alertShiver(String name, int sec) => _t(
-    '⚠️ $name has been shivering for over ${sec}s. Check for pain, cold, or fear.',
-    '⚠️ $name 已持续发抖超 $sec 秒，请检查是否疼痛、寒冷或恐惧。',
-  );
+        '⚠️ $name has been shivering for over ${sec}s. Check for pain, cold, or fear.',
+        '⚠️ $name 已持续发抖超 $sec 秒，请检查是否疼痛、寒冷或恐惧。',
+      );
   String alertActivity(String name) => _t(
-    '⚠️ $name\'s activity is 30% below normal. Consider a vet check.',
-    '⚠️ $name 今日活动量低于均值 30%，建议咨询兽医。',
-  );
+        '⚠️ $name\'s activity is 30% below normal. Consider a vet check.',
+        '⚠️ $name 今日活动量低于均值 30%，建议咨询兽医。',
+      );
 
   // ── Journal ───────────────────────────────────────────────────────────────
   String get journalTitle => _t('Daily Journal', '每日日记');
   String get journalLoggedToday => _t('✅ Logged today', '✅ 今日已记录');
-  String get journalQuestion => _t('How is Biscuit doing today?', '今天 Biscuit 状态如何？');
+  String get journalQuestion =>
+      _t('How is Biscuit doing today?', '今天 Biscuit 状态如何？');
   String get journalFullEntry => _t('Full Journal Entry', '完整日记记录');
   String get journalSaved => _t('Journal entry saved!', '日记已保存！');
   String get journalTodayTitle => _t('📓 Today\'s Journal', '📓 今日日记');
@@ -217,8 +220,9 @@ class AppStrings {
   String get petSyncLive => _t('Live', '实时');
   String get petSignalGood => _t('Good', '良好');
   String get petAnxietySlider => _t('Demo: Simulate Anxiety', '演示模式：模拟焦虑');
-  String get petAnxietySliderDesc =>
-      _t('Drag to preview how the app responds to anxiety levels', '拖动滑块，预览不同焦虑程度时 App 的显示效果');
+  String get petAnxietySliderDesc => _t(
+      'Drag to preview how the app responds to anxiety levels',
+      '拖动滑块，预览不同焦虑程度时 App 的显示效果');
   String get petDemoTag => _t('DEMO', '演示');
   String get petDisconnect => _t('Disconnect Device', '断开设备');
   String get petConnectBtn => _t('Connect Device', '连接设备');
@@ -233,19 +237,35 @@ class AppStrings {
   String get petSpeciesDog => _t('Dog', '狗狗');
   String get petSpeciesCat => _t('Cat', '猫咪');
   String get petSave => _t('Save Changes', '保存修改');
-  String get petProfileSaved => _t('✅ Pet profile saved and synced to cloud', '✅ 宠物档案已保存并同步到云端');
-  String get petProfileSavedLocal => _t('⚠️ Network timeout — saved on this device only.\nSave again when online to sync.', '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步');
-  String get petProfileFirestoreDenied => _t('⚠️ Cloud sync failed: Firestore permission denied.\nUpdate Rules in Firebase Console.', '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则');
-  String get petProfileAuthError => _t('⚠️ Session expired. Please sign in again and save.', '⚠️ 登录状态异常，请重新登录后保存');
-  String petProfileCloudError(String err) => _t('⚠️ Saved locally; cloud sync failed.\nReason: $err', '⚠️ 已保存到本机，云端同步失败\n原因：$err');
+  String get petProfileSaved =>
+      _t('✅ Pet profile saved and synced to cloud', '✅ 宠物档案已保存并同步到云端');
+  String get petProfileSavedLocal => _t(
+      '⚠️ Network timeout — saved on this device only.\nSave again when online to sync.',
+      '⚠️ 网络超时，档案已保存到本机\n联网后重新保存即可同步');
+  String get petProfileFirestoreDenied => _t(
+      '⚠️ Cloud sync failed: Firestore permission denied.\nUpdate Rules in Firebase Console.',
+      '⚠️ 云端同步失败：Firestore 权限不足\n请到 Firebase Console → Rules 更新规则');
+  String get petProfileAuthError => _t(
+      '⚠️ Session expired. Please sign in again and save.',
+      '⚠️ 登录状态异常，请重新登录后保存');
+  String petProfileCloudError(String err) => _t(
+      '⚠️ Saved locally; cloud sync failed.\nReason: $err',
+      '⚠️ 已保存到本机，云端同步失败\n原因：$err');
   String get petPhotoUpdated => _t('✅ Profile photo updated', '✅ 头像已更新');
-  String petPhotoTooLarge(String sizeMb) =>
-      _t('Image too large (${sizeMb}MB). Please choose one under 5MB.', '图片太大（${sizeMb}MB），请选择小于 5MB 的图片');
-  String get petPhotoUploadTimeout => _t('Upload timed out. Check your network and try again.', '上传超时，请检查网络后重试');
-  String get petPhotoStorageDenied => _t('Storage permission denied. Contact your administrator.', 'Storage 权限不足，请联系管理员');
-  String get petPhotoNetworkError => _t('Network error. Check your connection and try again.', '网络错误，请检查网络连接后重试');
-  String get petPhotoLoginRequired => _t('Please sign in before uploading a photo.', '请先登录再上传照片');
-  String petPhotoUploadFailed(String err) => _t('Upload failed: $err', '上传失败：$err');
+  String petPhotoTooLarge(String sizeMb) => _t(
+      'Image too large (${sizeMb}MB). Please choose one under 5MB.',
+      '图片太大（${sizeMb}MB），请选择小于 5MB 的图片');
+  String get petPhotoUploadTimeout => _t(
+      'Upload timed out. Check your network and try again.', '上传超时，请检查网络后重试');
+  String get petPhotoStorageDenied => _t(
+      'Storage permission denied. Contact your administrator.',
+      'Storage 权限不足，请联系管理员');
+  String get petPhotoNetworkError => _t(
+      'Network error. Check your connection and try again.', '网络错误，请检查网络连接后重试');
+  String get petPhotoLoginRequired =>
+      _t('Please sign in before uploading a photo.', '请先登录再上传照片');
+  String petPhotoUploadFailed(String err) =>
+      _t('Upload failed: $err', '上传失败：$err');
   String get petPhotoTooLargeFirestore => profilePhotoTooLargeFirestore;
 
   // ── Shop ──────────────────────────────────────────────────────────────────
@@ -253,19 +273,22 @@ class AppStrings {
   String get shopSubtitle => _t('ZenBelly products', 'ZenBelly 产品');
   String get shopBestSeller => _t('⭐ Best Seller', '⭐ 热销');
   String get shopProductName => _t('ZenBelly\nCalm Chews', 'ZenBelly\n舒缓软糖');
-  String get shopProductDesc => _t('No CBD · Probiotic-based\nAnxiety relief for dogs', '无 CBD · 益生菌配方\n狗狗情绪舒缓');
+  String get shopProductDesc => _t(
+      'No CBD · Probiotic-based\nAnxiety relief for dogs',
+      '无 CBD · 益生菌配方\n狗狗情绪舒缓');
   String get shopNow => _t('Shop Now', '立即购买');
   String get shopBundle => _t('Starter Bundle', '入门套装');
-  String get shopBundleDesc =>
-      _t('3x ZenBelly + Smart Collar\n6-month FREE app access', '3罐 ZenBelly + 智能项圈\n6个月免费使用APP');
+  String get shopBundleDesc => _t(
+      '3x ZenBelly + Smart Collar\n6-month FREE app access',
+      '3罐 ZenBelly + 智能项圈\n6个月免费使用APP');
   String get shopAllProducts => _t('All Products', '全部产品');
   String get shopVisitStore =>
       _t('Visit Full Store at petoteco.com', '访问独立站 petoteco.com');
   String get shopOpenTitle => _t('Open Petoteco Store', '打开 Petoteco 商城');
   String get shopOpenDesc => _t(
-    'This will open the full store in your browser.\n\nIn the live app, this opens your Shopify store in a seamless WebView with your login automatically synced.',
-    '即将在浏览器中打开完整商城。\n\n正式版 APP 中，将以 WebView 无缝嵌入 Shopify 独立站，并自动同步登录状态。',
-  );
+        'This will open the full store in your browser.\n\nIn the live app, this opens your Shopify store in a seamless WebView with your login automatically synced.',
+        '即将在浏览器中打开完整商城。\n\n正式版 APP 中，将以 WebView 无缝嵌入 Shopify 独立站，并自动同步登录状态。',
+      );
   String get shopOpenBtn => _t('Open Store', '打开商城');
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -285,13 +308,14 @@ class AppStrings {
   String get profileDeviceGuide => _t('Device Setup Guide', '设备使用指南');
   String get profileReports => _t('Health Reports', '健康报告');
   String get profileReportsHint => _t(
-    'Anxiety history is on the Health dashboard (24h / 7d / 30d charts).',
-    '焦虑历史请查看健康页「焦虑历史」图表（24小时/7天/30天）。',
-  );
+        'Anxiety history is on the Health dashboard (24h / 7d / 30d charts).',
+        '焦虑历史请查看健康页「焦虑历史」图表（24小时/7天/30天）。',
+      );
   String get profileNotifications => _t('Notifications', '消息通知');
   String get profilePrivacy => _t('Privacy & Data', '隐私与数据');
   String get profileSignOut => _t('Sign Out', '退出登录');
   String get profileLanguage => _t('Language / 语言', 'Language / 语言');
+  String get profileAccountSecurity => _t('Account Security', '账号安全');
   String get profileEditTitle => _t('Edit Profile', '编辑资料');
   String get profileNicknameLabel => _t('Nickname', '昵称');
   String get profileNicknameHint => _t('Enter your nickname', '请输入昵称');
@@ -300,50 +324,78 @@ class AppStrings {
   String get profilePhotoTapHint => _t('Tap photo to change', '点击头像更换');
   String get profileChangePhoto => _t('Change Profile Photo', '更换头像');
   String get profilePhotoTooLargeFirestore => _t(
-    'Photo is too large for cloud save (max ~700KB). Please choose a smaller image.',
-    '图片过大无法保存到云端（约 700KB 以内），请换一张更小的图',
-  );
+        'Photo is too large for cloud save (max ~700KB). Please choose a smaller image.',
+        '图片过大无法保存到云端（约 700KB 以内），请换一张更小的图',
+      );
   String profileSaveFailed(String err) => _t('Save failed: $err', '保存失败：$err');
+  String get securityProvider => _t('Sign-in method', '登录方式');
+  String get securityEmailPasswordHint => _t(
+        'Enter your current password to change it.',
+        '输入当前密码后即可修改密码。',
+      );
+  String get securityThirdPartyHint => _t(
+        'This account signs in with a third-party provider. Password changes must be completed there.',
+        '当前账号使用第三方登录，密码需要在对应账号服务中修改。',
+      );
+  String get securityCurrentPassword => _t('Current password', '当前密码');
+  String get securityNewPassword => _t('New password', '新密码');
+  String get securityConfirmNewPassword => _t('Confirm new password', '确认新密码');
+  String get securityChangePassword => _t('Change Password', '修改密码');
+  String get securityPasswordChanged => _t('Password updated', '密码已修改');
+  String get securityPasswordMismatch =>
+      _t('Passwords do not match', '两次输入的新密码不一致');
+  String get securityResetEmail => _t('Send Reset Email', '发送重置邮件');
+  String get securityResetSent => _t('Password reset email sent', '密码重置邮件已发送');
   // Subscription management sheet
   String get subSheetTitle => _t('Manage Subscription', '管理订阅');
-  String subSheetBody(String name) =>
-      _t('You\'re making a difference for $name\'s wellbeing 🐾', '你在为 $name 的健康作出改变 🐾');
-  String get subProgress => _t('📊 Your Health Progress This Month', '📊 本月健康进展');
+  String subSheetBody(String name) => _t(
+      'You\'re making a difference for $name\'s wellbeing 🐾',
+      '你在为 $name 的健康作出改变 🐾');
+  String get subProgress =>
+      _t('📊 Your Health Progress This Month', '📊 本月健康进展');
   String get subAnxiety => _t('Anxiety events reduced', '焦虑事件减少');
   String get subTtc => _t('Time to calm improved', '平静用时缩短');
   String get subSleep => _t('Sleep quality increased', '睡眠质量提升');
   String get subWarning => _t(
-    'Pausing now means losing 34 days of behavioral baseline data.',
-    '暂停将导致 34 天行为基线数据丢失。',
-  );
+        'Pausing now means losing 34 days of behavioral baseline data.',
+        '暂停将导致 34 天行为基线数据丢失。',
+      );
   String get subPause => _t('Pause for 1 Month Instead', '改为暂停 1 个月');
   String get subCancel => _t('Cancel Subscription', '取消订阅');
   // Support dialog
   String get supportTitle => _t('💬 Customer Support', '💬 客服支持');
   String get supportDesc => _t(
-    'In the live app, this opens Crisp or Intercom live chat embedded inside the app, with your account pre-loaded.',
-    '正式版 APP 中将嵌入 Crisp/Intercom 在线客服，账户信息自动加载。',
-  );
-  String get supportResponse => _t('Response time: Usually < 2 hours', '响应时间：通常 2 小时内');
+        'In the live app, this opens Crisp or Intercom live chat embedded inside the app, with your account pre-loaded.',
+        '正式版 APP 中将嵌入 Crisp/Intercom 在线客服，账户信息自动加载。',
+      );
+  String get supportResponse =>
+      _t('Response time: Usually < 2 hours', '响应时间：通常 2 小时内');
   String get supportChat => _t('Start Chat', '开始聊天');
   // Device guide
   String get guideTitle => _t('📡 Device Setup Guide', '📡 设备使用指南');
-  String get guideStep1 => _t('Charge the ZenBelly collar for 2 hours before first use', '首次使用前充电 2 小时');
+  String get guideStep1 => _t(
+      'Charge the ZenBelly collar for 2 hours before first use',
+      '首次使用前充电 2 小时');
   String get guideStep2 => _t('Enable Bluetooth on your phone', '开启手机蓝牙');
-  String get guideStep3 => _t('Hold your phone within 30cm of the collar', '手机靠近项圈 30cm 以内');
-  String get guideStep4 => _t('Tap "Connect Device" in the My Pet tab', '在"宠物"页点击"连接设备"');
-  String get guideStep5 => _t('Attach collar to pet — not too tight, 2-finger gap', '佩戴项圈，保留两指宽松度');
-  String get guideStep6 => _t('Data will begin syncing within 30 seconds', '30 秒内数据开始同步');
+  String get guideStep3 =>
+      _t('Hold your phone within 30cm of the collar', '手机靠近项圈 30cm 以内');
+  String get guideStep4 =>
+      _t('Tap "Connect Device" in the My Pet tab', '在"宠物"页点击"连接设备"');
+  String get guideStep5 =>
+      _t('Attach collar to pet — not too tight, 2-finger gap', '佩戴项圈，保留两指宽松度');
+  String get guideStep6 =>
+      _t('Data will begin syncing within 30 seconds', '30 秒内数据开始同步');
   String get guideGotIt => _t('Got it!', '明白了！');
   // Sign out
   String get signOutTitle => _t('Sign Out', '退出登录');
-  String get signOutConfirm => _t('Are you sure you want to sign out?', '确定要退出登录吗？');
+  String get signOutConfirm =>
+      _t('Are you sure you want to sign out?', '确定要退出登录吗？');
   String get signOutBtn => _t('Sign Out', '退出');
   // Reorder dialog
   String get reorderBody => _t(
-    'In the live app, this will open the store to reorder ZenBelly supplies with your subscription discount applied.',
-    '正式版 APP 中，将打开商城以订阅折扣价续购 ZenBelly 产品。',
-  );
+        'In the live app, this will open the store to reorder ZenBelly supplies with your subscription discount applied.',
+        '正式版 APP 中，将打开商城以订阅折扣价续购 ZenBelly 产品。',
+      );
 
   // Subscription section labels
   String get subLabel => _t('Subscription', '订阅');
@@ -351,24 +403,25 @@ class AppStrings {
 
   // Notifications dialog
   String get notifSettingsBody => _t(
-    'Notification settings will be available in the full release.',
-    '消息通知设置将在正式版本中开放。',
-  );
+        'Notification settings will be available in the full release.',
+        '消息通知设置将在正式版本中开放。',
+      );
 
   // Privacy dialog
   String get privacyBody => _t(
-    'Your data is stored locally and never sold. Full privacy policy available at petoteco.com/privacy',
-    '您的数据仅存储在本地，不会被出售。完整隐私政策请访问 petoteco.com/privacy',
-  );
+        'Your data is stored locally and never sold. Full privacy policy available at petoteco.com/privacy',
+        '您的数据仅存储在本地，不会被出售。完整隐私政策请访问 petoteco.com/privacy',
+      );
 
   // Session report (health reports dialog)
-  String sessionMinToCalm(String mins) => _t('$mins min to calm', '$mins 分钟恢复平静');
+  String sessionMinToCalm(String mins) =>
+      _t('$mins min to calm', '$mins 分钟恢复平静');
 
   // Cancel timer dialog
   String get timerCancelBody => _t(
-    'This will discard the current timing session. Are you sure?',
-    '这将丢弃当前的计时记录，确定要取消吗？',
-  );
+        'This will discard the current timing session. Are you sure?',
+        '这将丢弃当前的计时记录，确定要取消吗？',
+      );
   String get timerKeepTracking => _t('Keep Tracking', '继续计时');
 
   // Shop unit
@@ -433,7 +486,11 @@ class AppStrings {
   // 物种本地化
   String translateSpecies(String species) {
     if (locale != 'zh') return species;
-    return species == 'dog' ? '狗狗' : species == 'cat' ? '猫咪' : species;
+    return species == 'dog'
+        ? '狗狗'
+        : species == 'cat'
+            ? '猫咪'
+            : species;
   }
 
   // ── Health Tags ───────────────────────────────────────────────────────────
@@ -457,101 +514,121 @@ class AppStrings {
   }
 
   // ── Health Calendar ───────────────────────────────────────────────────────
-  String get calendarTitle   => _t('Health Calendar', '健康日历');
-  String get calendarSensor  => _t('Sensor', '传感器');
-  String get calendarOwner   => _t('My Notes', '我的记录');
-  String get calendarFed     => _t('ZenBelly ✓', '已喂食 ✓');
+  String get calendarTitle => _t('Health Calendar', '健康日历');
+  String get calendarSensor => _t('Sensor', '传感器');
+  String get calendarOwner => _t('My Notes', '我的记录');
+  String get calendarFed => _t('ZenBelly ✓', '已喂食 ✓');
   String get calendarOffline => _t('Device offline', '设备离线');
   String get calendarNoEntry => _t('Not recorded', '未填写');
-  String get calendarNoData  => _t('No data for this day', '当天暂无数据');
-  String get calendarStress  => _t('Stress', '应激');
-  String get calendarEvents  => _t('Events', '事件');
-  String get calendarActivity=> _t('Activity', '活动');
-  String get calendarTtc     => _t('To calm', '平静用时');
-  String get calendarPts     => _t('pts', '分');
-  String get calendarTimes   => _t('x', '次');
+  String get calendarNoData => _t('No data for this day', '当天暂无数据');
+  String get calendarStress => _t('Stress', '应激');
+  String get calendarEvents => _t('Events', '事件');
+  String get calendarActivity => _t('Activity', '活动');
+  String get calendarTtc => _t('To calm', '平静用时');
+  String get calendarPts => _t('pts', '分');
+  String get calendarTimes => _t('x', '次');
   String get calendarWriteJournal => _t('Write', '写日记');
-  String get calendarTodayExists  => _t("Today's entry already saved. Saving again will add a new entry.", '今天已有记录，再次保存将新增一条。');
+  String get calendarTodayExists => _t(
+      "Today's entry already saved. Saving again will add a new entry.",
+      '今天已有记录，再次保存将新增一条。');
 
   // ── Order & Billing ────────────────────────────────────────────────────────
   String get orderDelivered => _t('Delivered', '已送达');
-  String get orderShipped   => _t('Shipped', '已发货');
-  String get orderPending   => _t('Processing', '处理中');
+  String get orderShipped => _t('Shipped', '已发货');
+  String get orderPending => _t('Processing', '处理中');
 
   // ── Auth / Login ──────────────────────────────────────────────────────────
-  String get authLoginTitle      => _t('Welcome Back', '欢迎回来');
-  String get authLoginSubtitle   => _t('Sign in to monitor your pet\'s health', '登录以监测宠物健康状态');
-  String get authRegisterTitle   => _t('Create Account', '创建账号');
-  String get authRegisterSubtitle=> _t('Join Petoteco to start monitoring', '注册 Petoteco，开始健康监测');
-  String get authForgotTitle     => _t('Reset Password', '重置密码');
-  String get authForgotSubtitle  => _t('Enter your email and we\'ll send a reset link', '输入邮箱，我们将发送重置链接');
-  String get authEmail           => _t('Email', '邮箱');
-  String get authPassword        => _t('Password', '密码');
+  String get authLoginTitle => _t('Welcome Back', '欢迎回来');
+  String get authLoginSubtitle =>
+      _t('Sign in to monitor your pet\'s health', '登录以监测宠物健康状态');
+  String get authRegisterTitle => _t('Create Account', '创建账号');
+  String get authRegisterSubtitle =>
+      _t('Join Petoteco to start monitoring', '注册 Petoteco，开始健康监测');
+  String get authForgotTitle => _t('Reset Password', '重置密码');
+  String get authForgotSubtitle =>
+      _t('Enter your email and we\'ll send a reset link', '输入邮箱，我们将发送重置链接');
+  String get authEmail => _t('Email', '邮箱');
+  String get authPassword => _t('Password', '密码');
   String get authConfirmPassword => _t('Confirm Password', '确认密码');
-  String get authName            => _t('Your Name', '您的昵称');
-  String get authLoginBtn        => _t('Sign In', '登录');
-  String get authRegisterBtn     => _t('Create Account', '注册');
-  String get authSendReset       => _t('Send Reset Email', '发送重置邮件');
-  String get authGoogleBtn       => _t('Continue with Google', '使用 Google 账号登录');
-  String get authOr              => _t('or', '或');
-  String get authForgotLink      => _t('Forgot password?', '忘记密码？');
-  String get authNoAccount       => _t('Don\'t have an account?', '还没有账号？');
-  String get authHasAccount      => _t('Already have an account?', '已有账号？');
-  String get authRegisterLink    => _t('Sign up', '立即注册');
-  String get authLoginLink       => _t('Sign in', '去登录');
-  String get authBackToLogin     => _t('← Back to Sign In', '← 返回登录');
+  String get authName => _t('Your Name', '您的昵称');
+  String get authLoginBtn => _t('Sign In', '登录');
+  String get authRegisterBtn => _t('Create Account', '注册');
+  String get authSendReset => _t('Send Reset Email', '发送重置邮件');
+  String get authGoogleBtn => _t('Continue with Google', '使用 Google 账号登录');
+  String get authOr => _t('or', '或');
+  String get authForgotLink => _t('Forgot password?', '忘记密码？');
+  String get authNoAccount => _t('Don\'t have an account?', '还没有账号？');
+  String get authHasAccount => _t('Already have an account?', '已有账号？');
+  String get authRegisterLink => _t('Sign up', '立即注册');
+  String get authLoginLink => _t('Sign in', '去登录');
+  String get authBackToLogin => _t('← Back to Sign In', '← 返回登录');
   // 验证错误
-  String get authEmailRequired   => _t('Please enter your email', '请输入邮箱');
-  String get authEmailInvalid    => _t('Please enter a valid email', '请输入有效的邮箱地址');
-  String get authPasswordRequired=> _t('Please enter your password', '请输入密码');
-  String get authPasswordTooShort=> _t('Password must be at least 6 characters', '密码不能少于6位');
-  String get authPasswordMismatch=> _t('Passwords do not match', '两次密码不一致');
-  String get authNameRequired    => _t('Please enter your name', '请输入昵称');
+  String get authEmailRequired => _t('Please enter your email', '请输入邮箱');
+  String get authEmailInvalid => _t('Please enter a valid email', '请输入有效的邮箱地址');
+  String get authPasswordRequired => _t('Please enter your password', '请输入密码');
+  String get authPasswordTooShort =>
+      _t('Password must be at least 6 characters', '密码不能少于6位');
+  String get authPasswordMismatch => _t('Passwords do not match', '两次密码不一致');
+  String get authNameRequired => _t('Please enter your name', '请输入昵称');
 
   /// 格式化日期：zh → "7月14日"，en → "Jul 14, 2025"
   String formatDate(DateTime d) {
     if (locale == 'zh') {
       return '${d.year}年${d.month}月${d.day}日';
     }
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${months[d.month]} ${d.day}, ${d.year}';
   }
 
   // ── E1/E2/E3 菜单入口 ─────────────────────────────────────────────────────
   String get profileEdgeImpulse => _t('AI Data Lab', 'AI 数据工具');
-  String get profileOta         => _t('Firmware Update (OTA)', '固件升级 (OTA)');
+  String get profileOta => _t('Firmware Update (OTA)', '固件升级 (OTA)');
 
   // ── 账号删除 ───────────────────────────────────────────────────────────────
-  String get profileDeleteAccount      => _t('Delete Account', '删除账号');
-  String get deleteAccountTitle        => _t('Delete Account?', '确认删除账号？');
-  String get deleteAccountWarning      => _t(
-    'This will permanently delete your account and all associated data (pet profile, feeding records, journal entries). This action cannot be undone.',
-    '这将永久删除您的账号及所有数据（宠物档案、喂食记录、健康日记）。\n\n此操作不可撤销。',
-  );
-  String get deleteAccountConfirmHint  => _t(
-    'Type DELETE to confirm',
-    '请输入 DELETE 确认删除',
-  );
-  String get deleteAccountBtn          => _t('Permanently Delete', '永久删除');
-  String get deleteAccountSuccess      => _t('Account deleted. Goodbye!', '账号已删除，再见！');
-  String get deleteAccountErrorRecent  => _t(
-    'Please sign out and sign in again before deleting.',
-    '请先退出登录并重新登录后再删除账号。',
-  );
+  String get profileDeleteAccount => _t('Delete Account', '删除账号');
+  String get deleteAccountTitle => _t('Delete Account?', '确认删除账号？');
+  String get deleteAccountWarning => _t(
+        'This will permanently delete your account and all associated data (pet profile, feeding records, journal entries). This action cannot be undone.',
+        '这将永久删除您的账号及所有数据（宠物档案、喂食记录、健康日记）。\n\n此操作不可撤销。',
+      );
+  String get deleteAccountConfirmHint => _t(
+        'Type DELETE to confirm',
+        '请输入 DELETE 确认删除',
+      );
+  String get deleteAccountBtn => _t('Permanently Delete', '永久删除');
+  String get deleteAccountSuccess =>
+      _t('Account deleted. Goodbye!', '账号已删除，再见！');
+  String get deleteAccountErrorRecent => _t(
+        'Please sign out and sign in again before deleting.',
+        '请先退出登录并重新登录后再删除账号。',
+      );
 
   // ── Pet Device Demo Slider ─────────────────────────────────────────────────
-  String get petAnxietySliderHint =>
-      _t('Demo only — real data comes from the collar sensor',
-         '演示专用 — 正式版由项圈传感器自动检测');
+  String get petAnxietySliderHint => _t(
+      'Demo only — real data comes from the collar sensor',
+      '演示专用 — 正式版由项圈传感器自动检测');
 
   // ── Device binding（最终对接）────────────────────────────────────────────
   String get deviceMyDevices => _t('My Devices', '我的设备');
   String get deviceBindTitle => _t('Bind Collar', '绑定项圈');
   String get deviceBindSubtitle => _t(
-    'Enter the device ID and key from the product box.',
-    '输入包装盒上的设备 ID 与密钥。',
-  );
+        'Enter the device ID and key from the product box.',
+        '输入包装盒上的设备 ID 与密钥。',
+      );
   String get deviceIdLabel => _t('Device ID', '设备 ID');
   String get deviceKeyLabel => _t('Device Key', '设备密钥');
   String get deviceBindAction => _t('Bind Device', '绑定设备');
@@ -560,13 +637,14 @@ class AppStrings {
   String get deviceUnbindConfirm => _t('Unbind this collar?', '解绑此项圈？');
   String get deviceEmptyTitle => _t('No collar bound yet', '尚未绑定项圈');
   String get deviceEmptyHint => _t(
-    'Bind your CalmPaws collar to view live health data.',
-    '绑定 CalmPaws 项圈后即可查看实时健康数据。',
-  );
+        'Bind your CalmPaws collar to view live health data.',
+        '绑定 CalmPaws 项圈后即可查看实时健康数据。',
+      );
   String get deviceBindSuccess => _t('Device bound successfully', '绑定成功');
   String get deviceBindNotFound => _t('Device not found', '设备不存在');
   String get deviceBindWrongKey => _t('Incorrect device key', '设备密钥错误');
-  String get deviceBindConflict => _t('Device already bound to another account', '设备已被其他账号绑定');
+  String get deviceBindConflict =>
+      _t('Device already bound to another account', '设备已被其他账号绑定');
   String get deviceForbidden => _t('Please bind this device first', '请先绑定此设备');
   String get deviceSwitchLabel => _t('Collar', '项圈');
   String deviceBoundAt(String when) => _t('Bound $when', '绑定于 $when');
