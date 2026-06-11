@@ -45,6 +45,10 @@ import '../../widgets/common/circle_photo.dart';
 import '../auth/auth_screen.dart';
 import '../dev/debug_panel.dart';
 
+// Keep unfinished commerce and developer surfaces out of the normal user flow.
+const bool _showCommercePlaceholders = false;
+const bool _showDevelopmentMenuItems = false;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfileScreen — StatefulWidget（修复语言切换 & 菜单弹窗）
 // 根本原因：StatelessWidget 中的辅助方法无法响应 context.watch()，
@@ -241,7 +245,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           physics: const BouncingScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context, localeProvider, s)),
-            SliverToBoxAdapter(child: _buildSubscriptionCard(context, s)),
+            if (_showCommercePlaceholders)
+              SliverToBoxAdapter(child: _buildSubscriptionCard(context, s)),
             SliverToBoxAdapter(child: _buildMenuSection(context, provider, s)),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
@@ -319,28 +324,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         maxLines: 1,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    // 订阅状态标签
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.sageMuted,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          s.profileSubscriber,
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.sageGreen,
-                            fontWeight: FontWeight.w600,
+                    if (_showCommercePlaceholders) ...[
+                      const SizedBox(height: 6),
+                      // 订阅状态标签
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.sageMuted,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          maxLines: 1,
+                          child: Text(
+                            s.profileSubscriber,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.sageGreen,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -601,13 +608,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          _MenuItem(
-            icon: Icons.receipt_long_rounded,
-            iconColor: AppColors.sageGreen,
-            label: s.profileOrders,
-            onTap: () => _showOrderHistory(context, s),
-          ),
-          const _Divider(),
+          if (_showCommercePlaceholders) ...[
+            _MenuItem(
+              icon: Icons.receipt_long_rounded,
+              iconColor: AppColors.sageGreen,
+              label: s.profileOrders,
+              onTap: () => _showOrderHistory(context, s),
+            ),
+            const _Divider(),
+          ],
           _MenuItem(
             icon: Icons.support_agent_rounded,
             iconColor: AppColors.warmOrange,
@@ -623,33 +632,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => _showDeviceGuide(context, s),
           ),
           const _Divider(),
-          _MenuItem(
-            icon: Icons.system_update_alt_rounded,
-            iconColor: const Color(0xFF6B7FD4),
-            label: s.profileOta,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OtaScreen()),
+          if (_showDevelopmentMenuItems) ...[
+            _MenuItem(
+              icon: Icons.system_update_alt_rounded,
+              iconColor: const Color(0xFF6B7FD4),
+              label: s.profileOta,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OtaScreen()),
+              ),
             ),
-          ),
-          const _Divider(),
-          _MenuItem(
-            icon: Icons.psychology_rounded,
-            iconColor: AppColors.warningAmber,
-            label: s.profileEdgeImpulse,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EdgeImpulseScreen()),
+            const _Divider(),
+            _MenuItem(
+              icon: Icons.psychology_rounded,
+              iconColor: AppColors.warningAmber,
+              label: s.profileEdgeImpulse,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EdgeImpulseScreen()),
+              ),
             ),
-          ),
-          const _Divider(),
-          _MenuItem(
-            icon: Icons.bar_chart_rounded,
-            iconColor: const Color(0xFF6B7FD4),
-            label: s.profileReports,
-            onTap: () => _showHealthReports(context, provider, s),
-          ),
-          const _Divider(),
+            const _Divider(),
+          ],
+          if (_showCommercePlaceholders) ...[
+            _MenuItem(
+              icon: Icons.bar_chart_rounded,
+              iconColor: const Color(0xFF6B7FD4),
+              label: s.profileReports,
+              onTap: () => _showHealthReports(context, provider, s),
+            ),
+            const _Divider(),
+          ],
           if (!isDemoMode) ...[
             _MenuItem(
               icon: Icons.devices_rounded,
