@@ -1033,6 +1033,10 @@ class PetHealthProvider extends ChangeNotifier {
   // [TODO: 异常处理] 写入失败时可加本地队列，离线时缓存，联网后重试
   Future<void> addJournalEntry(JournalEntry entry) async {
     // 最新记录插入列表头部，UI 显示时自然按时间倒序
+    _journalEntries.removeWhere((existing) =>
+        existing.date.year == entry.date.year &&
+        existing.date.month == entry.date.month &&
+        existing.date.day == entry.date.day);
     _journalEntries.insert(0, entry);
     notifyListeners(); // 先刷新 UI，让用户感知立即保存成功
 

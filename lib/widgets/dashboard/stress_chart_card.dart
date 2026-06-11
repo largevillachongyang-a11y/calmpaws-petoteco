@@ -341,18 +341,24 @@ class _StressChartCardState extends State<StressChartCard> {
       maxY: 100,
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
-          getTooltipItems: (spots) => spots
-              .map(
-                (spot) => LineTooltipItem(
-                  spot.y.toStringAsFixed(0),
-                  const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              )
-              .toList(),
+          getTooltipItems: (spots) {
+            if (spots.isEmpty) return [];
+            final primary = spots.reduce((a, b) => a.y >= b.y ? a : b);
+            return spots
+                .map(
+                  (spot) => identical(spot, primary)
+                      ? LineTooltipItem(
+                          spot.y.toStringAsFixed(0),
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        )
+                      : null,
+                )
+                .toList();
+          },
         ),
       ),
       lineBarsData: [...segments, ...dotBars],
