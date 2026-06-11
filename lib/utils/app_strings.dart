@@ -640,6 +640,20 @@ class AppStrings {
   String get deviceIdLabel => _t('Device ID', '设备 ID');
   String get deviceKeyLabel => _t('Device Key', '设备密钥');
   String get deviceBindAction => _t('Bind Device', '绑定设备');
+  String get deviceScanQrAction => _t('Scan QR Code', '扫描二维码');
+  String get deviceScanQrTitle => _t('Scan Collar QR Code', '扫描项圈二维码');
+  String get deviceScanQrHint => _t(
+        'Point the camera at the QR code generated in the admin panel.',
+        '将摄像头对准后台生成的设备二维码。',
+      );
+  String get deviceScanQrInvalid => _t(
+        'QR code is invalid. Please scan a CalmPaws binding QR code.',
+        '二维码无效，请扫描 CalmPaws 绑定二维码。',
+      );
+  String get deviceScanQrNoCamera => _t(
+        'Camera permission is required to scan QR codes.',
+        '需要相机权限才能扫描二维码。',
+      );
   String get deviceAddAction => _t('Add Device', '添加设备');
   String get deviceUnbind => _t('Unbind', '解绑');
   String get deviceUnbindConfirm => _t('Unbind this collar?', '解绑此项圈？');

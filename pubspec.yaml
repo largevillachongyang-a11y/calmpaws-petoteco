@@ -24,6 +24,9 @@ dependencies:
   # HTTP
   http: 1.5.0
 
+  # QR / barcode scanning for device binding
+  mobile_scanner: ^7.2.0
+
   # Icons
   cupertino_icons: ^1.0.8
 
