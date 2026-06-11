@@ -27,6 +27,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/device_binding_provider.dart';
 import '../../providers/pet_health_provider.dart';
 import '../../providers/locale_provider.dart';
@@ -675,13 +676,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const _Divider(),
-            _MenuItem(
-              icon: Icons.wifi_rounded,
-              iconColor: const Color(0xFF4A90D9),
-              label: s.profileServerSettings,
-              onTap: () => _showServerSettingsDialog(context),
-            ),
-            const _Divider(),
+            if (_showDevelopmentMenuItems) ...[
+              _MenuItem(
+                icon: Icons.wifi_rounded,
+                iconColor: const Color(0xFF4A90D9),
+                label: s.profileServerSettings,
+                onTap: () => _showServerSettingsDialog(context),
+              ),
+              const _Divider(),
+            ],
           ],
           _MenuItem(
             icon: Icons.notifications_none_rounded,
@@ -978,7 +981,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     final canChangePassword = authService.currentUserCanChangePassword;
-    final providers = authService.currentUserProviderIds
+    final providerIds = authService.currentUserProviderIds;
+    final canOpenGoogleSecurity = providerIds.contains('google.com');
+    final providers = providerIds
         .map((provider) => provider == 'password' ? 'email/password' : provider)
         .join(', ');
     bool changing = false;
@@ -1085,36 +1090,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   sendingReset || changing ? null : () => Navigator.pop(ctx),
               child: Text(s.close, style: const TextStyle(color: Colors.grey)),
             ),
-            TextButton(
-              onPressed: sendingReset || changing
-                  ? null
-                  : () async {
-                      setS(() => sendingReset = true);
-                      final result =
-                          await authService.sendPasswordResetForCurrentUser(
-                        isZh: context.read<LocaleProvider>().isZh,
-                      );
-                      if (!ctx.mounted) return;
-                      setS(() => sendingReset = false);
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(
-                          content: Text(result.isSuccess
-                              ? s.securityResetSent
-                              : (result.errorMessage ?? 'Failed')),
-                          backgroundColor: result.isSuccess
-                              ? AppColors.sageGreen
-                              : Colors.red,
-                        ),
-                      );
-                    },
-              child: sendingReset
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(s.securityResetEmail),
-            ),
+            if (canChangePassword)
+              TextButton(
+                onPressed: sendingReset || changing
+                    ? null
+                    : () async {
+                        setS(() => sendingReset = true);
+                        final result =
+                            await authService.sendPasswordResetForCurrentUser(
+                          isZh: context.read<LocaleProvider>().isZh,
+                        );
+                        if (!ctx.mounted) return;
+                        setS(() => sendingReset = false);
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text(result.isSuccess
+                                ? s.securityResetSent
+                                : (result.errorMessage ?? 'Failed')),
+                            backgroundColor: result.isSuccess
+                                ? AppColors.sageGreen
+                                : Colors.red,
+                          ),
+                        );
+                      },
+                child: sendingReset
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(s.securityResetEmail),
+              ),
+            if (!canChangePassword && canOpenGoogleSecurity)
+              TextButton(
+                onPressed: () async {
+                  final uri =
+                      Uri.parse('https://myaccount.google.com/security');
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                child: Text(
+                  context.read<LocaleProvider>().isZh
+                      ? '打开 Google 账号安全设置'
+                      : 'Open Google Account Security',
+                ),
+              ),
             if (canChangePassword)
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
