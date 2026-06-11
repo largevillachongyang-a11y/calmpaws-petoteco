@@ -13,10 +13,11 @@ import '../../providers/pet_health_provider.dart';
 import '../../theme/app_theme.dart';
 
 // ── URL 常量 ──────────────────────────────────────────────────────────────────
-const _kProductUrl   = 'https://petotecolife.com/product/zenbelly-calming-probiotic-chews';
-const _kStoreUrl     = 'https://petotecolife.com/';
-const _kOrdersUrl    = 'https://petotecolife.com/my-account/orders/';
-const _kSubscribeUrl = 'https://petotecolife.com/product/zenbelly-calming-probiotic-chews/#subscribe';
+const _kProductUrl =
+    'https://petotecolife.com/product/zenbelly-calming-probiotic-chews';
+const _kStoreUrl = 'https://petotecolife.com/';
+const _kSubscribeUrl =
+    'https://petotecolife.com/product/zenbelly-calming-probiotic-chews/#subscribe';
 
 Future<void> _openUrl(String url) async {
   final uri = Uri.parse(url);
@@ -42,6 +43,12 @@ class ShopScreen extends StatelessWidget {
           slivers: [
             // ── Header ──────────────────────────────────────────────────────
             SliverToBoxAdapter(child: _ShopHeader(isZh: isZh)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _ExternalStoreNotice(isZh: isZh),
+              ),
+            ),
 
             // ── 主打产品卡片 ─────────────────────────────────────────────────
             SliverToBoxAdapter(
@@ -109,6 +116,39 @@ class ShopScreen extends StatelessWidget {
 }
 
 // ── Header ────────────────────────────────────────────────────────────────────
+class _ExternalStoreNotice extends StatelessWidget {
+  final bool isZh;
+  const _ExternalStoreNotice({required this.isZh});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.open_in_new_rounded,
+              size: 18, color: AppColors.sageGreen),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              isZh
+                  ? '商品购买、结账和订单管理由 Petoteco 官网处理，APP 不保存支付信息。'
+                  : 'Purchases, checkout, and order management are handled by the Petoteco website. The app does not store payment details.',
+              style: AppTextStyles.labelSmall.copyWith(height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ShopHeader extends StatelessWidget {
   final bool isZh;
   const _ShopHeader({required this.isZh});
@@ -135,21 +175,28 @@ class _ShopHeader extends StatelessWidget {
           const Spacer(),
           // 订单按钮
           GestureDetector(
-            onTap: () => _openUrl(_kOrdersUrl),
+            onTap: () => _openUrl(_kStoreUrl),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 8, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                      color: AppColors.shadowColor,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2))
+                ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.receipt_long_rounded, size: 16, color: AppColors.textSecondary),
+                  const Icon(Icons.open_in_new_rounded,
+                      size: 16, color: AppColors.textSecondary),
                   const SizedBox(width: 5),
                   Text(
-                    isZh ? '我的订单' : 'My Orders',
-                    style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w600),
+                    isZh ? '官网购买' : 'External Store',
+                    style: AppTextStyles.labelSmall
+                        .copyWith(fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -302,7 +349,8 @@ class _HeroProductCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
+              borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(AppRadius.xl)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -334,7 +382,8 @@ class _WhiteBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -380,25 +429,34 @@ class _SubscriptionSectionState extends State<_SubscriptionSection> {
   Widget build(BuildContext context) {
     final plans = [
       _Plan(
-        labelEn: 'Monthly',      labelZh: '月订阅',
-        priceEn: '\$29.90/mo',   priceZh: '\$29.90/月',
-        saveEn: '',               saveZh: '',
+        labelEn: 'Monthly',
+        labelZh: '月订阅',
+        priceEn: '\$29.90/mo',
+        priceZh: '\$29.90/月',
+        saveEn: '',
+        saveZh: '',
         descEn: 'Billed monthly · Cancel anytime',
         descZh: '每月扣费 · 随时取消',
         highlight: false,
       ),
       _Plan(
-        labelEn: 'Quarterly',    labelZh: '季订阅',
-        priceEn: '\$25.90/mo',   priceZh: '\$25.90/月',
-        saveEn: 'Save 13%',      saveZh: '省13%',
+        labelEn: 'Quarterly',
+        labelZh: '季订阅',
+        priceEn: '\$25.90/mo',
+        priceZh: '\$25.90/月',
+        saveEn: 'Save 13%',
+        saveZh: '省13%',
         descEn: 'Billed \$77.70 every 3 months',
         descZh: '每3个月扣费 \$77.70',
         highlight: true,
       ),
       _Plan(
-        labelEn: 'Annual',       labelZh: '年订阅',
-        priceEn: '\$22.90/mo',   priceZh: '\$22.90/月',
-        saveEn: 'Save 23%',      saveZh: '省23%',
+        labelEn: 'Annual',
+        labelZh: '年订阅',
+        priceEn: '\$22.90/mo',
+        priceZh: '\$22.90/月',
+        saveEn: 'Save 23%',
+        saveZh: '省23%',
         descEn: 'Billed \$274.80/year',
         descZh: '每年扣费 \$274.80',
         highlight: false,
@@ -410,7 +468,12 @@ class _SubscriptionSectionState extends State<_SubscriptionSection> {
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 12,
+              offset: const Offset(0, 3))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,7 +495,10 @@ class _SubscriptionSectionState extends State<_SubscriptionSection> {
                 ),
                 child: Text(
                   widget.isZh ? '最高省23%' : 'Up to 23% off',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -456,22 +522,27 @@ class _SubscriptionSectionState extends State<_SubscriptionSection> {
                 backgroundColor: AppColors.sageGreen,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
               child: Text(
                 widget.isZh
-                    ? '立即订阅 ${plans[_selected].priceZh}'
-                    : 'Subscribe Now · ${plans[_selected].priceEn}',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    ? '去官网订阅 ${plans[_selected].priceZh}'
+                    : 'Subscribe on Website · ${plans[_selected].priceEn}',
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
             ),
           ),
           const SizedBox(height: 8),
           Center(
             child: Text(
-              widget.isZh ? '🔒 随时取消 · 免费配送 · 安全结账' : '🔒 Cancel anytime · Free shipping · Secure checkout',
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
+              widget.isZh
+                  ? '结账、配送和取消订阅由官网处理'
+                  : 'Checkout, shipping, and subscription changes happen on the website',
+              style:
+                  AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
               textAlign: TextAlign.center,
             ),
           ),
@@ -488,10 +559,14 @@ class _Plan {
   final String descEn, descZh;
   final bool highlight;
   const _Plan({
-    required this.labelEn, required this.labelZh,
-    required this.priceEn, required this.priceZh,
-    required this.saveEn,  required this.saveZh,
-    required this.descEn,  required this.descZh,
+    required this.labelEn,
+    required this.labelZh,
+    required this.priceEn,
+    required this.priceZh,
+    required this.saveEn,
+    required this.saveZh,
+    required this.descEn,
+    required this.descZh,
     required this.highlight,
   });
 }
@@ -500,7 +575,11 @@ class _PlanTile extends StatelessWidget {
   final _Plan plan;
   final bool isZh, selected;
   final VoidCallback onTap;
-  const _PlanTile({required this.plan, required this.isZh, required this.selected, required this.onTap});
+  const _PlanTile(
+      {required this.plan,
+      required this.isZh,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -522,7 +601,8 @@ class _PlanTile extends StatelessWidget {
           children: [
             // 单选圆点
             Container(
-              width: 20, height: 20,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -532,7 +612,8 @@ class _PlanTile extends StatelessWidget {
                 color: selected ? AppColors.sageGreen : Colors.transparent,
               ),
               child: selected
-                  ? const Icon(Icons.check_rounded, size: 12, color: Colors.white)
+                  ? const Icon(Icons.check_rounded,
+                      size: 12, color: Colors.white)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -545,21 +626,28 @@ class _PlanTile extends StatelessWidget {
                       Text(
                         isZh ? plan.labelZh : plan.labelEn,
                         style: AppTextStyles.labelLarge.copyWith(
-                          color: selected ? AppColors.sageGreen : AppColors.textPrimary,
+                          color: selected
+                              ? AppColors.sageGreen
+                              : AppColors.textPrimary,
                         ),
                       ),
                       if (plan.saveEn.isNotEmpty) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: plan.highlight ? AppColors.sageGreen : AppColors.successMuted,
+                            color: plan.highlight
+                                ? AppColors.sageGreen
+                                : AppColors.successMuted,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             isZh ? plan.saveZh : plan.saveEn,
                             style: TextStyle(
-                              color: plan.highlight ? Colors.white : AppColors.successGreen,
+                              color: plan.highlight
+                                  ? Colors.white
+                                  : AppColors.successGreen,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),
@@ -569,7 +657,8 @@ class _PlanTile extends StatelessWidget {
                       if (plan.highlight) ...[
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppColors.warmOrangeMuted,
                             borderRadius: BorderRadius.circular(8),
@@ -589,7 +678,8 @@ class _PlanTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     isZh ? plan.descZh : plan.descEn,
-                    style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -616,12 +706,48 @@ class _IngredientHighlights extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ingredients = [
-      _Ing('🌼', 'Chamomile',    '洋甘菊',    isZh ? '通过GABA调节快速舒缓，减少环境应激' : 'Fast-acting calm via GABA modulation'),
-      _Ing('🍵', 'L-Theanine',   'L-茶氨酸',  isZh ? '促进α脑波——平静专注，无镇静效果' : 'Alpha brainwave state — calm alertness, no sedation'),
-      _Ing('🌿', 'Ashwagandha',  '南非醉茄',  isZh ? '适应原，3-4周逐渐建立对日常压力的平衡反应' : 'Adaptogen — builds balanced stress response over 3–4 weeks'),
-      _Ing('🦠', 'Probiotics',   '益生菌',    isZh ? '平衡肠道菌群，通过肠-脑轴支持情绪健康' : 'Gut flora balance — supports mood via gut-brain axis'),
-      _Ing('🌺', 'Passion Flower','西番莲',   isZh ? '支持GABA受体活性，大脑主要抑制通路' : 'Supports GABA receptor — brain\'s primary calming pathway'),
-      _Ing('🌙', 'Melatonin',    '褪黑素',    isZh ? '调节睡眠-觉醒周期，减少睡眠相关焦虑' : 'Regulates sleep-wake cycles, reduces sleep-linked anxiety'),
+      _Ing(
+          '🌼',
+          'Chamomile',
+          '洋甘菊',
+          isZh
+              ? '通过GABA调节快速舒缓，减少环境应激'
+              : 'Fast-acting calm via GABA modulation'),
+      _Ing(
+          '🍵',
+          'L-Theanine',
+          'L-茶氨酸',
+          isZh
+              ? '促进α脑波——平静专注，无镇静效果'
+              : 'Alpha brainwave state — calm alertness, no sedation'),
+      _Ing(
+          '🌿',
+          'Ashwagandha',
+          '南非醉茄',
+          isZh
+              ? '适应原，3-4周逐渐建立对日常压力的平衡反应'
+              : 'Adaptogen — builds balanced stress response over 3–4 weeks'),
+      _Ing(
+          '🦠',
+          'Probiotics',
+          '益生菌',
+          isZh
+              ? '平衡肠道菌群，通过肠-脑轴支持情绪健康'
+              : 'Gut flora balance — supports mood via gut-brain axis'),
+      _Ing(
+          '🌺',
+          'Passion Flower',
+          '西番莲',
+          isZh
+              ? '支持GABA受体活性，大脑主要抑制通路'
+              : 'Supports GABA receptor — brain\'s primary calming pathway'),
+      _Ing(
+          '🌙',
+          'Melatonin',
+          '褪黑素',
+          isZh
+              ? '调节睡眠-觉醒周期，减少睡眠相关焦虑'
+              : 'Regulates sleep-wake cycles, reduces sleep-linked anxiety'),
     ];
 
     return Container(
@@ -629,7 +755,12 @@ class _IngredientHighlights extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 12,
+              offset: const Offset(0, 3))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,7 +786,8 @@ class _IngredientHighlights extends StatelessWidget {
 class _Ing {
   final String emoji, nameEn, nameZh, descEn;
   final String descZh;
-  const _Ing(this.emoji, this.nameEn, this.nameZh, this.descZh) : descEn = descZh;
+  const _Ing(this.emoji, this.nameEn, this.nameZh, this.descZh)
+      : descEn = descZh;
 }
 
 class _IngRow extends StatelessWidget {
@@ -678,12 +810,14 @@ class _IngRow extends StatelessWidget {
               children: [
                 Text(
                   isZh ? '${ing.nameEn}（${ing.nameZh}）' : ing.nameEn,
-                  style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTextStyles.labelMedium
+                      .copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   isZh ? ing.descZh : ing.descEn,
-                  style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary, height: 1.4),
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.textSecondary, height: 1.4),
                 ),
               ],
             ),
@@ -702,10 +836,10 @@ class _DosageGuide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = [
-      ('≤ 5 kg',           '1 chew / day',   '1粒/天'),
-      ('6 – 10 kg',        '2 chews / day',  '2粒/天'),
-      ('11 – 20 kg',       '3 chews / day',  '3粒/天'),
-      ('≥ 20 kg',          '4 chews / day',  '4粒/天'),
+      ('≤ 5 kg', '1 chew / day', '1粒/天'),
+      ('6 – 10 kg', '2 chews / day', '2粒/天'),
+      ('11 – 20 kg', '3 chews / day', '3粒/天'),
+      ('≥ 20 kg', '4 chews / day', '4粒/天'),
     ];
 
     return Container(
@@ -735,13 +869,17 @@ class _DosageGuide extends StatelessWidget {
                   children: [
                     Container(
                       width: 90,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.warmOrange.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(r.$1,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.warmOrange)),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.warmOrange)),
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -756,7 +894,8 @@ class _DosageGuide extends StatelessWidget {
             isZh
                 ? '💡 最大剂量 8粒/天 · 每天同一时间服用效果最佳'
                 : '💡 Max 8 chews/day · Best taken at the same time daily',
-            style: AppTextStyles.labelSmall.copyWith(color: AppColors.warmOrange),
+            style:
+                AppTextStyles.labelSmall.copyWith(color: AppColors.warmOrange),
           ),
         ],
       ),
@@ -776,21 +915,24 @@ class _ReviewsSection extends StatelessWidget {
         nameEn: 'Rachel T.',
         titleEn: '"Finally something that works"',
         titleZh: '"终于找到有效的产品"',
-        bodyEn: 'After trying 4 other products, this is the first one that actually changed my dog\'s behavior. Luna went from hiding under the bed during storms to just staying in her spot.',
+        bodyEn:
+            'After trying 4 other products, this is the first one that actually changed my dog\'s behavior. Luna went from hiding under the bed during storms to just staying in her spot.',
         bodyZh: '试过4款其他产品后，这是第一款真正改变了我家狗狗行为的产品。Luna在雷雨时从躲在床下变成了只是待在她的位置。',
       ),
       _Review(
         nameEn: 'Marcus H.',
         titleEn: '"Vet visits are manageable now"',
         titleZh: '"现在去看兽医容易多了"',
-        bodyEn: 'My vet recommended trying a calming supplement. I gave ZenBelly 45 minutes before and the difference was night and day. The vet tech even commented.',
+        bodyEn:
+            'My vet recommended trying a calming supplement. I gave ZenBelly 45 minutes before and the difference was night and day. The vet tech even commented.',
         bodyZh: '兽医建议尝试舒缓补充剂。我在就诊前45分钟给了ZenBelly，效果天壤之别，连兽医助手都注意到了。',
       ),
       _Review(
         nameEn: 'Priya N.',
         titleEn: '"Separation anxiety improved significantly"',
         titleZh: '"分离焦虑明显改善"',
-        bodyEn: 'Before ZenBelly: howling, pacing, destruction. After 5 weeks: she settles within 10 minutes of us leaving. This is a game changer.',
+        bodyEn:
+            'Before ZenBelly: howling, pacing, destruction. After 5 weeks: she settles within 10 minutes of us leaving. This is a game changer.',
         bodyZh: '使用前：嚎叫、踱步、破坏。5周后：我们离开后10分钟内她就平静下来。这真是改变游戏规则的产品。',
       ),
     ];
@@ -805,8 +947,11 @@ class _ReviewsSection extends StatelessWidget {
               style: AppTextStyles.headlineSmall,
             ),
             const SizedBox(width: 8),
-            const Text('⭐ 4.9', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            Text(' (2,437)', style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted)),
+            const Text('⭐ 4.9',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            Text(' (2,437)',
+                style: AppTextStyles.labelSmall
+                    .copyWith(color: AppColors.textMuted)),
           ],
         ),
         const SizedBox(height: 12),
@@ -818,7 +963,12 @@ class _ReviewsSection extends StatelessWidget {
 
 class _Review {
   final String nameEn, titleEn, titleZh, bodyEn, bodyZh;
-  const _Review({required this.nameEn, required this.titleEn, required this.titleZh, required this.bodyEn, required this.bodyZh});
+  const _Review(
+      {required this.nameEn,
+      required this.titleEn,
+      required this.titleZh,
+      required this.bodyEn,
+      required this.bodyZh});
 }
 
 class _ReviewCard extends StatelessWidget {
@@ -834,7 +984,12 @@ class _ReviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,7 +1010,8 @@ class _ReviewCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             isZh ? review.titleZh : review.titleEn,
-            style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w700),
+            style:
+                AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
@@ -879,19 +1035,22 @@ class _FaqSection extends StatelessWidget {
       _Faq(
         qEn: 'How fast does it work?',
         qZh: '多快见效？',
-        aEn: 'Some dogs calm within 30–60 min (L-Theanine & Chamomile). Full gut-brain effect builds over 3–4 weeks. Maximum results at 6–8 weeks.',
+        aEn:
+            'Some dogs calm within 30–60 min (L-Theanine & Chamomile). Full gut-brain effect builds over 3–4 weeks. Maximum results at 6–8 weeks.',
         aZh: '部分狗狗30-60分钟内平静（L-茶氨酸和洋甘菊）。完整肠-脑效果需3-4周积累，最佳效果通常在6-8周。',
       ),
       _Faq(
         qEn: 'Will my dog be sedated?',
         qZh: '狗狗会被镇静吗？',
-        aEn: 'No. ZenBelly produces calm alertness, not sedation. No hemp, CBD, acepromazine, or sedating compounds.',
+        aEn:
+            'No. ZenBelly produces calm alertness, not sedation. No hemp, CBD, acepromazine, or sedating compounds.',
         aZh: '不会。ZenBelly产生平静的清醒状态，而非镇静。不含大麻、CBD、乙酰丙嗪或任何镇静成分。',
       ),
       _Faq(
         qEn: 'How long does one jar last?',
         qZh: '一瓶能用多久？',
-        aEn: 'Small dog (≤5kg, 1 chew/day): 120 days. Large dog (≥20kg, 4 chews/day): 30 days. Most dogs use 2–3 chews/day (40–60 days).',
+        aEn:
+            'Small dog (≤5kg, 1 chew/day): 120 days. Large dog (≥20kg, 4 chews/day): 30 days. Most dogs use 2–3 chews/day (40–60 days).',
         aZh: '小型犬(≤5kg，1粒/天)：120天。大型犬(≥20kg，4粒/天)：30天。多数狗每天2-3粒(40-60天)。',
       ),
     ];
@@ -909,7 +1068,11 @@ class _FaqSection extends StatelessWidget {
 
 class _Faq {
   final String qEn, qZh, aEn, aZh;
-  const _Faq({required this.qEn, required this.qZh, required this.aEn, required this.aZh});
+  const _Faq(
+      {required this.qEn,
+      required this.qZh,
+      required this.aEn,
+      required this.aZh});
 }
 
 class _FaqTile extends StatefulWidget {
@@ -936,9 +1099,16 @@ class _FaqTileState extends State<_FaqTile> {
           color: _open ? AppColors.sageMuted : AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-            color: _open ? AppColors.sageGreen.withValues(alpha: 0.4) : AppColors.divider,
+            color: _open
+                ? AppColors.sageGreen.withValues(alpha: 0.4)
+                : AppColors.divider,
           ),
-          boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 6, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: AppColors.shadowColor,
+                blurRadius: 6,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -949,12 +1119,15 @@ class _FaqTileState extends State<_FaqTile> {
                   child: Text(
                     widget.isZh ? widget.faq.qZh : widget.faq.qEn,
                     style: AppTextStyles.labelLarge.copyWith(
-                      color: _open ? AppColors.sageGreen : AppColors.textPrimary,
+                      color:
+                          _open ? AppColors.sageGreen : AppColors.textPrimary,
                     ),
                   ),
                 ),
                 Icon(
-                  _open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  _open
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
                   color: _open ? AppColors.sageGreen : AppColors.textMuted,
                 ),
               ],
@@ -984,14 +1157,15 @@ class _BottomActions extends StatelessWidget {
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _openUrl(_kOrdersUrl),
+            onPressed: () => _openUrl(_kProductUrl),
             icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: Text(isZh ? '查看订单' : 'My Orders'),
+            label: Text(isZh ? '查看产品' : 'See Product'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.sageGreen,
               side: const BorderSide(color: AppColors.sageGreen),
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -1005,7 +1179,8 @@ class _BottomActions extends StatelessWidget {
               foregroundColor: AppColors.textSecondary,
               side: const BorderSide(color: AppColors.divider),
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -1022,10 +1197,16 @@ class _BuyBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 16, offset: const Offset(0, -4))],
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 16,
+              offset: const Offset(0, -4))
+        ],
       ),
       child: Row(
         children: [
@@ -1036,11 +1217,13 @@ class _BuyBar extends StatelessWidget {
             children: [
               Text(
                 '\$29.90',
-                style: AppTextStyles.headlineMedium.copyWith(color: AppColors.sageGreen),
+                style: AppTextStyles.headlineMedium
+                    .copyWith(color: AppColors.sageGreen),
               ),
               Text(
                 isZh ? '/ 瓶 · 120粒' : '/ jar · 120 chews',
-                style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
+                style: AppTextStyles.labelSmall
+                    .copyWith(color: AppColors.textMuted),
               ),
             ],
           ),
@@ -1056,15 +1239,17 @@ class _BuyBar extends StatelessWidget {
                 backgroundColor: AppColors.sageGreen,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    isZh ? '立即购买' : 'Buy Now',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    isZh ? '去官网购买' : 'Buy on Website',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 6),
                   const Icon(Icons.arrow_forward_rounded, size: 18),
