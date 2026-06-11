@@ -742,12 +742,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       letterSpacing: 0.3,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '长按此处进入调试面板',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 10, color: Colors.grey[300]),
-                  ),
+                  if (_showDevelopmentMenuItems) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '长按此处进入调试面板',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 10, color: Colors.grey[300]),
+                    ),
+                  ],
                 ],
               ),
             ),
