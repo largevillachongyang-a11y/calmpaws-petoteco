@@ -16,10 +16,13 @@ class DeviceManagementScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: Text(s.deviceUnbindConfirm),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.timerCancel)),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(s.timerCancel)),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(s.deviceUnbind, style: const TextStyle(color: AppColors.alertRed)),
+            child: Text(s.deviceUnbind,
+                style: const TextStyle(color: AppColors.alertRed)),
           ),
         ],
       ),
@@ -29,7 +32,8 @@ class DeviceManagementScreen extends StatelessWidget {
       await context.read<DeviceBindingProvider>().unbindDevice(deviceId);
     } on ApiException catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -57,18 +61,29 @@ class DeviceManagementScreen extends StatelessWidget {
           }
         },
         backgroundColor: AppColors.sageGreen,
+        foregroundColor: AppColors.textOnDark,
         icon: const Icon(Icons.add_rounded),
-        label: Text(s.deviceAddAction),
+        label: Text(
+          s.deviceAddAction,
+          style: const TextStyle(
+            color: AppColors.textOnDark,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
       body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.sageGreen))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.sageGreen))
           : devices.isEmpty
-              ? _EmptyState(s: s, onAdd: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const BindDeviceScreen()),
-                  );
-                })
+              ? _EmptyState(
+                  s: s,
+                  onAdd: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const BindDeviceScreen()),
+                    );
+                  })
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
                   itemCount: devices.length,
@@ -93,7 +108,8 @@ class DeviceManagementScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Text(d.speciesEmoji, style: const TextStyle(fontSize: 28)),
+                          Text(d.speciesEmoji,
+                              style: const TextStyle(fontSize: 28)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -116,7 +132,8 @@ class DeviceManagementScreen extends StatelessWidget {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => _confirmUnbind(context, d.deviceId),
+                            onPressed: () =>
+                                _confirmUnbind(context, d.deviceId),
                             child: Text(
                               s.deviceUnbind,
                               style: const TextStyle(color: AppColors.alertRed),
@@ -152,12 +169,16 @@ class _EmptyState extends StatelessWidget {
             Text(
               s.deviceEmptyHint,
               textAlign: TextAlign.center,
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: onAdd,
-              style: FilledButton.styleFrom(backgroundColor: AppColors.sageGreen),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.sageGreen,
+                foregroundColor: AppColors.textOnDark,
+              ),
               child: Text(s.deviceAddAction),
             ),
           ],
