@@ -639,6 +639,8 @@ class AppStrings {
       );
   String get deviceIdLabel => _t('Device ID', '设备 ID');
   String get deviceKeyLabel => _t('Device Key', '设备密钥');
+  String get deviceIdHint => _t('Enter device ID', '请输入设备 ID');
+  String get deviceKeyHint => _t('Enter device key', '请输入设备密钥');
   String get deviceBindAction => _t('Bind Device', '绑定设备');
   String get deviceScanQrAction => _t('Scan QR Code', '扫描二维码');
   String get deviceScanQrTitle => _t('Scan Collar QR Code', '扫描项圈二维码');

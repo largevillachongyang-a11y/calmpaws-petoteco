@@ -145,7 +145,7 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
                   controller: _idCtrl,
                   decoration: InputDecoration(
                     labelText: s.deviceIdLabel,
-                    hintText: 'collar_001',
+                    hintText: s.deviceIdHint,
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? s.deviceIdLabel : null,
@@ -155,6 +155,7 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
                   controller: _keyCtrl,
                   decoration: InputDecoration(
                     labelText: s.deviceKeyLabel,
+                    hintText: s.deviceKeyHint,
                   ),
                   obscureText: true,
                   validator: (v) =>
