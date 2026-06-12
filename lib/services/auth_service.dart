@@ -32,6 +32,13 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
   bool get isLoggedIn => currentUser != null;
 
+  Future<void> configurePersistence({required bool rememberLogin}) async {
+    if (!kIsWeb) return;
+    await _auth.setPersistence(
+      rememberLogin ? Persistence.LOCAL : Persistence.SESSION,
+    );
+  }
+
   // ── 邮箱注册 ──────────────────────────────────────────────────────────────
   // 业务流程：
   //   1. 使用 email + password 创建 Firebase 账号
@@ -78,9 +85,11 @@ class AuthService {
   Future<AuthResult> signInWithEmail({
     required String email,
     required String password,
+    bool rememberLogin = true,
     bool isZh = false,
   }) async {
     try {
+      await configurePersistence(rememberLogin: rememberLogin);
       final credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
@@ -116,8 +125,12 @@ class AuthService {
   //
   // [TODO: 异常处理] Web 端若 Firebase Console 的 Authorized Domains 未添加当前域名，
   //   会收到 unauthorized-domain 错误，下方已作处理并给出提示。
-  Future<AuthResult> signInWithGoogle({bool isZh = false}) async {
+  Future<AuthResult> signInWithGoogle({
+    bool rememberLogin = true,
+    bool isZh = false,
+  }) async {
     try {
+      await configurePersistence(rememberLogin: rememberLogin);
       if (kIsWeb) {
         // Web 端：先尝试 Popup（用户体验更好，不刷新页面）
         final provider = GoogleAuthProvider();

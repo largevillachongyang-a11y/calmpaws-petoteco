@@ -46,6 +46,8 @@ class _AuthScreenState extends State<AuthScreen>
   bool _loading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _rememberLogin = true;
+  bool _authFieldEdited = false;
   String? _errorMsg;
   String? _successMsg;
 
@@ -105,10 +107,13 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   void _clearAutofilledCredentials() {
-    _emailCtrl.clear();
-    _passwordCtrl.clear();
-    _confirmPasswordCtrl.clear();
-    _nameCtrl.clear();
+    if (_authFieldEdited) return;
+    if (_passwordCtrl.text == 'calmpaws_secret') {
+      _passwordCtrl.clear();
+    }
+    if (_confirmPasswordCtrl.text == 'calmpaws_secret') {
+      _confirmPasswordCtrl.clear();
+    }
   }
 
   // ── 提交表单 ──────────────────────────────────────────────────────────────
@@ -148,6 +153,7 @@ class _AuthScreenState extends State<AuthScreen>
         result = await authService.signInWithEmail(
           email: _emailCtrl.text,
           password: _passwordCtrl.text,
+          rememberLogin: _rememberLogin,
           isZh: isZh,
         );
         if (result.isSuccess && mounted) {
@@ -221,7 +227,10 @@ class _AuthScreenState extends State<AuthScreen>
     // Popup 模式：等待弹窗结果后继续
     // COOP 警告 "window.closed would be blocked" 是正常现象，不影响登录
     // 登录成功后 _AuthGate 的 StreamBuilder 会自动跳转到主页
-    final result = await authService.signInWithGoogle(isZh: isZh);
+    final result = await authService.signInWithGoogle(
+      rememberLogin: _rememberLogin,
+      isZh: isZh,
+    );
     if (!mounted) return;
     if (!result.isSuccess && result.errorMessage != null) {
       // 只在真正失败时显示错误（取消登录不算错误）
@@ -327,6 +336,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 label: s.authName,
                                 icon: Icons.person_outline_rounded,
                                 autofillHints: const [],
+                                onChanged: (_) => _authFieldEdited = true,
                                 validator: (v) =>
                                     (v == null || v.trim().isEmpty)
                                         ? s.authNameRequired
@@ -340,6 +350,7 @@ class _AuthScreenState extends State<AuthScreen>
                               icon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
                               autofillHints: const [],
+                              onChanged: (_) => _authFieldEdited = true,
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) {
                                   return s.authEmailRequired;
@@ -358,6 +369,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 autofillHints: const [],
                                 enableSuggestions: false,
                                 autocorrect: false,
+                                onChanged: (_) => _authFieldEdited = true,
                                 toggleObscure: () => setState(
                                     () => _obscurePassword = !_obscurePassword),
                                 validator: (v) {
@@ -381,6 +393,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 autofillHints: const [],
                                 enableSuggestions: false,
                                 autocorrect: false,
+                                onChanged: (_) => _authFieldEdited = true,
                                 toggleObscure: () => setState(
                                     () => _obscureConfirm = !_obscureConfirm),
                                 validator: (v) {
@@ -397,18 +410,39 @@ class _AuthScreenState extends State<AuthScreen>
                       ),
 
                       if (isLogin)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: () => _switchMode(_AuthMode.forgotPassword),
-                            child: Text(
-                              s.authForgotLink,
-                              style: AppTextStyles.bodySmall.copyWith(
-                                color: AppColors.sageGreen,
-                                fontWeight: FontWeight.w600,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CheckboxListTile(
+                                value: _rememberLogin,
+                                onChanged: (value) => setState(
+                                  () => _rememberLogin = value ?? true,
+                                ),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                title: Text(
+                                  s.authRememberLogin,
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            GestureDetector(
+                              onTap: () =>
+                                  _switchMode(_AuthMode.forgotPassword),
+                              child: Text(
+                                s.authForgotLink,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.sageGreen,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
 
                       const SizedBox(height: 20),
@@ -619,6 +653,7 @@ class _AuthScreenState extends State<AuthScreen>
     Iterable<String>? autofillHints,
     bool enableSuggestions = true,
     bool autocorrect = true,
+    ValueChanged<String>? onChanged,
     VoidCallback? toggleObscure,
     String? Function(String?)? validator,
   }) {
@@ -629,6 +664,7 @@ class _AuthScreenState extends State<AuthScreen>
       autofillHints: autofillHints,
       enableSuggestions: enableSuggestions,
       autocorrect: autocorrect,
+      onChanged: onChanged,
       validator: validator,
       style: AppTextStyles.bodyMedium,
       decoration: InputDecoration(

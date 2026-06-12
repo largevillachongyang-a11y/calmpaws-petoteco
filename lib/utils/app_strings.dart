@@ -570,6 +570,7 @@ class AppStrings {
   String get authRegisterLink => _t('Sign up', '立即注册');
   String get authLoginLink => _t('Sign in', '去登录');
   String get authBackToLogin => _t('← Back to Sign In', '← 返回登录');
+  String get authRememberLogin => _t('Remember login', '记住登录状态');
   // 验证错误
   String get authEmailRequired => _t('Please enter your email', '请输入邮箱');
   String get authEmailInvalid => _t('Please enter a valid email', '请输入有效的邮箱地址');
