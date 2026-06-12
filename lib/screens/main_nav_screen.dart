@@ -301,6 +301,11 @@ class _MainNavScreenState extends State<MainNavScreen> {
     );
   }
 
+  void _switchTab(int index) {
+    if (_currentIndex == index) return;
+    setState(() => _currentIndex = index);
+  }
+
   Widget _buildBottomNav() {
     // 使用 watch 确保语言切换后底部导航标签实时更新
     final s = context.watch<LocaleProvider>().strings;
@@ -326,25 +331,25 @@ class _MainNavScreenState extends State<MainNavScreen> {
                 icon: Icons.favorite_rounded,
                 label: s.navHealth,
                 isSelected: _currentIndex == 0,
-                onTap: () => setState(() => _currentIndex = 0),
+                onTap: () => _switchTab(0),
               ),
               _NavItem(
                 icon: Icons.pets_rounded,
                 label: s.navMyPet,
                 isSelected: _currentIndex == 1,
-                onTap: () => setState(() => _currentIndex = 1),
+                onTap: () => _switchTab(1),
               ),
               _NavItem(
                 icon: Icons.shopping_bag_rounded,
                 label: s.navShop,
                 isSelected: _currentIndex == 2,
-                onTap: () => setState(() => _currentIndex = 2),
+                onTap: () => _switchTab(2),
               ),
               _NavItem(
                 icon: Icons.person_rounded,
                 label: s.navMe,
                 isSelected: _currentIndex == 3,
-                onTap: () => setState(() => _currentIndex = 3),
+                onTap: () => _switchTab(3),
               ),
             ],
           ),
@@ -369,36 +374,43 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.sageMuted : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.sageGreen : AppColors.textMuted,
-              size: 26,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerUp: (_) => onTap(),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.sageMuted : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w400,
-                color: isSelected
-                    ? AppColors.sageGreen
-                    : AppColors.textMuted,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? AppColors.sageGreen : AppColors.textMuted,
+                  size: 26,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight:
+                        isSelected ? FontWeight.w700 : FontWeight.w400,
+                    color: isSelected
+                        ? AppColors.sageGreen
+                        : AppColors.textMuted,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

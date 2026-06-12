@@ -37,7 +37,10 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [
-          BoxShadow(color: AppColors.shadowColor, blurRadius: 12, offset: const Offset(0, 3)),
+          BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 12,
+              offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -46,45 +49,61 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
           // ── 标题行 ────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('📅', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(
-                  s.calendarTitle,
-                  style: AppTextStyles.headlineSmall,
-                ),
-                const Spacer(),
-                // 图例
-                _LegendDot(color: AppColors.sageGreen, label: s.calendarSensor),
-                const SizedBox(width: 10),
-                _LegendDot(color: AppColors.warmOrange, label: s.calendarOwner),
-                const SizedBox(width: 10),
-                // 写日记按钮
-                GestureDetector(
-                  onTap: () => _showWriteJournalDialog(context, provider, s),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.sageGreen,
-                      borderRadius: BorderRadius.circular(20),
+                Row(
+                  children: [
+                    const Text('📅', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        s.calendarTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.headlineSmall,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('✍️', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 4),
-                        Text(
-                          s.calendarWriteJournal,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () =>
+                          _showWriteJournalDialog(context, provider, s),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.sageGreen,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('✍️', style: TextStyle(fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Text(
+                              s.calendarWriteJournal,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  children: [
+                    _LegendDot(
+                        color: AppColors.sageGreen, label: s.calendarSensor),
+                    _LegendDot(
+                        color: AppColors.warmOrange, label: s.calendarOwner),
+                  ],
                 ),
               ],
             ),
@@ -133,7 +152,8 @@ class _HealthCalendarCardState extends State<HealthCalendarCard> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  void _showWriteJournalDialog(BuildContext context, PetHealthProvider provider, dynamic s) {
+  void _showWriteJournalDialog(
+      BuildContext context, PetHealthProvider provider, dynamic s) {
     // 检查今天是否已有记录
     final today = DateTime.now();
     final hasToday = provider.journalEntries.any((e) =>
@@ -240,7 +260,9 @@ class _DayCell extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? (hasOwner ? Colors.white : Colors.transparent)
-                        : (hasOwner ? AppColors.warmOrange : Colors.transparent),
+                        : (hasOwner
+                            ? AppColors.warmOrange
+                            : Colors.transparent),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -309,8 +331,21 @@ class _DayDetail extends StatelessWidget {
   }
 
   String _monthName(int m) {
-    const names = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const names = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return names[m];
   }
 }
@@ -336,11 +371,13 @@ class _SensorLayer extends StatelessWidget {
           children: [
             const Text('📡', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
-            Text(s.calendarSensor, style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+            Text(s.calendarSensor,
+                style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textMuted, fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(s.calendarOffline,
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textMuted)),
           ],
         ),
       );
@@ -370,11 +407,12 @@ class _SensorLayer extends StatelessWidget {
               const SizedBox(width: 6),
               Text(s.calendarSensor,
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                      color: AppColors.textMuted, fontWeight: FontWeight.w600)),
               const Spacer(),
               if (summary!.hasFeeding)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppColors.sageMuted,
                     borderRadius: BorderRadius.circular(10),
@@ -382,7 +420,8 @@ class _SensorLayer extends StatelessWidget {
                   child: Text(
                     s.calendarFed,
                     style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.sageGreen, fontWeight: FontWeight.w600),
+                        color: AppColors.sageGreen,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
             ],
@@ -513,10 +552,11 @@ class _OwnerLayer extends StatelessWidget {
             const SizedBox(width: 8),
             Text(s.calendarOwner,
                 style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                    color: AppColors.textMuted, fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(s.calendarNoEntry,
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textMuted)),
           ],
         ),
       );
@@ -539,7 +579,8 @@ class _OwnerLayer extends StatelessWidget {
               const SizedBox(width: 6),
               Text(s.calendarOwner,
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.warmOrange, fontWeight: FontWeight.w600)),
+                      color: AppColors.warmOrange,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 10),
@@ -620,7 +661,8 @@ class _EmptyDay extends StatelessWidget {
           Text('🌙', style: const TextStyle(fontSize: 28)),
           const SizedBox(height: 8),
           Text(s.calendarNoData,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+              style:
+                  AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
         ],
       ),
     );
@@ -654,17 +696,18 @@ class _LegendDot extends StatelessWidget {
 class _WriteJournalDialog extends StatefulWidget {
   final PetHealthProvider provider;
   final bool hasExistingEntry;
-  const _WriteJournalDialog({required this.provider, required this.hasExistingEntry});
+  const _WriteJournalDialog(
+      {required this.provider, required this.hasExistingEntry});
 
   @override
   State<_WriteJournalDialog> createState() => _WriteJournalDialogState();
 }
 
 class _WriteJournalDialogState extends State<_WriteJournalDialog> {
-  String _mood     = '😊';
+  String _mood = '😊';
   String _appetite = '🍖';
-  String _energy   = '⚡';
-  String _stool    = '🟤';
+  String _energy = '⚡';
+  String _stool = '🟤';
   final _notesController = TextEditingController();
 
   @override
@@ -678,7 +721,8 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
     final s = context.watch<LocaleProvider>().strings;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: SingleChildScrollView(
@@ -692,7 +736,8 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
                   const Text('📓', style: TextStyle(fontSize: 20)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(s.journalTodayTitle, style: AppTextStyles.headlineMedium),
+                    child: Text(s.journalTodayTitle,
+                        style: AppTextStyles.headlineMedium),
                   ),
                 ],
               ),
@@ -700,7 +745,8 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
               if (widget.hasExistingEntry) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.warmOrangeMuted,
                     borderRadius: BorderRadius.circular(8),
@@ -708,7 +754,8 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
                   ),
                   child: Text(
                     s.calendarTodayExists,
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.warmOrange),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.warmOrange),
                   ),
                 ),
               ],
@@ -768,16 +815,15 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
                     widget.provider.addJournalEntry(JournalEntry(
                       id: 'j_${DateTime.now().millisecondsSinceEpoch}',
                       date: DateTime.now(),
-                      stoolEmoji:    _stool,
-                      moodEmoji:     _mood,
+                      stoolEmoji: _stool,
+                      moodEmoji: _mood,
                       appetiteEmoji: _appetite,
-                      energyEmoji:   _energy,
+                      energyEmoji: _energy,
                       notes: _notesController.text.isNotEmpty
                           ? _notesController.text
                           : null,
-                      negativeFlags: (_mood == '😰' || _mood == '😣')
-                          ? ['anxiety']
-                          : [],
+                      negativeFlags:
+                          (_mood == '😰' || _mood == '😣') ? ['anxiety'] : [],
                     ));
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -789,8 +835,8 @@ class _WriteJournalDialogState extends State<_WriteJournalDialog> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-
-                    overlayColor: Colors.transparent,                    backgroundColor: AppColors.sageGreen,
+                    overlayColor: Colors.transparent,
+                    backgroundColor: AppColors.sageGreen,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

@@ -226,39 +226,6 @@ class _AuthScreenState extends State<AuthScreen>
       body: SafeArea(
         child: Stack(
           children: [
-            // ── 右上角语言切换 ──────────────────────────────────────────────
-            Positioned(
-              top: 8,
-              right: 16,
-              child: GestureDetector(
-                onTap: () => context.read<LocaleProvider>().toggle(),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        context.watch<LocaleProvider>().languageFlag,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        context.watch<LocaleProvider>().languageLabel,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
             // ── 主内容区 ────────────────────────────────────────────────────
             Center(
               child: SingleChildScrollView(
@@ -509,6 +476,57 @@ class _AuthScreenState extends State<AuthScreen>
                           ),
                         ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            // ── 右上角语言切换：放在 Stack 最后一层，避免被滚动层遮挡 ─────────────
+            Positioned(
+              top: 8,
+              right: 16,
+              child: Semantics(
+                button: true,
+                label: context.watch<LocaleProvider>().languageSemanticLabel,
+                child: Material(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      final localeProvider = context.read<LocaleProvider>();
+                      localeProvider.setLocale(
+                        localeProvider.locale == 'en' ? 'zh' : 'en',
+                      );
+                      setState(() {
+                        _errorMsg = null;
+                        _successMsg = null;
+                      });
+                    },
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 40),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.watch<LocaleProvider>().languageFlag,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            context.watch<LocaleProvider>().languageLabel,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

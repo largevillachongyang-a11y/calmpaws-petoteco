@@ -232,137 +232,154 @@ class _HeroProductCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 左侧信息
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 标签行
-                      Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 360;
+          final imageWidth = compact ? 84.0 : 110.0;
+          final imageHeight = compact ? 104.0 : 130.0;
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 左侧信息
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _WhiteBadge(isZh ? '🏆 热销第一' : '🏆 Best Seller'),
-                          const SizedBox(width: 8),
-                          _WhiteBadge('4.9 ⭐ (2,437)'),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'ZenBelly',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      Text(
-                        isZh
-                            ? 'Calming & Probiotic Chews'
-                            : 'Calming & Probiotic Chews',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        isZh
-                            ? '10合1天然舒缓配方 · 无大麻 · 无镇静\n益生菌支持 · 肠道-大脑轴调节'
-                            : '10-in-1 natural calming formula\nNo hemp · No sedation · Probiotic support',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // 价格
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text(
-                            '\$29.90',
+                          // 标签行
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _WhiteBadge(isZh ? '🏆 热销第一' : '🏆 Best Seller'),
+                              _WhiteBadge('4.9 ⭐'),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'ZenBelly',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w800,
-                              height: 1.0,
+                              fontSize: compact ? 24 : 28,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 3, left: 6),
-                            child: Text(
-                              isZh ? '/ 瓶 · 120粒软糖' : '/ jar · 120 soft chews',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 12,
-                              ),
+                          Text(
+                            'Calming & Probiotic Chews',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: compact ? 13 : 15,
+                              fontWeight: FontWeight.w600,
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            isZh
+                                ? '10合1天然舒缓配方 · 无大麻 · 无镇静\n益生菌支持 · 肠道-大脑轴调节'
+                                : '10-in-1 natural calming formula\nNo hemp · No sedation · Probiotic support',
+                            maxLines: compact ? 3 : 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: compact ? 12 : 13,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          // 价格
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.end,
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: [
+                              Text(
+                                '\$29.90',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: compact ? 26 : 30,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 3),
+                                child: Text(
+                                  isZh ? '/ 瓶 · 120粒' : '/ jar · 120 chews',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                // 右侧产品图（使用产品图片）
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      'https://sspark.genspark.ai/cfimages?u1=omsEPR1X15Vs996Jpac2dF5hXWy25%2FRK%2BaajQPUl3m%2FA1x4rf4%2BZsl1rLQtH4gGV8KTY%2BQjXW7FzportVYfXzxcF8vYUPpmqs644s8an7xxNjRjMARw4AA%3D%3D&u2=ytHKCPnc5derIgGW&width=400',
-                      width: 110,
-                      height: 130,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 110,
-                        height: 130,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('💊', style: TextStyle(fontSize: 40)),
-                            SizedBox(height: 4),
-                            Text('🐕', style: TextStyle(fontSize: 32)),
-                          ],
+                    ),
+                    // 右侧产品图（使用产品图片）
+                    Padding(
+                      padding: EdgeInsets.only(left: compact ? 8 : 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          'https://sspark.genspark.ai/cfimages?u1=omsEPR1X15Vs996Jpac2dF5hXWy25%2FRK%2BaajQPUl3m%2FA1x4rf4%2BZsl1rLQtH4gGV8KTY%2BQjXW7FzportVYfXzxcF8vYUPpmqs644s8an7xxNjRjMARw4AA%3D%3D&u2=ytHKCPnc5derIgGW&width=400',
+                          width: imageWidth,
+                          height: imageHeight,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: imageWidth,
+                            height: imageHeight,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('💊', style: TextStyle(fontSize: 40)),
+                                SizedBox(height: 4),
+                                Text('🐕', style: TextStyle(fontSize: 32)),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          // 特性标签行
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(AppRadius.xl)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _FeatureTag('🌿', isZh ? '无大麻' : 'Hemp-Free'),
-                _FeatureTag('🌾', isZh ? '无谷物' : 'Grain-Free'),
-                _FeatureTag('🦠', isZh ? '益生菌' : 'Probiotic'),
-                _FeatureTag('🍗', isZh ? '鸡肉味' : 'Chicken'),
-              ],
-            ),
-          ),
-        ],
+              ),
+              // 特性标签行
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(AppRadius.xl)),
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceAround,
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    _FeatureTag('🌿', isZh ? '无大麻' : 'Hemp-Free'),
+                    _FeatureTag('🌾', isZh ? '无谷物' : 'Grain-Free'),
+                    _FeatureTag('🦠', isZh ? '益生菌' : 'Probiotic'),
+                    _FeatureTag('🍗', isZh ? '鸡肉味' : 'Chicken'),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

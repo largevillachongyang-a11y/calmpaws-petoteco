@@ -192,6 +192,11 @@ class AuthService {
       return AuthResult.failure(_mapError(e.code, isZh: isZh));
     } catch (e) {
       final errStr = e.toString();
+      if (_isGoogleAndroidConfigError(errStr)) {
+        return AuthResult.failure(isZh
+            ? 'Google 登录配置未匹配，请联系管理员更新 Android SHA-1 后重试'
+            : 'Google sign-in is not configured for this Android build. Ask support to update the Android SHA-1.');
+      }
       // COOP/window.closed 相关 JS 异常：Chrome 安全策略触发，实际登录已成功
       // 此处静默返回取消，避免显示误导性错误弹窗
       if (errStr.contains('popup_closed') ||
@@ -428,6 +433,12 @@ class AuthService {
           return 'Operation failed, please try again ($code)';
       }
     }
+  }
+
+  bool _isGoogleAndroidConfigError(String errStr) {
+    return errStr.contains('ApiException: 10') ||
+        errStr.contains('DEVELOPER_ERROR') ||
+        errStr.contains('sign_in_failed') && errStr.contains('10:');
   }
 }
 

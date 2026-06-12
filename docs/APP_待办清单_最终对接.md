@@ -1,7 +1,7 @@
 # CalmPaws APP 待办清单（最终对接阶段）
 
-> **更新日期**：2026-06-03  
-> **依据文档**：`docs/CalmPaws_最终对接文档_给Cursor.md`（服务器 V5.1 回应，**替代 v2 作为下一阶段主文档**）  
+> **更新日期**：2026-06-03（联调稳定：登录+Dashboard OK；history 401 待服务器）  
+> **总览文档**：`docs/最终对接_联调状态与后续工作.md`  
 > **上一阶段**：v2 对接 14/14 已完成 → 见 `docs/APP_差距清单_对照全景对接v2.md`  
 > **预览**：https://largevillachongyang-a11y.github.io/calmpaws-petoteco/  
 > **联调环境**：`https://api.myvideotest2026.top` · 测试设备 `collar_001` · 绑定 key `calmpaws_secret`
@@ -14,7 +14,7 @@
 |------|------|------|
 | **v2（P0–P1 + 收尾）** | 历史图、焦虑分、label、204、alerts 横幅等 | ✅ **已完成** |
 | **最终对接 P0** | Bearer 鉴权、设备绑定、启动流程 | ✅ **已完成** |
-| **最终对接 P1** | FCM 注册 + 推送接收 | ✅ **已完成**（Web 需 VAPID 才可拿 token） |
+| **最终对接 P1** | FCM 注册 + 推送接收 | ⚠️ **代码完成**；Web 预览暂关闭，真机待测 |
 | **可选 P2** | 二维码绑定、头像迁 VPS | ⏸️ 按需 |
 
 **核心变化**：从「全局 `?key=` + 写死 `collar_001`」→「Firebase 登录 + 用户绑定设备 + Bearer Token」。
@@ -28,7 +28,7 @@
 | 1 | 鉴权迁移：`?key=` → `Authorization: Bearer <firebase_id_token>` | P0 | [x] |
 | 2 | 新增「我的设备」页：`GET /api/user/devices` | P0 | [x] |
 | 3 | 新增「绑定设备」流程：`POST /api/user/bind_device` | P0 | [x] |
-| 4 | 注册 FCM Token：`POST /api/user/register_fcm` | P1 | [x] |
+| 4 | 注册 FCM Token：`POST /api/user/register_fcm` | P1 | [x] 代码完成，Web 暂跳过 |
 | 5 | 改造启动流程：登录 → 查设备 → Dashboard / 绑定页 | P0 | [x] |
 
 ---
@@ -121,7 +121,7 @@ APP 启动
 | 3 | 监听 `onTokenRefresh` 重新注册 | [x] | `fcm_service.dart` |
 | 4 | 前台 in-app 通知中心 | [x] | `main_nav_screen.dart` |
 | 5 | 后台系统通知栏 | [x] | Android/iOS 本地通知；Web 靠 SW |
-| 6 | Web 预览 FCM | [x] | 需配置 `fcmWebVapidKey`，否则跳过 token |
+| 6 | Web 预览 FCM | ⏸️ | gh-pages 子路径限制，已临时关闭防闪退 |
 
 ---
 
@@ -151,18 +151,20 @@ v2 铁律 1–4（时区、EnvironmentConfig、204、StateColors）：✅ 已实
 
 ## 联调验证检查表
 
-- [ ] 登录后 `GET /api/user/devices` → 200
-- [ ] 绑定 `collar_001` + 正确 device_key → 200
-- [ ] 绑定后 Dashboard 轮询 `/api/status`（Bearer）
-- [ ] `/api/history` 三档正常（Bearer）
+### 已通过 ✅
+
+- [x] Google 登录稳定，不再闪退
+- [x] 绑定 `collar_001` + 正确 device_key
+- [x] Dashboard 轮询 `/api/status`（Bearer）
+- [x] 代码中无 `?key=calmpaws_secret`
+
+### 待服务器修复 ⏳
+
+- [ ] `/api/history` 三档正常（Bearer）— **当前 401**
 - [ ] `/api/alerts` 正常（Bearer）
-- [ ] 错误 device_key → 401
-- [ ] 抢绑已绑设备 → 409
+- [ ] FCM 注册成功（真机 P1）
+- [ ] 服务器推送 APP 能收到（真机 P1）
 - [ ] 解绑后访问该设备 → 403
-- [ ] Token 过期自动刷新
-- [ ] 代码中无 `?key=calmpaws_secret`
-- [ ] FCM 注册成功（P1）
-- [ ] 服务器推送 APP 能收到（P1）
 - [ ] 多设备切换正常
 
 ---
@@ -199,10 +201,11 @@ v2 铁律 1–4（时区、EnvironmentConfig、204、StateColors）：✅ 已实
 | 文件 | 用途 |
 |------|------|
 | `docs/CalmPaws_最终对接文档_给Cursor.md` | 服务器给的完整规范（主文档） |
+| **`docs/最终对接_联调状态与后续工作.md`** | **联调结论 + 后续分工（推荐阅读）** |
 | `docs/APP_待办清单_最终对接.md` | **本文件** — 待办与进度 |
 | `docs/APP_差距清单_对照全景对接v2.md` | v2 阶段完成记录（归档） |
 | `docs/CalmPaws_全景对接文档_给Cursor_v2.md` | v2 历史参考 |
 
 ---
 
-*进度更新：P0 + P1 代码已完成，联调检查表待与用户一起勾选。*
+*进度更新：2026-06-03 联调 — P0 可用；history 401 待服务器；Web FCM 暂缓。*

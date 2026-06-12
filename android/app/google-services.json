@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "847480478175-v12hp35stjv1lantmoq494c1a57gnjss.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petoteco.app",
+            "certificate_hash": "a82503378c7a2b62d0546120b9ddcbdadef505c1"
+          }
+        },
+        {
           "client_id": "847480478175-skoeftrpj7gk6g7mspnabu303hr2908b.apps.googleusercontent.com",
           "client_type": 3
         }

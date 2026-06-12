@@ -510,10 +510,22 @@ class PetHealthProvider extends ChangeNotifier {
     _continuousSleepNoRollSeconds = sleepNoRollSec;
     if (sleepState == 'sleepNormal') {
       _sleepState = PetBehaviorState.sleepNormal;
+      if (_alertType == 'sleep_abnormal') {
+        _hasAlert = false;
+        _alertType = '';
+        _alertMessage = '';
+        _sleepAbnormalAlertFired = false;
+      }
     } else if (sleepState == 'sleepAbnormal') {
       _sleepState = PetBehaviorState.sleepAbnormal;
     } else if (sleepState == 'notWorn' || sleepState == 'not_worn') {
       _sleepState = PetBehaviorState.notWorn;
+      if (_alertType == 'sleep_abnormal') {
+        _hasAlert = false;
+        _alertType = '';
+        _alertMessage = '';
+        _sleepAbnormalAlertFired = false;
+      }
     } else {
       _sleepState = null;
     }
@@ -676,13 +688,25 @@ class PetHealthProvider extends ChangeNotifier {
   PetBehaviorState? _sleepState; // null = 不处于睡眠状态（显示 calm）
   bool _sleepAbnormalAlertFired = false;
 
+  @visibleForTesting
+  static PetBehaviorState resolveBehaviorForDisplay(
+    PetBehaviorState confirmedState,
+    PetBehaviorState? sleepState,
+  ) {
+    if (sleepState == PetBehaviorState.sleepAbnormal ||
+        sleepState == PetBehaviorState.notWorn) {
+      return sleepState!;
+    }
+    if (confirmedState == PetBehaviorState.calm && sleepState != null) {
+      return sleepState;
+    }
+    return confirmedState;
+  }
+
   /// 供 UI 读取：当前完整的已确认行为状态（含 E1/E2 睡眠细分）
   PetBehaviorState get currentBehavior {
     // 当 BlePacket 层判断为 calm（静止），由 Provider 层决定是 E1/E2 还是 calm
-    if (_confirmedState == PetBehaviorState.calm && _sleepState != null) {
-      return _sleepState!;
-    }
-    return _confirmedState;
+    return resolveBehaviorForDisplay(_confirmedState, _sleepState);
   }
 
   // ── 睡眠异常（夜间应激）──────────────────────────────────────────────────
@@ -1252,6 +1276,12 @@ class PetHealthProvider extends ChangeNotifier {
   }
 
   /// 直接注入告警（调试用）
+  @visibleForTesting
+  void injectSleepStateForTest(PetBehaviorState? state) {
+    _sleepState = state;
+    notifyListeners();
+  }
+
   void injectAlertForTest({required String type, required String message}) {
     _hasAlert = true;
     _alertType = type;

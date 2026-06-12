@@ -23,9 +23,11 @@ class LocaleProvider extends ChangeNotifier {
 
   // 初始语言由系统语言决定，initLocale() 加载后会从 SharedPreferences 覆盖
   String _locale = _detectSystemLocale();
+  bool _userChangedLocale = false;
 
   static String _detectSystemLocale() {
-    final sysLang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    final sysLang =
+        WidgetsBinding.instance.platformDispatcher.locale.languageCode;
     return sysLang == 'zh' ? 'zh' : 'en';
   }
 
@@ -39,6 +41,7 @@ class LocaleProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_prefKey);
+      if (_userChangedLocale) return;
       if (saved != null && (saved == 'zh' || saved == 'en')) {
         _locale = saved;
         notifyListeners();
@@ -54,12 +57,14 @@ class LocaleProvider extends ChangeNotifier {
 
   void setLocale(String locale) {
     if (_locale == locale) return;
+    _userChangedLocale = true;
     _locale = locale;
     notifyListeners();
     _saveLocale(locale);
   }
 
   void toggle() {
+    _userChangedLocale = true;
     _locale = _locale == 'en' ? 'zh' : 'en';
     notifyListeners();
     _saveLocale(_locale);
@@ -80,6 +85,8 @@ class LocaleProvider extends ChangeNotifier {
 
   String get languageLabel => _locale == 'en' ? '中文' : 'English';
   String get languageFlag => _locale == 'en' ? '🇨🇳' : '🇺🇸';
+  String get languageSemanticLabel =>
+      _locale == 'en' ? 'Switch to Chinese' : '切换到英文';
 }
 
 /// Convenience extension — access strings from BuildContext directly

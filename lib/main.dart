@@ -27,6 +27,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -44,6 +45,7 @@ import 'services/fcm_service.dart';
 import 'screens/auth/auth_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/local_notification_service.dart';
+
 // 使用全局变量（而非 Provider）是因为它在 runApp 前就确定了，
 // 且只需在 _AuthGate 这一处读取。
 bool _firebaseReady = false;
@@ -121,6 +123,16 @@ class PetotecoApp extends StatelessWidget {
           return MaterialApp(
             title: 'Petoteco',
             debugShowCheckedModeBanner: false,
+            locale: Locale(localeProvider.locale),
+            supportedLocales: const [
+              Locale('zh'),
+              Locale('en'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: AppTheme.lightTheme, // 全局主题（颜色、字体、组件样式）
             builder: (context, child) {
               // 限制系统字体缩放范围：
@@ -233,7 +245,8 @@ class _AuthGateState extends State<_AuthGate> {
         // 这样 initState 会重新触发，loadPetForUser 会加载新账号的宠物数据
         // 如果不加 key，Flutter 会复用旧的 MainNavScreen 实例，initState 不再执行
         if (snapshot.hasData && snapshot.data != null) {
-          return DeviceGate(key: ValueKey(snapshot.data!.uid), userId: snapshot.data!.uid);
+          return DeviceGate(
+              key: ValueKey(snapshot.data!.uid), userId: snapshot.data!.uid);
         }
 
         // 无登录用户 → 清除设备缓存并进入登录页
