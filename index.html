@@ -71,6 +71,39 @@
 
   <!-- FCM 助手：不在此加载 Firebase SDK，避免干扰 Google 登录 -->
   <script src="fcm_token_helper.js"></script>
+  <script>
+    // Chrome can keep old development credentials for Flutter Web's hidden
+    // editing input even after Dart controllers are cleared. Keep the generated
+    // text fields marked as non-credential fields and remove stale injected
+    // values whenever the page regains focus.
+    (function () {
+      function scrubFlutterInputs() {
+        document.querySelectorAll('input').forEach(function (input, index) {
+          input.setAttribute('autocomplete', 'new-password');
+          input.setAttribute('autocapitalize', 'none');
+          input.setAttribute('autocorrect', 'off');
+          input.setAttribute('spellcheck', 'false');
+          input.setAttribute('data-lpignore', 'true');
+          input.setAttribute('data-1p-ignore', 'true');
+          if (!input.name || /password|email|username/i.test(input.name)) {
+            input.name = 'calmpaws_field_' + index + '_' + Date.now();
+          }
+          if (input.value === 'calmpaws_secret') {
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        });
+      }
+
+      window.addEventListener('load', scrubFlutterInputs);
+      window.addEventListener('focus', scrubFlutterInputs);
+      document.addEventListener('visibilitychange', scrubFlutterInputs);
+      new MutationObserver(scrubFlutterInputs).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
