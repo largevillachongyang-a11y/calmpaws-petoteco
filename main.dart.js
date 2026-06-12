@@ -112547,24 +112547,26 @@ break A}if(B.jl===r){s=b.a==="zh"?"\u8bbe\u5907\u5bc6\u94a5\u9519\u8bef":"Incorr
 break A}if(B.r6===r){s=b.a==="zh"?"\u8bbe\u5907\u5df2\u88ab\u5176\u4ed6\u8d26\u53f7\u7ed1\u5b9a":"Device already bound to another account"
 break A}s=a.c
 break A}return s},
-F(a){var s,r,q,p,o=this,n=null,m=A.b_(a,!0,t.L).a==="zh"?B.ap:B.ao,l=m.a==="zh",k=A.RC(n,B.V,n,0,n,n,n,n,A.x(l?"\u7ed1\u5b9a\u9879\u5708":"Bind Collar",n,n,n,B.cq,n,n)),j=l?"\u8f93\u5165\u5305\u88c5\u76d2\u4e0a\u7684\u8bbe\u5907 ID \u4e0e\u5bc6\u94a5\u3002":"Enter the device ID and key from the product box."
-j=A.x(j,n,n,n,B.ce.bB(B.ac),n,n)
-s=o.r?n:o.gatr()
-s=A.zY(B.Wm,A.x(l?"\u626b\u63cf\u4e8c\u7ef4\u7801":"Scan QR Code",n,n,n,n,n,n),s,A.qZ(n,n,n,n,n,n,n,n,n,B.o,n,n,n,B.cx,n,n,B.js,n,n,n,n))
-r=l?"\u6216":"or"
+F(a){var s,r,q,p,o,n=this,m=null,l=A.b_(a,!0,t.L).a==="zh"?B.ap:B.ao,k=l.a==="zh",j=A.RC(m,B.V,m,0,m,m,m,m,A.x(k?"\u7ed1\u5b9a\u9879\u5708":"Bind Collar",m,m,m,B.cq,m,m)),i=k?"\u8f93\u5165\u5305\u88c5\u76d2\u4e0a\u7684\u8bbe\u5907 ID \u4e0e\u5bc6\u94a5\u3002":"Enter the device ID and key from the product box."
+i=A.x(i,m,m,m,B.ce.bB(B.ac),m,m)
+s=n.r?m:n.gatr()
+s=A.zY(B.Wm,A.x(k?"\u626b\u63cf\u4e8c\u7ef4\u7801":"Scan QR Code",m,m,m,m,m,m),s,A.qZ(m,m,m,m,m,m,m,m,m,B.o,m,m,m,B.cx,m,m,B.js,m,m,m,m))
+r=k?"\u6216":"or"
 q=t.p
-r=A.aQ(A.b([B.uA,new A.aX(B.nZ,A.x(r,n,n,n,B.a0.bB(B.Y),n,n),n),B.uA],q),B.p,B.i,B.k,0)
-p=A.b2P(o.e,A.kk(n,n,n,n,n,n,n,n,!0,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,"collar_001",n,n,n,n,n,n,n,n,l?"\u8bbe\u5907 ID":"Device ID",!0,!0,!1,n,n,n,n,n,n,n,n,n,n,n,n,n,n),n,!1,n,new A.aKM(m))
-j=A.b([j,B.j3,s,B.b3,r,B.bm,p,B.bm,A.b2P(o.f,A.kk(n,n,n,n,n,n,n,n,!0,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,l?"\u8bbe\u5907\u5bc6\u94a5":"Device Key",!0,!0,!1,n,n,n,n,n,n,n,n,n,n,n,n,n,n),n,!0,n,new A.aKN(m))],q)
-s=o.w
-if(s!=null)B.b.O(j,A.b([B.b3,A.x(s,n,n,n,B.akZ,n,n)],q))
-j.push(B.j3)
-s=o.r?n:o.gafQ()
-r=A.b1u(B.o,n,B.cx,n)
-if(o.r)l=B.afL
-else{q=A.x(l?"\u7ed1\u5b9a\u8bbe\u5907":"Bind Device",n,n,n,n,n,n)
-l=q}j.push(A.b1t(l,s,r))
-return A.lI(k,B.V,A.kA(!0,new A.aX(B.i8,A.b7O(A.b2(j,B.dW,B.i,B.k),o.d),n),!0),n,n)}}
+r=A.aQ(A.b([B.uA,new A.aX(B.nZ,A.x(r,m,m,m,B.a0.bB(B.Y),m,m),m),B.uA],q),B.p,B.i,B.k,0)
+p=k?"\u8bbe\u5907 ID":"Device ID"
+p=A.b2P(n.e,A.kk(m,m,m,m,m,m,m,m,!0,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,k?"\u8bf7\u8f93\u5165\u8bbe\u5907 ID":"Enter device ID",m,m,m,m,m,m,m,m,p,!0,!0,!1,m,m,m,m,m,m,m,m,m,m,m,m,m,m),m,!1,m,new A.aKM(l))
+o=k?"\u8bbe\u5907\u5bc6\u94a5":"Device Key"
+i=A.b([i,B.j3,s,B.b3,r,B.bm,p,B.bm,A.b2P(n.f,A.kk(m,m,m,m,m,m,m,m,!0,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,k?"\u8bf7\u8f93\u5165\u8bbe\u5907\u5bc6\u94a5":"Enter device key",m,m,m,m,m,m,m,m,o,!0,!0,!1,m,m,m,m,m,m,m,m,m,m,m,m,m,m),m,!0,m,new A.aKN(l))],q)
+s=n.w
+if(s!=null)B.b.O(i,A.b([B.b3,A.x(s,m,m,m,B.akZ,m,m)],q))
+i.push(B.j3)
+s=n.r?m:n.gafQ()
+r=A.b1u(B.o,m,B.cx,m)
+if(n.r)k=B.afL
+else{q=A.x(k?"\u7ed1\u5b9a\u8bbe\u5907":"Bind Device",m,m,m,m,m,m)
+k=q}i.push(A.b1t(k,s,r))
+return A.lI(j,B.V,A.kA(!0,new A.aX(B.i8,A.b7O(A.b2(i,B.dW,B.i,B.k),n.d),m),!0),m,m)}}
 A.aKH.prototype={
 $0(){var s=this.a
 s.r=!0
