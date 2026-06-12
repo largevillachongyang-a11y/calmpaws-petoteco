@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
@@ -49,6 +51,7 @@ class _AuthScreenState extends State<AuthScreen>
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
+  Timer? _clearAutofillTimer;
 
   @override
   void initState() {
@@ -62,10 +65,17 @@ class _AuthScreenState extends State<AuthScreen>
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
     _animController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _clearAutofilledCredentials();
+    });
+    _clearAutofillTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) _clearAutofilledCredentials();
+    });
   }
 
   @override
   void dispose() {
+    _clearAutofillTimer?.cancel();
     _animController.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -84,6 +94,13 @@ class _AuthScreenState extends State<AuthScreen>
     // 重置动画，让新模式内容以 fade-in 方式出现
     _animController.reset();
     _animController.forward();
+  }
+
+  void _clearAutofilledCredentials() {
+    _emailCtrl.clear();
+    _passwordCtrl.clear();
+    _confirmPasswordCtrl.clear();
+    _nameCtrl.clear();
   }
 
   // ── 提交表单 ──────────────────────────────────────────────────────────────
@@ -301,6 +318,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 controller: _nameCtrl,
                                 label: s.authName,
                                 icon: Icons.person_outline_rounded,
+                                autofillHints: const [],
                                 validator: (v) =>
                                     (v == null || v.trim().isEmpty)
                                         ? s.authNameRequired
@@ -313,6 +331,7 @@ class _AuthScreenState extends State<AuthScreen>
                               label: s.authEmail,
                               icon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [],
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) {
                                   return s.authEmailRequired;
@@ -328,6 +347,9 @@ class _AuthScreenState extends State<AuthScreen>
                                 label: s.authPassword,
                                 icon: Icons.lock_outline_rounded,
                                 obscure: _obscurePassword,
+                                autofillHints: const [],
+                                enableSuggestions: false,
+                                autocorrect: false,
                                 toggleObscure: () => setState(
                                     () => _obscurePassword = !_obscurePassword),
                                 validator: (v) {
@@ -348,6 +370,9 @@ class _AuthScreenState extends State<AuthScreen>
                                 label: s.authConfirmPassword,
                                 icon: Icons.lock_outline_rounded,
                                 obscure: _obscureConfirm,
+                                autofillHints: const [],
+                                enableSuggestions: false,
+                                autocorrect: false,
                                 toggleObscure: () => setState(
                                     () => _obscureConfirm = !_obscureConfirm),
                                 validator: (v) {
@@ -583,6 +608,9 @@ class _AuthScreenState extends State<AuthScreen>
     required IconData icon,
     TextInputType? keyboardType,
     bool obscure = false,
+    Iterable<String>? autofillHints,
+    bool enableSuggestions = true,
+    bool autocorrect = true,
     VoidCallback? toggleObscure,
     String? Function(String?)? validator,
   }) {
@@ -590,6 +618,9 @@ class _AuthScreenState extends State<AuthScreen>
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscure,
+      autofillHints: autofillHints,
+      enableSuggestions: enableSuggestions,
+      autocorrect: autocorrect,
       validator: validator,
       style: AppTextStyles.bodyMedium,
       decoration: InputDecoration(
