@@ -51,7 +51,7 @@ class _AuthScreenState extends State<AuthScreen>
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
-  Timer? _clearAutofillTimer;
+  final List<Timer> _clearAutofillTimers = [];
 
   @override
   void initState() {
@@ -68,14 +68,22 @@ class _AuthScreenState extends State<AuthScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _clearAutofilledCredentials();
     });
-    _clearAutofillTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted) _clearAutofilledCredentials();
-    });
+    for (final delay in const [
+      Duration(milliseconds: 300),
+      Duration(milliseconds: 900),
+      Duration(milliseconds: 1500),
+    ]) {
+      _clearAutofillTimers.add(Timer(delay, () {
+        if (mounted) _clearAutofilledCredentials();
+      }));
+    }
   }
 
   @override
   void dispose() {
-    _clearAutofillTimer?.cancel();
+    for (final timer in _clearAutofillTimers) {
+      timer.cancel();
+    }
     _animController.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
