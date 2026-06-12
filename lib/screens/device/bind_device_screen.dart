@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../providers/device_binding_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../services/api_exception.dart';
+import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 
 /// 绑定项圈：device_id + device_key（包装盒）。
@@ -23,13 +24,25 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
   final _idCtrl = TextEditingController();
   final _keyCtrl = TextEditingController();
   bool _loading = false;
+  bool _obscureKey = true;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _keyCtrl.addListener(_refreshForKeyField);
+  }
+
+  @override
   void dispose() {
+    _keyCtrl.removeListener(_refreshForKeyField);
     _idCtrl.dispose();
     _keyCtrl.dispose();
     super.dispose();
+  }
+
+  void _refreshForKeyField() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _submit() async {
@@ -88,9 +101,37 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
     };
   }
 
+  Future<void> _confirmSignOut() async {
+    final s = context.read<LocaleProvider>().strings;
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.signOutTitle),
+        content: Text(s.signOutConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(s.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              s.signOutBtn,
+              style: const TextStyle(color: AppColors.alertRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut != true || !mounted) return;
+    context.read<DeviceBindingProvider>().clear();
+    await AuthService().signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.watch<LocaleProvider>().strings;
+    final hasDeviceKey = _keyCtrl.text.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -98,6 +139,13 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
         backgroundColor: AppColors.cream,
         elevation: 0,
         title: Text(s.deviceBindTitle, style: AppTextStyles.headlineMedium),
+        actions: [
+          IconButton(
+            tooltip: s.profileSignOut,
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: _loading ? null : _confirmSignOut,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -143,9 +191,11 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _idCtrl,
+                  autofillHints: const [],
                   decoration: InputDecoration(
                     labelText: s.deviceIdLabel,
                     hintText: s.deviceIdHint,
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? s.deviceIdLabel : null,
@@ -153,11 +203,28 @@ class _BindDeviceScreenState extends State<BindDeviceScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _keyCtrl,
+                  autofillHints: const [],
+                  enableSuggestions: false,
+                  autocorrect: false,
                   decoration: InputDecoration(
                     labelText: s.deviceKeyLabel,
                     hintText: s.deviceKeyHint,
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    suffixIcon: IconButton(
+                      tooltip: _obscureKey && hasDeviceKey
+                          ? s.authShowPassword
+                          : s.authHidePassword,
+                      icon: Icon(
+                        _obscureKey && hasDeviceKey
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscureKey = !_obscureKey);
+                      },
+                    ),
                   ),
-                  obscureText: true,
+                  obscureText: _obscureKey && hasDeviceKey,
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? s.deviceKeyLabel : null,
                 ),
