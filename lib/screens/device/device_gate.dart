@@ -19,6 +19,7 @@ class DeviceGate extends StatefulWidget {
 
 class _DeviceGateState extends State<DeviceGate> {
   bool _activated = false;
+  bool _bootstrapping = true;
 
   @override
   void initState() {
@@ -27,6 +28,9 @@ class _DeviceGateState extends State<DeviceGate> {
   }
 
   Future<void> _bootstrap() async {
+    if (mounted) {
+      setState(() => _bootstrapping = true);
+    }
     try {
       final deviceProvider = context.read<DeviceBindingProvider>();
       final petProvider = context.read<PetHealthProvider>();
@@ -42,13 +46,26 @@ class _DeviceGateState extends State<DeviceGate> {
       final id = deviceProvider.selectedDeviceId;
       if (id != null && id.isNotEmpty) {
         await petProvider.activateBoundDevice(id);
-        if (mounted) setState(() => _activated = true);
+        if (mounted) {
+          setState(() {
+            _activated = true;
+            _bootstrapping = false;
+          });
+        }
       } else {
-        setState(() => _activated = false);
+        setState(() {
+          _activated = false;
+          _bootstrapping = false;
+        });
       }
     } catch (e) {
       debugPrint('[DeviceGate] bootstrap: $e');
-      if (mounted) setState(() => _activated = false);
+      if (mounted) {
+        setState(() {
+          _activated = false;
+          _bootstrapping = false;
+        });
+      }
     }
   }
 
@@ -71,7 +88,8 @@ class _DeviceGateState extends State<DeviceGate> {
   Widget build(BuildContext context) {
     final deviceProvider = context.watch<DeviceBindingProvider>();
 
-    if (deviceProvider.isLoading && !deviceProvider.hasDevices && !_activated) {
+    if (_bootstrapping ||
+        (deviceProvider.isLoading && !deviceProvider.hasDevices && !_activated)) {
       return const _LoadingSplash();
     }
 
