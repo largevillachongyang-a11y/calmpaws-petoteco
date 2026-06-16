@@ -163,6 +163,9 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
       case PetBehaviorState.sleepAbnormal:
         // E2：异常昏睡 — 橙色警示，需要关注
         return (const Color(0xFFFFF3E0), const Color(0xFFE67E22), '', '');
+      case PetBehaviorState.suspectedNotWorn:
+        // G1：疑似未佩戴 — 轻量提示，避免误判为宠物睡眠
+        return (const Color(0xFFF4F7F8), const Color(0xFF78909C), '', '');
       case PetBehaviorState.notWorn:
         // G：未佩戴 — 中性灰蓝，强调数据不可用于判断宠物状态
         return (const Color(0xFFF2F6F7), const Color(0xFF607D8B), '', '');
@@ -204,6 +207,9 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
         case PetBehaviorState.sleepAbnormal:
           return _Conclusion(
               headline: '$name 长时间没有翻身 ⚠️', subtext: '焦虑分 $score / 100，建议查看状态');
+        case PetBehaviorState.suspectedNotWorn:
+          return _Conclusion(
+              headline: '疑似项圈未佩戴 📿', subtext: '检测到持续静止，请确认项圈是否戴在$name 身上');
         case PetBehaviorState.notWorn:
           return _Conclusion(
               headline: '项圈未佩戴，请检查 📿', subtext: '检测到长时间绝对静止，当前数据不代表$name 的状态');
@@ -238,6 +244,10 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
           return _Conclusion(
               headline: '$name hasn\'t moved for a while ⚠️',
               subtext: 'Anxiety $score/100 · check on pet');
+        case PetBehaviorState.suspectedNotWorn:
+          return _Conclusion(
+              headline: 'Collar may not be worn 📿',
+              subtext: 'Stillness detected · check whether $name is wearing it');
         case PetBehaviorState.notWorn:
           return _Conclusion(
               headline: 'Collar not worn, please check 📿',
@@ -248,11 +258,14 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
   }
 
   List<_Driver> _topDrivers(PetBehaviorState behavior, BlePacket p, bool isZh) {
-    if (behavior == PetBehaviorState.notWorn) {
+    if (behavior == PetBehaviorState.notWorn ||
+        behavior == PetBehaviorState.suspectedNotWorn) {
       return [
         _Driver(
           emoji: '📿',
-          label: isZh ? '项圈未佩戴' : 'Collar not worn',
+          label: behavior == PetBehaviorState.notWorn
+              ? (isZh ? '项圈未佩戴' : 'Collar not worn')
+              : (isZh ? '疑似未佩戴' : 'Possibly not worn'),
           isAlert: true,
         ),
       ];

@@ -344,6 +344,7 @@ class _StatusRow extends StatelessWidget {
       PetBehaviorState.shivering => '🆘 发抖',
       PetBehaviorState.sleepNormal => '💤 正常睡眠',
       PetBehaviorState.sleepAbnormal => '⛔ 异常昏睡',
+      PetBehaviorState.suspectedNotWorn => '📿 疑似未佩戴',
       PetBehaviorState.notWorn => '📿 未佩戴',
     };
     return Container(

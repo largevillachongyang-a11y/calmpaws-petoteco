@@ -20,6 +20,14 @@ void main() {
       ),
       PetBehaviorState.notWorn,
     );
+
+    expect(
+      PetHealthProvider.resolveBehaviorForDisplay(
+        PetBehaviorState.playing,
+        PetBehaviorState.suspectedNotWorn,
+      ),
+      PetBehaviorState.suspectedNotWorn,
+    );
   });
 
   test('sleep normal only overrides calm behavior', () {

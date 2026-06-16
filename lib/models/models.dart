@@ -157,7 +157,8 @@ class BlePacket {
 ///   B  playing      → BlePacket: playD > 3
 ///   E1 sleepNormal  → Provider: calm 基础 + 2h 内有 roll_c 增量（正常翻身/微动）
 ///   E2 sleepAbnormal→ Provider: calm 基础 + 连续 kSleepAbnormalThreshold 秒无 roll_c/str_c
-///   G  notWorn      → Server: 30 分钟绝对静止，判断为项圈未佩戴
+///   G1 suspectedNotWorn → Server: 3 分钟绝对静止，疑似项圈未佩戴
+///   G2 notWorn          → Server: 10 分钟绝对静止，确认项圈未佩戴
 ///   F  calm         → BlePacket: 兜底状态（Provider 层若无睡眠条件成立时保持）
 ///
 /// UI 展示用：
@@ -170,6 +171,7 @@ enum PetBehaviorState {
   shivering,
   sleepNormal, // E1：正常睡眠（有翻身/微动信号）
   sleepAbnormal, // E2：异常昏睡（连续2小时零翻身+零应激）
+  suspectedNotWorn, // G1：疑似未佩戴（服务器 3 分钟绝对静止判定）
   notWorn; // G：项圈未佩戴（服务器 30 分钟绝对静止判定）
 
   String get label {
@@ -188,6 +190,8 @@ enum PetBehaviorState {
         return 'Sleeping';
       case sleepAbnormal:
         return 'Lethargic';
+      case suspectedNotWorn:
+        return 'Possibly not worn';
       case notWorn:
         return 'Not worn';
     }
@@ -210,6 +214,8 @@ enum PetBehaviorState {
         return '正常睡眠';
       case sleepAbnormal:
         return '异常昏睡';
+      case suspectedNotWorn:
+        return '疑似未佩戴';
       case notWorn:
         return '未佩戴';
     }
@@ -231,6 +237,8 @@ enum PetBehaviorState {
         return '😴';
       case sleepAbnormal:
         return '⚠️';
+      case suspectedNotWorn:
+        return '📿';
       case notWorn:
         return '📿';
     }

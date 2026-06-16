@@ -36,8 +36,15 @@ class ServerApiService {
   int _lastPacketTimestamp = 0;
   String? _lastErrorMessage;
 
-  void Function(int sleepNoRollSec, double? lastRollTime, String sleepState,
-      int continuousCalmSec)? onSleepStateReceived;
+  void Function(
+    int sleepNoRollSec,
+    double? lastRollTime,
+    String sleepState,
+    int continuousCalmSec,
+    String wearState,
+    int stillSec,
+    double? lastStd,
+  )? onSleepStateReceived;
   void Function()? onStatus204;
   void Function(int statusCode)? onHttpError;
 
@@ -176,8 +183,18 @@ class ServerApiService {
           final sleepState = (data['sleep_state'] as String?) ?? 'unknown';
           final continuousCalmSec =
               (data['continuous_calm_sec'] as num?)?.toInt() ?? 0;
+          final wearState = (data['wear_state'] as String?) ?? 'worn';
+          final stillSec = (data['still_sec'] as num?)?.toInt() ?? 0;
+          final lastStd = (data['last_std'] as num?)?.toDouble();
           onSleepStateReceived?.call(
-              sleepNoRollSec, lastRollTime, sleepState, continuousCalmSec);
+            sleepNoRollSec,
+            lastRollTime,
+            sleepState,
+            continuousCalmSec,
+            wearState,
+            stillSec,
+            lastStd,
+          );
           _controller.add(packet);
           if (EnvironmentConfig.debugMode && kDebugMode) {
             debugPrint(

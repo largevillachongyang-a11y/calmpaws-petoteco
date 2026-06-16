@@ -16,6 +16,7 @@ class StateColors {
     'stressed': Color(0xFFFF9800),
     'shivering': Color(0xFFF44336),
     'sleep_abnormal': Color(0xFFFF5722),
+    'suspected_not_worn': Color(0xFF90A4AE),
     'not_worn': Color(0xFF78909C),
     'notWorn': Color(0xFF78909C),
   };
@@ -28,6 +29,7 @@ class StateColors {
     'stressed': '应激',
     'shivering': '颤抖',
     'sleep_abnormal': '睡眠异常',
+    'suspected_not_worn': '疑似未佩戴',
     'not_worn': '未佩戴',
     'notWorn': '未佩戴',
   };
@@ -41,6 +43,7 @@ class StateColors {
     'stressed': 'Stress',
     'shivering': 'Shiver',
     'sleep_abnormal': 'Lethargy',
+    'suspected_not_worn': 'Possibly not worn',
     'not_worn': 'Not worn',
     'notWorn': 'Not worn',
   };
@@ -53,6 +56,7 @@ class StateColors {
     'stressed',
     'shivering',
     'sleep_abnormal',
+    'suspected_not_worn',
     'not_worn',
   ];
 
@@ -79,6 +83,9 @@ class StateColors {
         return PetBehaviorState.sleepNormal;
       case 'sleep_abnormal':
         return PetBehaviorState.sleepAbnormal;
+      case 'suspected_not_worn':
+      case 'suspectedNotWorn':
+        return PetBehaviorState.suspectedNotWorn;
       case 'not_worn':
       case 'notWorn':
         return PetBehaviorState.notWorn;

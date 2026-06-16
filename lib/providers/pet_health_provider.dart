@@ -504,31 +504,44 @@ class PetHealthProvider extends ChangeNotifier {
 
   /// B方案：收到服务器睡眠计时数据，恢复Provider内部状态
   /// 每次收到新包都会调用（不只是重连时），保持与服务器同步
-  void _onSleepStateFromServer(int sleepNoRollSec, double? lastRollTime,
-      String sleepState, int continuousCalmSec) {
+  void _onSleepStateFromServer(
+    int sleepNoRollSec,
+    double? lastRollTime,
+    String sleepState,
+    int continuousCalmSec,
+    String wearState,
+    int stillSec,
+    double? lastStd,
+  ) {
     _continuousCalmSeconds = continuousCalmSec;
     _continuousSleepNoRollSeconds = sleepNoRollSec;
-    if (sleepState == 'sleepNormal') {
+    _wearState = wearState;
+    _wearStillSeconds = stillSec;
+    _lastWearStd = lastStd;
+
+    if (wearState == 'not_worn' || sleepState == 'notWorn' || sleepState == 'not_worn') {
+      _sleepState = PetBehaviorState.notWorn;
+      _clearSleepAbnormalAlert();
+    } else if (wearState == 'suspected_not_worn') {
+      _sleepState = PetBehaviorState.suspectedNotWorn;
+      _clearSleepAbnormalAlert();
+    } else if (sleepState == 'sleepNormal') {
       _sleepState = PetBehaviorState.sleepNormal;
-      if (_alertType == 'sleep_abnormal') {
-        _hasAlert = false;
-        _alertType = '';
-        _alertMessage = '';
-        _sleepAbnormalAlertFired = false;
-      }
+      _clearSleepAbnormalAlert();
     } else if (sleepState == 'sleepAbnormal') {
       _sleepState = PetBehaviorState.sleepAbnormal;
-    } else if (sleepState == 'notWorn' || sleepState == 'not_worn') {
-      _sleepState = PetBehaviorState.notWorn;
-      if (_alertType == 'sleep_abnormal') {
-        _hasAlert = false;
-        _alertType = '';
-        _alertMessage = '';
-        _sleepAbnormalAlertFired = false;
-      }
     } else {
       _sleepState = null;
     }
+  }
+
+  void _clearSleepAbnormalAlert() {
+    if (_alertType == 'sleep_abnormal') {
+      _hasAlert = false;
+      _alertType = '';
+      _alertMessage = '';
+    }
+    _sleepAbnormalAlertFired = false;
   }
 
   void disconnectDevice() {
@@ -686,15 +699,23 @@ class PetHealthProvider extends ChangeNotifier {
   int _continuousSleepNoRollSeconds = 0;
   // 已确认的睡眠状态（由 Provider 计算，覆盖 BlePacket 的 calm）
   PetBehaviorState? _sleepState; // null = 不处于睡眠状态（显示 calm）
+  String _wearState = 'worn';
+  int _wearStillSeconds = 0;
+  double? _lastWearStd;
   bool _sleepAbnormalAlertFired = false;
+
+  String get wearState => _wearState;
+  int get wearStillSeconds => _wearStillSeconds;
+  double? get lastWearStd => _lastWearStd;
 
   @visibleForTesting
   static PetBehaviorState resolveBehaviorForDisplay(
     PetBehaviorState confirmedState,
     PetBehaviorState? sleepState,
   ) {
-    if (sleepState == PetBehaviorState.sleepAbnormal ||
-        sleepState == PetBehaviorState.notWorn) {
+    if (sleepState == PetBehaviorState.notWorn ||
+        sleepState == PetBehaviorState.suspectedNotWorn ||
+        sleepState == PetBehaviorState.sleepAbnormal) {
       return sleepState!;
     }
     if (confirmedState == PetBehaviorState.calm && sleepState != null) {
@@ -825,6 +846,8 @@ class PetHealthProvider extends ChangeNotifier {
       case PetBehaviorState.sleepAbnormal:
         _todaySleepAbnormalSeconds += samplingInterval;
         _todayLethargySeconds += samplingInterval; // 兼容旧字段
+      case PetBehaviorState.suspectedNotWorn:
+        _todayNotWornSeconds += samplingInterval;
       case PetBehaviorState.notWorn:
         _todayNotWornSeconds += samplingInterval;
       case PetBehaviorState.calm:
