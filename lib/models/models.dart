@@ -238,9 +238,9 @@ enum PetBehaviorState {
       case sleepAbnormal:
         return '⚠️';
       case suspectedNotWorn:
-        return '📿';
+        return '⚠️';
       case notWorn:
-        return '📿';
+        return '⚠️';
     }
   }
 }

@@ -209,10 +209,10 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
               headline: '$name 长时间没有翻身 ⚠️', subtext: '焦虑分 $score / 100，建议查看状态');
         case PetBehaviorState.suspectedNotWorn:
           return _Conclusion(
-              headline: '疑似项圈未佩戴 📿', subtext: '检测到持续静止，请确认项圈是否戴在$name 身上');
+              headline: '疑似项圈未佩戴', subtext: '检测到持续静止，请确认项圈是否戴在$name 身上');
         case PetBehaviorState.notWorn:
           return _Conclusion(
-              headline: '项圈未佩戴，请检查 📿', subtext: '检测到长时间绝对静止，当前数据不代表$name 的状态');
+              headline: '项圈未佩戴，请检查', subtext: '检测到长时间绝对静止，当前数据不代表$name 的状态');
       }
     } else {
       switch (state) {
@@ -246,11 +246,11 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
               subtext: 'Anxiety $score/100 · check on pet');
         case PetBehaviorState.suspectedNotWorn:
           return _Conclusion(
-              headline: 'Collar may not be worn 📿',
+              headline: 'Collar may not be worn',
               subtext: 'Stillness detected · check whether $name is wearing it');
         case PetBehaviorState.notWorn:
           return _Conclusion(
-              headline: 'Collar not worn, please check 📿',
+              headline: 'Collar not worn, please check',
               subtext:
                   'Long absolute stillness detected · data may not reflect $name');
       }
@@ -262,7 +262,7 @@ class _BehaviorStateCardState extends State<BehaviorStateCard> {
         behavior == PetBehaviorState.suspectedNotWorn) {
       return [
         _Driver(
-          emoji: '📿',
+          emoji: '⚠️',
           label: behavior == PetBehaviorState.notWorn
               ? (isZh ? '项圈未佩戴' : 'Collar not worn')
               : (isZh ? '疑似未佩戴' : 'Possibly not worn'),
@@ -335,7 +335,7 @@ class _TodayStatsGrid extends StatelessWidget {
           _fmtSecs(provider.todaySleepNormalSeconds)),
       _DetailItem('⚠️', isZh ? '异常昏睡' : 'Lethargy',
           _fmtSecs(provider.todaySleepAbnormalSeconds)),
-      _DetailItem('📿', isZh ? '未佩戴' : 'Not worn',
+      _DetailItem('⚠️', isZh ? '未佩戴' : 'Not worn',
           _fmtSecs(provider.todayNotWornSeconds)),
     ];
 

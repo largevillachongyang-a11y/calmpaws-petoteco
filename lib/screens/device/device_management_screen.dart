@@ -162,7 +162,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('📿', style: TextStyle(fontSize: 48)),
+            const Icon(
+              Icons.sensors_rounded,
+              size: 48,
+              color: AppColors.sageGreen,
+            ),
             const SizedBox(height: 16),
             Text(s.deviceEmptyTitle, style: AppTextStyles.headlineMedium),
             const SizedBox(height: 8),

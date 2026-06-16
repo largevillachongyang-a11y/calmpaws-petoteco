@@ -136,7 +136,7 @@ class _DebugPanelState extends State<_DebugPanel> {
                             state: PetBehaviorState.sleepAbnormal,
                             provider: provider),
                         _StateChip(
-                            label: '📿 未佩戴',
+                            label: '⚠️ 未佩戴',
                             state: PetBehaviorState.notWorn,
                             provider: provider),
                       ],
@@ -344,8 +344,8 @@ class _StatusRow extends StatelessWidget {
       PetBehaviorState.shivering => '🆘 发抖',
       PetBehaviorState.sleepNormal => '💤 正常睡眠',
       PetBehaviorState.sleepAbnormal => '⛔ 异常昏睡',
-      PetBehaviorState.suspectedNotWorn => '📿 疑似未佩戴',
-      PetBehaviorState.notWorn => '📿 未佩戴',
+      PetBehaviorState.suspectedNotWorn => '⚠️ 疑似未佩戴',
+      PetBehaviorState.notWorn => '⚠️ 未佩戴',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
