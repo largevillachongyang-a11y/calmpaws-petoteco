@@ -115325,7 +115325,7 @@ p.push(new A.m7(B.vu,B.R,m,k,new A.aTX(l,a,c),k))
 if(n){n=B.R.c2(0.7)
 o=o?"\u5220\u9664\u8d26\u53f7":"Delete Account"
 B.b.O(p,A.b([B.er,new A.m7(B.Wl,n,o,k,new A.aTY(l,a,c,b),k)],q))}p.push(B.er)
-p.push(A.cU(k,new A.aZ(B.cy,A.b3(A.b([A.w("CalmPaws  v1.4.13 (build 26)  \xb7  2026-06-16",k,k,k,A.bM(k,k,B.d8,k,k,k,k,k,k,k,k,12,k,k,k,k,k,!0,k,0.3,k,k,k,k,k,k),B.aF,k)],q),B.p,B.i,B.k),k),B.H,!1,k,k,k,k,k,k,k,new A.aTZ(a),k,k,k,k,k,k,k,k,k,k,k,k,k))
+p.push(A.cU(k,new A.aZ(B.cy,A.b3(A.b([A.w("CalmPaws  v1.4.14 (build 27)  -  2026-06-16",k,k,k,A.bM(k,k,B.d8,k,k,k,k,k,k,k,k,12,k,k,k,k,k,!0,k,0.3,k,k,k,k,k,k),B.aF,k)],q),B.p,B.i,B.k),k),B.H,!1,k,k,k,k,k,k,k,new A.aTZ(a),k,k,k,k,k,k,k,k,k,k,k,k,k))
 return A.ar(k,A.b3(p,B.p,B.i,B.k),B.j,k,k,new A.ae(B.h,k,k,j,r,k,B.r),k,k,k,B.eK,k,k,k,k)},
 avL(a){var s,r,q,p,o={},n=$.bc,m=(n==null?$.bc=$.cG():n).cJ("[DEFAULT]")
 A.bv(m,$.cT(),!0)
